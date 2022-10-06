@@ -1,0 +1,173 @@
+devices:
+  - id: f0c8e4ac-5cce-4370-93ff-bd3196fd3b9e
+    vendor: dell
+    bmcIPAddress: 192.168.0.1
+    bmcUsername: root
+    bmcPassword: calvin
+
+firmware-config:
+  - vendor: "dell"
+    repositoryURL: "s3://s3.files.foo/firmware"
+    repositoryRegion: "us-east-2"
+    firmwares:
+      - version: DL6R
+        upstreamURL: https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE
+        filename: "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE"
+        utility: dup
+        model: r6515
+        componentslug: drive
+        checksum: 4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281
+      - version: 2.5.13.3024
+        upstreamURL: https://downloads.dell.com/FOLDER06189651M/3/SAS-RAID_Firmware_3P39V_WN64_2.5.13.3024_A07_02.EXE
+        filename: "SAS-RAID_Firmware_3P39V_WN64_2.5.13.3024_A07_02.EXE"
+        utility: dup
+        model: r6515
+        componentslug: storagecontroller
+        checksum: 67fd5b18e663fae46d24f2a972424700985f278e7f837b04e33d76df8f8cbc14
+      - version: 2.6.6
+        upstreamURL: https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE
+        filename: "BIOS_C4FT0_WN64_2.6.6.EXE"
+        checksum: 1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4
+        utility: dup
+        model: r6515
+        componentslug: bios
+      - version: 2.2.4
+        upstreamURL: https://dl.dell.com/FOLDER07243807M/1/BIOS_MDYKT_WN64_2.2.4.EXE
+        filename: "BIOS_MDYKT_WN64_2.2.4.EXE"
+        checksum: c6063b11c966340c0bcdd47e7e6cf47ffb3c4f728adad54c3036dabd37e07676
+        utility: dup
+        model: r6515
+        componentslug: bios
+      - version: 20.5.13
+        upstreamURL: https://dl.dell.com/FOLDER07612782M/1/Network_Firmware_NVXX9_WN64_20.5.13_A00.EXE
+        filename: "Network_Firmware_NVXX9_WN64_20.5.13_A00.EXE"
+        checksum: b445417d7869bdbdffe7bad69ce32dc19fa29adc61f8e82a324545cabb53f30a
+        utility: dup
+        model: r6515
+        componentslug: nic
+      - version: 20.5.13
+        upstreamURL: https://dl.dell.com/FOLDER07612797M/1/Network_Firmware_M20T0_WN64_20.5.13_A00.EXE
+        filename: "Network_Firmware_M20T0_WN64_20.5.13_A00.EXE"
+        checksum: d2fc977802c8a07a27dbdccf28a3cfb4ccd8f8247f939c14dbfc8cd22862ee94
+        utility: dup
+        model: r6515
+        componentslug: nic
+      - version: 5.10.00.00
+        upstreamURL: https://dl.dell.com/FOLDER07987386M/1/iDRAC-with-Lifecycle-Controller_Firmware_P8HC9_WN64_5.10.00.00_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_P8HC9_WN64_5.10.00.00_A00.EXE"
+        checksum: 98db2fe5bca0745151d678ddeb26679464ccb13ca3f1a3d289b77e211344402f
+        utility: dup
+        model: r6515
+        componentslug: bmc
+      - version: 5.10.00.00
+        upstreamURL: https://dl.dell.com/FOLDER07987386M/1/iDRAC-with-Lifecycle-Controller_Firmware_P8HC9_WN64_5.10.00.00_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_P8HC9_WN64_5.10.00.00_A00.EXE"
+        checksum: 98db2fe5bca0745151d678ddeb26679464ccb13ca3f1a3d289b77e211344402f
+        utility: dup
+        model: r640
+        componentslug: bmc
+      - version: 5.00.00.00
+        upstreamURL: https://dl.dell.com/FOLDER07443568M/1/iDRAC-with-Lifecycle-Controller_Firmware_F87RP_WN64_5.00.00.00_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_F87RP_WN64_5.00.00.00_A00.EXE"
+        checksum: 4ba928ceac5452d46b64b52491a058e9b99eeded431880423ee0ea60c985ced5
+        utility: dup
+        model: r6515
+        componentslug: bmc
+      - version: 4.40.00.00
+        upstreamURL: https://dl.dell.com/FOLDER06840999M/1/iDRAC-with-Lifecycle-Controller_Firmware_62GW1_WN64_4.40.00.00_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_62GW1_WN64_4.40.00.00_A00.EXE"
+        checksum: b793eae5a09fcd38e0f7b0529132b153c98ac0c40d6a97d64ff6e3d1d8dbdb5c
+        utility: dup
+        model: r6515
+        componentslug: bmc
+      - version: 4.40.00.00
+        upstreamURL: https://dl.dell.com/FOLDER06840999M/1/iDRAC-with-Lifecycle-Controller_Firmware_62GW1_WN64_4.40.00.00_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_62GW1_WN64_4.40.00.00_A00.EXE"
+        checksum: b793eae5a09fcd38e0f7b0529132b153c98ac0c40d6a97d64ff6e3d1d8dbdb5c
+        utility: dup
+        model: r640
+        componentslug: bmc
+      - version: 4.20.20.20
+        upstreamURL: https://dl.dell.com/FOLDER06253856M/2/iDRAC-with-Lifecycle-Controller_Firmware_369M3_WN64_4.20.20.20_A00_01.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_369M3_WN64_4.20.20.20_A00_01.EXE"
+        checksum: 27880cd2619a290b8d7c93175259f8abbbb9e5325a635f083e0c438b0fd75732
+        utility: dup
+        model: r6515
+        componentslug: bmc
+      - version: 16.17.01.00
+        upstreamURL: https://dl.dell.com/FOLDER07443568M/1/iDRAC-with-Lifecycle-Controller_Firmware_F87RP_WN64_5.00.00.00_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_F87RP_WN64_5.00.00.00_A00.EXE"
+        checksum: 4ba928ceac5452d46b64b52491a058e9b99eeded431880423ee0ea60c985ced5
+        utility: dup
+        model: r6515
+        componentslug: drive
+      - version: 2.11.2
+        upstreamURL: https://dl.dell.com/FOLDER07290108M/1/BIOS_92RFG_WN64_2.11.2.EXE
+        filename: "BIOS_92RFG_WN64_2.11.2.EXE"
+        checksum: 27812548592e62d3a44e9739e48d08787bc2714e09d9ed43563b94aa6df2b2ff
+        utility: dup
+        model: r640
+        componentslug: bios
+      - version: 2.10.0
+        upstreamURL: https://dl.dell.com/FOLDER06792464M/3/BIOS_NVGR9_WN64_2.10.0.EXE
+        filename: "BIOS_NVGR9_WN64_2.10.0.EXE"
+        checksum: 5c31e51f7d119be8c79e9db4eaa6dc18c27d3cda473258a885b140574997dcae
+        utility: dup
+        model: r640
+        componentslug: bios
+      - version: 2.60.60.60
+        upstreamURL: https://dl.dell.com/FOLDER05025737M/1/iDRAC-with-Lifecycle-Controller_Firmware_CX8N2_WN64_2.60.60.60_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_CX8N2_WN64_2.60.60.60_A00.EXE"
+        checksum: a71857f499604398fbb3a9c26e9a3a6bdc26c388bcc7c6dbfd2fc291dd3e4ec6
+        utility: dup
+        model: c6320
+        componentslug: bmc
+      - version: 2.8.0
+        upstreamURL: https://dl.dell.com/FOLDER05000797M/1/BIOS_VJTT9_WN64_2.8.0.EXE
+        filename: "BIOS_VJTT9_WN64_2.8.0.EXE"
+        checksum: c403b30c1b5503ddf41be86d57fd0da2a412b31402383fbb466fd13c03d6a0fc
+        utility: dup
+        model: c6320
+        componentslug: bios
+      - version: 3.34.34.34
+        upstreamURL: https://dl.dell.com/FOLDER05651574M/1/iDRAC-with-Lifecycle-Controller_Firmware_3HT97_WN64_3.34.34.34_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_3HT97_WN64_3.34.34.34_A00.EXE"
+        checksum: 123a869cf3c635600e71be91407a1f17f5c1e948229d1f054c81b475fb634281
+        utility: dup
+        model: r6415
+        componentslug: bmc
+      - version: 3.21.23.22
+        upstreamURL: https://dl.dell.com/FOLDER05181865M/1/iDRAC-with-Lifecycle-Controller_Firmware_K877V_WN64_3.21.23.22_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_K877V_WN64_3.21.23.22_A00.EXE"
+        checksum: 75c994d66a1451561c95ecbc312f577260b33370485d4cc6bf796f5357c17df3
+        utility: dup
+        model: r6415
+        componentslug: bmc
+      - version: 1.12.2
+        upstreamURL: https://dl.dell.com/FOLDER05947946M/1/BIOS_NJPV1_WN64_1.12.2.EXE
+        filename: "BIOS_NJPV1_WN64_1.12.2.EXE"
+        checksum: b4bef2f4ba7a35cfeadbda8ea4e20c8bc2145815c4eb55ffb10673dca21315f4
+        utility: dup
+        model: r6415
+        componentslug: bios
+      - version: 5.10.10.05
+        upstreamURL: https://dl.dell.com/FOLDER08318823M/1/iDRAC-with-Lifecycle-Controller_Firmware_71PRX_WN64_5.10.10.05_A00.EXE
+        filename: "iDRAC-with-Lifecycle-Controller_Firmware_71PRX_WN64_5.10.10.05_A00.EXE"
+        checksum: 8ed4274ca6592a65dcaef67ebdec023bea27c02cabb467cb5eb1916d1a629802
+        utility: dup
+        model: r750
+        componentslug: bmc
+      - version: 1.5.5
+        upstreamURL: https://dl.dell.com/FOLDER08200826M/2/BIOS_0HK3T_WN64_1.5.5.EXE
+        filename: "BIOS_0HK3T_WN64_1.5.5.EXE"
+        checksum: 1b6b81a551691aa9e880c405cf289705ff04fdccc1db5bec705dbe22060b90f8
+        utility: dup
+        model: r750
+        componentslug: bios
+      - version: 1.4.4
+        upstreamURL: https://dl.dell.com/FOLDER07800409M/1/BIOS_893WH_WN64_1.4.4.EXE
+        filename: "BIOS_893WH_WN64_1.4.4.EXE"
+        checksum: 9b2f6a314d2984c10081b0625c6c0cd663f4416b89b00e8298f13a8741db8f33
+        utility: dup
+        model: r750
+        componentslug: bios

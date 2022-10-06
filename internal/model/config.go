@@ -1,0 +1,122 @@
+package model
+
+import (
+	"net/url"
+	"os"
+
+	"github.com/pkg/errors"
+	"github.com/spf13/viper"
+)
+
+var (
+	ErrConfig = errors.New("configuration error")
+)
+
+// Config holds application configuration read from a YAML or set by env variables.
+//
+// nolint:govet // prefer readability over field alignment optimization for this case.
+type Config struct {
+	// File is the configuration file path
+	File string
+	// LogLevel is the app verbose logging level.
+	LogLevel int
+	// AppKind is one of inband, outofband
+	AppKind string `mapstructure:"app_kind"`
+
+	// Out of band installer configuration
+	Outofband struct {
+		Concurrency int `mapstructure:"concurrency"`
+	} `mapstructure:"outofband"`
+
+	// The inventory source - one of serverservice OR Yaml
+	InventorySource string
+
+	Yaml struct {
+		Filename string `mapstructure:"filename"`
+	} `mapstructure:"Yaml"`
+
+	// Serverservice is the Hollow server inventory store
+	// https://github.com/metal-toolbox/hollow-serverservice
+	Serverservice struct {
+		DisableOAuth       bool   `mapstructure:"diasble_oauth"`
+		Endpoint           string `mapstructure:"endpoint"`
+		EndpointURL        *url.URL
+		OidcIssuerEndpoint string   `mapstructure:"oidc_issuer_endpoint"`
+		OidcAudience       string   `mapstructure:"oidc_audience"`
+		OidcClientSecret   string   `mapstructure:"oidc_client_secret"`
+		OidcClientID       string   `mapstructure:"oidc_client_id"`
+		OidcClientScopes   []string `mapstructure:"oidc_client_scopes"` // []string{"read:server", ..}
+		FacilityCode       string   `mapstructure:"facility_code"`
+		Concurrency        int      `mapstructure:"concurrency"`
+	} `mapstructure:"serverService"`
+}
+
+func (c *Config) Load(cfgFile string) error {
+	if cfgFile != "" {
+		c.File = cfgFile
+	} else {
+		homedir, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+
+		c.File = homedir + "/" + ".flasher.yml"
+	}
+
+	h, err := os.Open(c.File)
+	if err != nil {
+		return err
+	}
+
+	viper.SetConfigFile(c.File)
+
+	if err := viper.ReadConfig(h); err != nil {
+		return errors.Wrap(err, c.File)
+	}
+
+	if err := viper.Unmarshal(c); err != nil {
+		return errors.Wrap(err, c.File)
+	}
+
+	switch c.InventorySource {
+	case InventorySourceServerservice:
+		return c.validateServerServiceParams()
+	case InventorySourceYaml:
+		return c.validateYamlParams()
+	default:
+		return errors.Wrap(ErrConfig, "unknown inventory source: "+c.InventorySource)
+	}
+}
+
+func (c *Config) validateYamlParams() error {
+	return nil
+}
+
+// validateServerServiceParams checks required serverservice configuration parameters are present
+// and returns the serverservice URL endpoint
+func (c *Config) validateServerServiceParams() error {
+	if c.Serverservice.Endpoint == "" {
+		return errors.Wrap(ErrConfig, "Serverservice endpoint not defined")
+	}
+
+	var err error
+
+	c.Serverservice.EndpointURL, err = url.Parse(c.Serverservice.Endpoint)
+	if err != nil {
+		return errors.Wrap(ErrConfig, "Serverservice endpoint URL error: "+err.Error())
+	}
+
+	if c.Serverservice.DisableOAuth {
+		return nil
+	}
+
+	if c.Serverservice.OidcIssuerEndpoint == "" {
+		return errors.Wrap(ErrConfig, "OIDC issuer endpoint not defined")
+	}
+
+	if c.Serverservice.OidcAudience == "" {
+		return errors.Wrap(ErrConfig, "OIDC Audience not defined")
+	}
+
+	return nil
+}
