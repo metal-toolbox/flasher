@@ -55,7 +55,7 @@ The possible states are `queued`, `active`, `sucess`, `failed`
 Firmware sets are firmware versions vetted to be working and applicable for a device/component
 based on vendor, model attributes, and going ahead other non device specific attributes, like the organization or project the device is part of.
 
-### Install mode - `PredefinedFirmwareInstallVersions`
+### Install mode - `PredefinedFirmwareFirmware`
 
 In server services this would be the firmware versions table.
 
@@ -67,7 +67,7 @@ A sample server service flasher install task payload looks like the following,
 {
     "namespace": "sh.hollow.flasher.task",
     // user defined install versions
-    "installVersions": [
+    "Firmware": [
       "bmc": {
                "version": "1.1",
                // these are optional
@@ -100,7 +100,7 @@ In this mode a firmware set name was specified, in the form
 Flasher proceeds to lookup the applicable firmware - comparing the versions in the firmware set
 and the version installed.
 
-Once its determined the applicable firmware, flasher populates the `installVersions` field. 
+Once its determined the applicable firmware, flasher populates the `Firmware` field. 
 
 ```json
 
@@ -108,7 +108,7 @@ Once its determined the applicable firmware, flasher populates the `installVersi
     "namespace": "sh.hollow.flasher.task",
     "firmwareSet": "dell-r6515",
     // resolved by flasher for this mode.
-    "installVersions": [
+    "Firmware": [
       "bmc": {
                "version": "1.1",
              }
@@ -120,7 +120,7 @@ Once its determined the applicable firmware, flasher populates the `installVersi
 ```
 
 
-### Install mode - `ResolveFirmwareInstallVersions`
+### Install mode - `ResolveFirmwareFirmware`
 
 Flasher looks up firmware sets applicable for the device, components based
 on the firmware set labels - `vendor=foo, model=bar`.
@@ -138,7 +138,7 @@ In this case the task attribute would initially be,
 }
 ```
 
-once the task has been picked, the `firmwareSet`, `installVersions` attributes are populated
+once the task has been picked, the `firmwareSet`, `Firmware` attributes are populated
 
 
 ```json
@@ -148,7 +148,7 @@ once the task has been picked, the `firmwareSet`, `installVersions` attributes a
     // resolved by flasher for this mode.
     "firmwareSet": "dell-r6515",
     // resolved by flasher for this mode.
-    "installVersions": [
+    "Firmware": [
       "bmc": {
                "version": "1.1",
              }
@@ -181,7 +181,7 @@ last updated timestamp. These timestamps will be used to determine the
 {
     "namespace": "sh.hollow.flasher.task",
     "firmwareSet": "",
-    "installVersions": [
+    "Firmware": [
       "bmc": {
                "version": "1.1",
                "updateFileURL": "...",

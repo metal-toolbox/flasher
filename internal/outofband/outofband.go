@@ -72,14 +72,13 @@ func (o *OutofbandWorker) concurrencyLimit() bool {
 	return false
 }
 
-func (o *OutofbandWorker) stateMachineContext(ctx context.Context, taskID string, actionsSM []*StateMachineAction) *StateMachineContext {
-	return &taskStateMachineContext{
-		taskID:    taskID,
-		ctx:       ctx,
-		actionsSM: actionsSM,
-		cache:     o.cache,
-		inv:       o.inv,
-		logger:    o.logger,
+func (o *OutofbandWorker) newtaskHandlerContext(ctx context.Context, taskID string) *taskHandlerContext {
+	return &taskHandlerContext{
+		taskID: taskID,
+		ctx:    ctx,
+		cache:  o.cache,
+		inv:    o.inv,
+		logger: o.logger,
 	}
 }
 
@@ -101,16 +100,16 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 		// define state machine task handler
 		handler := &taskHandler{}
 
+		// task handler context
+		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String())
+
 		// TODO: handle case where no task
 
 		// init state machine for task
-		sm, actions, err := NewTaskStateMachine(ctx, &task, handler)
+		sm, err := NewTaskStateMachine(ctx, &task, handler)
 		if err != nil {
 			o.logger.Error(err)
 		}
-
-		// context passed to state machine handlers
-		stateMachineCtx := o.newTaskstateMachineContext(task.ID.String(), actions)
 
 		// add to task machines list
 		o.taskMachines.Store(task.ID.String(), *sm)
@@ -118,7 +117,7 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 		// TODO: spawn block in a go routine with a limiter
 		//
 		// TODO: create channel for actions state machine to trigger state saves
-		if err := sm.run(ctx, &task, stateMachineCtx); err != nil {
+		if err := sm.run(ctx, &task, taskHandlerCtx); err != nil {
 			o.logger.Error(err)
 
 			// remove from task machines list
@@ -141,14 +140,14 @@ func (o *OutofbandWorker) queue(ctx context.Context) {
 			continue
 		}
 
-		acquired, err := o.inv.AquireDeviceByID(ctx, device.ID.String())
+		acquired, err := o.inv.AquireDevice(ctx, device.ID.String())
 		if err != nil {
 			o.logger.Warn(err)
 
 			continue
 		}
 
-		if err := o.createTask(ctx, acquired); err != nil {
+		if err := o.createTaskForDevice(ctx, acquired); err != nil {
 			o.logger.Warn(err)
 
 			continue
@@ -156,22 +155,16 @@ func (o *OutofbandWorker) queue(ctx context.Context) {
 	}
 }
 
-func (o *OutofbandWorker) createTask(ctx context.Context, device model.Device) error {
-	configuration, err := o.inv.FirmwareConfiguration(ctx, device)
+func (o *OutofbandWorker) createTaskForDevice(ctx context.Context, device model.Device) error {
+	task, err := model.NewTask(model.InstallMethodOutofband, "", nil)
 	if err != nil {
 		return err
 	}
 
-	task := model.Task{
-		Status: string(stateQueued),
-		Device: device,
-		Parameters: model.TaskParameters{
-			Configuration: configuration,
-			Install:       []model.InstallParameter{},
-		},
-	}
+	task.Status = string(stateQueued)
+	task.Device = device
 
-	if _, err = o.cache.AddTask(ctx, task); err != nil {
+	if _, err := o.cache.AddTask(ctx, task); err != nil {
 		return err
 	}
 

@@ -16,11 +16,11 @@ the two supported are a `YAML` source and `Serverservice`.
 
 Flasher determines the firmware to be installed for each component based on one of these three methods, these modes are set at task initialization.
 
-- `PredefinedFirmwareInstallVersions` - firmware versions were predefined.
+- `PredefinedFirmwareFirmware` - firmware versions were predefined.
 - `PredefinedFirmwareSet` - firmware set was defined, firmware versions has to be resolved from the set.
-- `ResolveFirmwareInstallVersions` (default) - Resolve firmware install versions, since neither a set nor firmware verisons were defined
+- `ResolveFirmwareFirmware` (default) - Resolve firmware install versions, since neither a set nor firmware verisons were defined
 
-### PredefinedFirmwareInstallVersions 
+### PredefinedFirmwareFirmware 
 
 In this mode the firmware versions to be installed are included in the install request.
 
@@ -34,7 +34,7 @@ Note: The firmware sets are ignored in this mode.
 ## link serverservice section for install modes
 [](serverservice.md)
 
-### ResolveFirmwareInstallVersions
+### ResolveFirmwareFirmware
 
 In the `ResolveInstallFirmwareVersions` mode flasher looks at all available 
 

@@ -3,28 +3,71 @@ package inventory
 import (
 	"context"
 
+	sservice "go.hollow.sh/serverservice/pkg/api/v1"
+
 	"github.com/metal-toolbox/flasher/internal/model"
 )
 
+const (
+	namespaceAttributeFlasherTask = "sh.hollow.flasher.task"
+)
+
 type Serverservice struct {
+	client *sservice.Client
 }
 
 func NewServerserviceInventory() (*Serverservice, error) {
-	return &Serverservice{}, nil
+	// TODO: add helper method for OIDC auth
+	client, err := sservice.NewClientWithToken("", "", nil)
+	if err != nil {
+		return nil, err
+	}
 
+	return &Serverservice{client: client}, nil
 }
 
 func (s *Serverservice) ListDevicesForFwInstall(ctx context.Context, limit int) ([]model.Device, error) {
-	return nil, nil
+	devices := []model.Device{}
+
+	params := &sservice.ServerListParams{
+		AttributeListParams: []sservice.AttributeListParams{
+			{
+				Namespace: namespaceAttributeFlasherTask,
+				Keys:      []string{"status"},
+				Operator:  sservice.OperatorEqual,
+				Value:     "",
+			},
+		},
+	}
+
+	found, _, err := s.client.List(ctx, params)
+	if err != nil {
+		return devices, err
+	}
+
+	if len(found) == 0 {
+		return devices, nil
+	}
+
+	return s.convertServersToDevices(ctx, found)
 }
 
-func (s *Serverservice) AquireDeviceByID(ctx context.Context, ID string) (model.Device, error) {
+func (s *Serverservice) convertServersToDevices(ctx context.Context, servers []sservice.Server) ([]model.Device, error) {
+	return []model.Device{}, nil
+}
+
+func (s *Serverservice) AquireDevice(ctx context.Context, id string) (model.Device, error) {
 	// updates the server service attribute
+	// - the device should not have any active flasher tasks
+	// - the device state should be maintenance
+
 	return model.Device{}, nil
 }
 
-func (s *Serverservice) FirmwareConfiguration(ctx context.Context, device *model.Device) ([]*model.Firmware, error) {
+func (s *Serverservice) FirmwareConfiguration(ctx context.Context, device *model.Device) ([]model.Firmware, error) {
 
+	// looks up device inventory
+	// looks up firmware 
 	return nil, nil
 }
 

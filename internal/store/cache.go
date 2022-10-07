@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	ErrNoTasksFound = errors.New("no tasks found")
+	ErrNoTasksFound     = errors.New("no tasks found")
+	ErrTaskUpdate       = errors.New("error in task update")
+	ErrTaskActionUpdate = errors.New("error in task action update")
 )
 
 type Cache struct {
@@ -48,7 +50,7 @@ func (c *Cache) UpdateTask(ctx context.Context, task model.Task) error {
 	return nil
 }
 
-func (c *Cache) TaskByStatus(ctx context.Context, status string) ([]model.Task, error) {
+func (c *Cache) TasksByStatus(ctx context.Context, status string) ([]model.Task, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -72,6 +74,25 @@ func (c *Cache) TaskByID(ctx context.Context, id string) (model.Task, error) {
 	defer c.mu.RUnlock()
 
 	return c.tasks[id], nil
+}
+
+func (c *Cache) UpdateTaskAction(ctx context.Context, taskID string, actionID string, update model.Action) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	task, exists := c.tasks[taskID]
+	if !exists {
+		return errors.Wrap(ErrTaskUpdate, "task not found: "+taskID)
+	}
+
+	for idx, action := range task.Actions {
+		if action.ID == actionID {
+			task.Actions[idx] = update
+			return nil
+		}
+	}
+
+	return errors.Wrap(ErrTaskActionUpdate, "task: "+taskID+" action not found: "+actionID)
 }
 
 func (c *Cache) RemoveTask(ctx context.Context, id string) error {

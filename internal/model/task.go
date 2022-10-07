@@ -5,20 +5,35 @@ import (
 
 	"github.com/filanov/stateswitch"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
+// InstallMethod is one of 'outofband' OR 'inband'
+// it is the method by which the firmware is installed on the device.
+type InstallMethod string
+
+// FirmwarePlanMethod type defines the firmware resolution method by which
+// the firmware to applied is planned.
+type FirmwarePlanMethod string
+
 const (
-	// ResolveMethodPredefinedVersions is a task firmware resolve method where
-	// the firmware versions to be installed were pre defined at task initialization
-	ResolveMethodPredefinedVersions = "ResolveMethodPredefinedVersions"
+	// InstallMethodOutofband indicates the out of band firmware install method.
+	InstallMethodOutofband InstallMethod = "outofband"
 
-	// ResolveMethodPredefinedFirmwareSet is a task firmware resolve method where
-	// the firmware versions to be installed are identified from the given firmware set.
-	ResolveMethodPredefinedFirmwareSet = "ResolveMethodPredefinedFirmwareSet"
+	// PlanPredefinedFirmaware is a TaskParameter attribute that indicates the
+	// firmware to be installed was provided at task initialization (through a CLI parameter or inventory device attribute)
+	// and so no futher firmware planning is required.
+	PlanUseDefinedFirmware FirmwarePlanMethod = "predefined"
 
-	// ResolveMethodResolveFirmwareVersions is a task firmware resolve method where
-	// flasher identifies the firmware set and firmware versions for install from that set.
-	ResolveMethodResolveFirmwareVersions = "ResolveMethodResolveFirmwareVersions"
+	// PlanFromFirmwareSet is a TaskParameter attribute that indicates a
+	// firmware set ID was provided at task initialization (through a CLI parameter or inventory device attribute)
+	// the firmware versions to be installed are to be planned from the given firmware set ID.
+	PlanFromFirmwareSet FirmwarePlanMethod = "fromFirmwareSet"
+
+	// PlanFromInstalledFirmware is a TaskParameter attribute that indicates
+	// the firmware versions to be installed have to be planned
+	// based on the firmware currently installed on the device.
+	PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
 )
 
 // Task is a top level unit of work handled by flasher.
@@ -31,12 +46,15 @@ type Task struct {
 	// Status is the install status
 	Status string
 
+	// Info is informational data and includes errors in task execution if any.
+	Info string
+
 	// Actions to be executed for task are generated from the Firmware configuration and install parameters
 	// these are generated in the `queued` stage of the task.
 	Actions []Action
 
-	// FirmwareResolved is the list of firmware to be installed based on the TaskParameters.
-	FirmwareResolved []Firmware
+	// FirmwarePlanned is the list of firmware planned for install.
+	FirmwarePlanned []Firmware
 
 	// Parameters for this task
 	Parameters TaskParameters
@@ -58,9 +76,48 @@ func (s *Task) State() stateswitch.State {
 	return stateswitch.State(s.Status)
 }
 
+// NewTask returns a new Task
+//
+// method, device parameters are required.
+// firmwareSetID, firmware are optional and mutually exclusive.
+func NewTask(method InstallMethod, firmwareSetID string, firmware []Firmware) (Task, error) {
+	task := Task{
+		ID: uuid.New(),
+		Parameters: TaskParameters{
+			InstallMethod: method,
+		},
+	}
+
+	if firmwareSetID != "" && len(firmware) > 0 {
+		return task, errors.New("fasdsad")
+	}
+
+	if firmwareSetID != "" {
+		task.Parameters.FirmwareSetID = firmwareSetID
+		task.Parameters.FirmwarePlanMethod = PlanFromFirmwareSet
+	}
+
+	if len(firmware) > 0 {
+		task.FirmwarePlanned = firmware
+		task.Parameters.FirmwarePlanMethod = PlanUseDefinedFirmware
+	}
+
+	if firmwareSetID == "" && len(firmware) == 0 {
+		task.Parameters.FirmwarePlanMethod = PlanFromInstalledFirmware
+	}
+
+	return task, nil
+}
+
 // TaskParameters are the parameters set for each task flasher works
-// these are parameters recieved from an operator which determines the task execution actions.
+// these are parameters received from an operator which determines the task execution actions.
 type TaskParameters struct {
+	// Reset device BMC before firmware install
+	ResetBMCBeforeInstall bool `json:"resetBMCBeforeInstall"`
+
+	// Force install given firmware regardless of current firmware version.
+	ForceInstall bool `json:"forceInstall"`
+
 	// Task priority is the task priority between 0 and 3
 	// where 0 is the default and 3 is the max.
 	//
@@ -70,25 +127,15 @@ type TaskParameters struct {
 	// the task CreatedAt attribute is considered.
 	Priority int `json:"priority"`
 
-	// Method is one of in-band/out-of-band
-	Method string `json:"method"`
+	// InstallMethod is one of inband/outofband
+	InstallMethod InstallMethod `json:"installMethod"`
 
 	// The firmware set ID is conditionally set at task initialization based on the FirmwareResolveMethod.
 	FirmwareSetID string `json:"firmwareSetID"`
 
-	// InstallVersions when defined sets the FirmwareResolveMethod to `ResolveMethodPredefinedVersions`,
-	// which means that firmware sets will not be looked up and firmware
-	InstallVersions []Firmware `json:"installVersions"`
-
-	// Flasher determines the firmware to be installed for each component based on one of these three methods,
-	// These modes are set at task initialization
-	FirmwareResolveMethod string `json:"firmwareResolveMethod"`
-
-	// Reset device BMC before firmware install
-	ResetBMCBeforeInstall bool `json:"ResetBMCBeforeInstall"`
-
-	// Force install given firmware regardless of current firmware version.
-	ForceInstall bool `json:"ForceInstall"`
+	// Flasher determines the firmware to be installed for each component based on the firmware plan method,
+	// The method is set at task initialization
+	FirmwarePlanMethod FirmwarePlanMethod `json:"firmwarePlanMethod"`
 }
 
 // Action is part of a task, it is resolved from the Firmware configuration

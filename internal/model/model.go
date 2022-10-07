@@ -3,7 +3,6 @@ package model
 import (
 	"net"
 
-	"github.com/bmc-toolbox/common"
 	"github.com/google/uuid"
 )
 
@@ -29,13 +28,15 @@ func InventorySourceKinds() []string {
 
 type Device struct {
 	ID uuid.UUID
-	// Device firmware inventory
-	Inventory common.Device
 
 	// Device BMC attributes
 	BmcAddress  net.IP
 	BmcUsername string
 	BmcPassword string
+
+	// Manufacturer attributes
+	Vendor string
+	Model  string
 }
 
 type DeviceFwInstallAttribute struct {
@@ -49,7 +50,7 @@ type DeviceFwInstallAttribute struct {
 // Firmware includes a firmware version attributes and is part of FirmwareConfig
 type Firmware struct {
 	Version       string `yaml:"version"`
-	UpstreamURL   string `yaml:"upstreamURL"`
+	URL           string `yaml:"URL"`
 	FileName      string `yaml:"filename"`
 	Utility       string `yaml:"utility"`
 	Model         string `yaml:"model"`
