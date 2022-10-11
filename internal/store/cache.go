@@ -85,9 +85,9 @@ func (c *Cache) UpdateTaskAction(ctx context.Context, taskID string, actionID st
 		return errors.Wrap(ErrTaskUpdate, "task not found: "+taskID)
 	}
 
-	for idx, action := range task.Actions {
+	for idx, action := range task.ActionsPlanned {
 		if action.ID == actionID {
-			task.Actions[idx] = update
+			task.ActionsPlanned[idx] = update
 			return nil
 		}
 	}

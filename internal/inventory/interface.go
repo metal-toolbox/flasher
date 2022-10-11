@@ -26,6 +26,6 @@ type Inventory interface {
 	// DeviceFwInstallTaskAttributes - gets the firmware install attributes to the given value for a device.
 	DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (error, model.TaskParameters)
 
-	// FirmwareConfiguration returns the firmware install configuration applicable on the device
-	FirmwareConfiguration(ctx context.Context, device *model.Device) ([]model.Firmware, error)
+	// FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
+	FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error)
 }

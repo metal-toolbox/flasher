@@ -36,6 +36,47 @@ const (
 	PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
 )
 
+// Action is part of a task, it is resolved from the Firmware configuration
+//
+// Actions transition through states as the action progresses
+// those states are `queued`, `active`, `success`, `failed`.
+type Action struct {
+	// ID is a unique identifier for this action
+	// e.g: bmc-<id>
+	ID string
+
+	// BMCTaskID ...
+
+	// Status indicates the action status
+	Status string
+
+	// Firmware to be installed
+	Firmware Firmware
+}
+
+func (a *Action) SetState(state stateswitch.State) error {
+	a.Status = string(state)
+	return nil
+}
+
+func (a *Action) State() stateswitch.State {
+	return stateswitch.State(a.Status)
+}
+
+// Actions is a list of actions
+type Actions []Action
+
+// ByID returns the Action matched by the identifier
+func (a Actions) ByID(id string) *Action {
+	for _, action := range a {
+		if action.ID == id {
+			return &action
+		}
+	}
+
+	return nil
+}
+
 // Task is a top level unit of work handled by flasher.
 //
 // A task performs one or more actions, each of the action corresponds to a Firmware
@@ -49,12 +90,12 @@ type Task struct {
 	// Info is informational data and includes errors in task execution if any.
 	Info string
 
-	// Actions to be executed for task are generated from the Firmware configuration and install parameters
+	// ActionsPlanned to be executed for task are generated from the Firmware configuration and install parameters
 	// these are generated in the `queued` stage of the task.
-	Actions []Action
+	ActionsPlanned Actions
 
-	// FirmwarePlanned is the list of firmware planned for install.
-	FirmwarePlanned []Firmware
+	// FirmwaresPlanned is the list of firmware planned for install.
+	FirmwaresPlanned []Firmware
 
 	// Parameters for this task
 	Parameters TaskParameters
@@ -98,7 +139,7 @@ func NewTask(method InstallMethod, firmwareSetID string, firmware []Firmware) (T
 	}
 
 	if len(firmware) > 0 {
-		task.FirmwarePlanned = firmware
+		task.FirmwaresPlanned = firmware
 		task.Parameters.FirmwarePlanMethod = PlanUseDefinedFirmware
 	}
 
@@ -137,42 +178,3 @@ type TaskParameters struct {
 	// The method is set at task initialization
 	FirmwarePlanMethod FirmwarePlanMethod `json:"firmwarePlanMethod"`
 }
-
-// Action is part of a task, it is resolved from the Firmware configuration
-//
-// Actions transition through states as the action progresses
-// those states are `queued`, `active`, `success`, `failed`.
-type Action struct {
-	// ID is a unique identifier for this action
-	// e.g: bmc-<id>
-	ID string
-
-	// BMCTaskID ...
-
-	// Status indicates the action status
-	Status string
-
-	// Firmware to be installed
-	Firmware Firmware
-}
-
-func (a *Action) SetState(state stateswitch.State) error {
-	a.Status = string(state)
-	return nil
-}
-
-func (a *Action) State() stateswitch.State {
-	return stateswitch.State(a.Status)
-}
-
-//type Actions []Action
-//
-//func (a Actions) ByTaskID(taskID string) *Action {
-//	for _, action := range a {
-//		if action.TaskID == taskID {
-//			return &action
-//		}
-//	}
-//
-//	return nil
-//}

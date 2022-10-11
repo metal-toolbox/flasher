@@ -64,10 +64,10 @@ func (s *Serverservice) AquireDevice(ctx context.Context, id string) (model.Devi
 	return model.Device{}, nil
 }
 
-func (s *Serverservice) FirmwareConfiguration(ctx context.Context, device *model.Device) ([]model.Firmware, error) {
+func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
 
 	// looks up device inventory
-	// looks up firmware 
+	// looks up firmware
 	return nil, nil
 }
 

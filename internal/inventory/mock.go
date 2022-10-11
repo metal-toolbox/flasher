@@ -30,7 +30,7 @@ func (s *Mock) AquireDevice(ctx context.Context, id string) (model.Device, error
 	return fixtures.Devices[fixtures.Device1.String()], nil
 }
 
-func (s *Mock) FirmwareConfiguration(ctx context.Context, device *model.Device) ([]model.Firmware, error) {
+func (s *Mock) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
 	return fixtures.Firmware, nil
 }
 

@@ -2,10 +2,12 @@ package outofband
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 
+	"github.com/filanov/stateswitch"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -18,23 +20,55 @@ const (
 	stateResetBMC        sw.State = "resetBMC"
 	stateResetHost       sw.State = "resetHost"
 
-	transitionTypeLoginBMC        sw.TransitionType = "loginBMC"
-	transitionTypeInstallFirmware sw.TransitionType = "installFirmware"
-	transitionTypeUploadFirmware  sw.TransitionType = "uploadFirmware"
-	transitionTypeResetBMC        sw.TransitionType = "resetBMC"
-	transitionTypeResetHost       sw.TransitionType = "resetHost"
+	transitionTypeLoginBMC        sw.TransitionType = "logginBMC"
+	transitionTypeInstallFirmware sw.TransitionType = "installingFirmware"
+	transitionTypeUploadFirmware  sw.TransitionType = "uploadingFirmware"
+	transitionTypeResetBMC        sw.TransitionType = "resettingBMC"
+	transitionTypeResetHost       sw.TransitionType = "resettingHost"
 
 	// state, transition for failed actions
-	stateInstallFailed         sw.State          = "installFailed"
-	transitionTypeActionFailed sw.TransitionType = "actionFailed"
+	stateInstallFailed            sw.State          = "installFailed"
+	transitionTypeActionFailed    sw.TransitionType = "actionFailed"
+	transitionTypeActionsComplete sw.TransitionType = "actionsComplete"
 )
 
-type ActionStateMachine struct {
-	sm sw.StateMachine
+var (
+	errActionTransition = errors.New("error in action transition")
+)
+
+type ActionPlanMachine struct {
+	actionID    string
+	transitions []sw.TransitionType
+	sm          sw.StateMachine
 }
 
-func NewActionStateMachine(ctx context.Context) (*ActionStateMachine, error) {
-	m := &ActionStateMachine{sm: sw.NewStateMachine()}
+func (a *ActionPlanMachine) setTransitionOrder(transitions []sw.TransitionType) {
+	a.transitions = transitions
+}
+
+// ActionPlan is an ordered list of actions planned
+type ActionPlan []*ActionPlanMachine
+
+func (a ActionPlan) ByActionID(id string) *ActionPlanMachine {
+	for _, m := range a {
+		if m.actionID == id {
+			return m
+		}
+	}
+
+	return nil
+}
+
+func NewActionPlanMachine(ctx context.Context) (*ActionPlanMachine, error) {
+	order := []sw.TransitionType{
+		transitionTypeLoginBMC,
+		transitionTypeUploadFirmware,
+		transitionTypeInstallFirmware,
+		transitionTypeResetBMC,
+		transitionTypeResetHost,
+	}
+
+	m := &ActionPlanMachine{sm: sw.NewStateMachine(), transitions: order}
 
 	handler := &actionHandler{}
 
@@ -43,7 +77,7 @@ func NewActionStateMachine(ctx context.Context) (*ActionStateMachine, error) {
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   transitionTypeLoginBMC,
 		SourceStates:     sw.States{stateQueued},
-		DestinationState: stateActive,
+		DestinationState: stateLoginBMC,
 
 		// Condition for the transition, transition will be executed only if this function return true
 		// Can be nil, in this case it's considered as return true, nil
@@ -69,7 +103,7 @@ func NewActionStateMachine(ctx context.Context) (*ActionStateMachine, error) {
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   transitionTypeInstallFirmware,
 		SourceStates:     sw.States{stateUploadFirmware},
-		DestinationState: stateUploadFirmware,
+		DestinationState: stateInstallFirmware,
 		Condition:        nil,
 		Transition:       handler.uploadFirmware,
 		PostTransition:   handler.saveState,
@@ -78,7 +112,7 @@ func NewActionStateMachine(ctx context.Context) (*ActionStateMachine, error) {
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   transitionTypeResetBMC,
 		SourceStates:     sw.States{stateInstallFirmware},
-		DestinationState: stateResetBMC,
+		DestinationState: stateResetHost,
 		Condition:        handler.conditionalResetBMC,
 		Transition:       handler.resetBMC,
 		PostTransition:   handler.saveState,
@@ -86,8 +120,8 @@ func NewActionStateMachine(ctx context.Context) (*ActionStateMachine, error) {
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   transitionTypeResetHost,
-		SourceStates:     sw.States{stateInstallFirmware},
-		DestinationState: stateResetHost,
+		SourceStates:     sw.States{stateResetHost},
+		DestinationState: stateSuccess,
 		Condition:        handler.conditionalResetHost,
 		Transition:       handler.resetHost,
 		PostTransition:   handler.saveState,
@@ -111,61 +145,25 @@ func NewActionStateMachine(ctx context.Context) (*ActionStateMachine, error) {
 	return m, nil
 }
 
-func (a *ActionStateMachine) TransitionFailed(ctx context.Context, action *model.Action, smCtx *taskHandlerContext) error {
+func (a *ActionPlanMachine) TransitionFailed(ctx context.Context, action *model.Action, smCtx *taskHandlerContext) error {
 	return a.sm.Run(transitionTypeActionFailed, action, smCtx)
 }
 
-func (a *ActionStateMachine) run(ctx context.Context, action *model.Action, smCtx *taskHandlerContext) error {
-	order := []sw.TransitionType{
-		transitionTypeLoginBMC,
-		transitionTypeInstallFirmware,
-		transitionTypeUploadFirmware,
-		transitionTypeResetBMC,
-		transitionTypeResetHost,
-	}
-
-	for _, transitionType := range order {
+func (a *ActionPlanMachine) run(ctx context.Context, action *model.Action, smCtx *taskHandlerContext) error {
+	for _, transitionType := range a.transitions {
 		err := a.sm.Run(transitionType, action, smCtx)
 		if err != nil {
-			if err := a.TransitionFailed(ctx, action, smCtx); err != nil {
-				return err
+			if errors.Is(err, stateswitch.NoConditionPassedToRunTransaction) {
+				return errors.Wrap(
+					errActionTransition,
+					fmt.Sprintf("no transition rule found for transition type '%s' and state '%s'", transitionType, action.Status),
+				)
 			}
 
-			return err
+			return errors.Wrap(errActionTransition, err.Error())
 		}
 
 	}
 
 	return nil
-}
-
-// actionStateMachinesForTask returns a slice of state machines for each of the firmware versions to be installed in a task.
-func actionStateMachinesForTask(ctx context.Context, task *model.Task) (ActionStateMachineList, error) {
-	// actionStateMachines is an ordered map of taskIDs -> Action IDs -> Action state machine
-	actionStateMachineList := make(ActionStateMachineList, 0)
-
-	// each firmware install parameter results in an action
-	for idx, firmware := range task.FirmwarePlanned {
-		actionSM, err := NewActionStateMachine(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		action := model.Action{
-			ID:     firmware.ComponentSlug + "-" + strconv.Itoa(idx),
-			Status: string(stateQueued),
-			// Firmware is populated by the task firmware resolve transition
-			Firmware: task.FirmwarePlanned[idx],
-		}
-
-		m := map[string]map[string]*ActionStateMachine{
-			task.ID.String(): map[string]*ActionStateMachine{
-				action.ID: actionSM,
-			},
-		}
-
-		actionStateMachineList = append(actionStateMachineList, m)
-	}
-
-	return actionStateMachineList, nil
 }

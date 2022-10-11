@@ -33,7 +33,7 @@ func (c *Yaml) DeviceByID(ctx context.Context, ID string) (*model.Device, error)
 	return nil, nil
 }
 
-func (c *Yaml) FirmwareConfiguration(ctx context.Context, device *model.Device) ([]*model.Firmware, error) {
+func (c *Yaml) Firmware(ctx context.Context, device *model.Device) ([]*model.Firmware, error) {
 
 	return nil, nil
 }

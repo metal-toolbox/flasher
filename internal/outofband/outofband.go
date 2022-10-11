@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
@@ -65,20 +66,18 @@ func (o *OutofbandWorker) concurrencyLimit() bool {
 		return true
 	})
 
-	if count >= o.concurrency {
-		return true
-	}
-
-	return false
+	return count >= o.concurrency
 }
 
-func (o *OutofbandWorker) newtaskHandlerContext(ctx context.Context, taskID string) *taskHandlerContext {
+func (o *OutofbandWorker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *taskHandlerContext {
 	return &taskHandlerContext{
-		taskID: taskID,
-		ctx:    ctx,
-		cache:  o.cache,
-		inv:    o.inv,
-		logger: o.logger,
+		taskID:    taskID,
+		ctx:       ctx,
+		fwPlanner: firmware.NewPlanner(skipCompareInstalled, device.Vendor, device.Model),
+		bmc:       NewBmcQueryor(ctx, device, o.logger),
+		cache:     o.cache,
+		inv:       o.inv,
+		logger:    o.logger,
 	}
 }
 
@@ -101,7 +100,7 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 		handler := &taskHandler{}
 
 		// task handler context
-		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String())
+		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String(), &task.Device, task.Parameters.ForceInstall)
 
 		// TODO: handle case where no task
 
@@ -117,7 +116,7 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 		// TODO: spawn block in a go routine with a limiter
 		//
 		// TODO: create channel for actions state machine to trigger state saves
-		if err := sm.run(ctx, &task, taskHandlerCtx); err != nil {
+		if err := sm.run(ctx, &task, handler, taskHandlerCtx); err != nil {
 			o.logger.Error(err)
 
 			// remove from task machines list

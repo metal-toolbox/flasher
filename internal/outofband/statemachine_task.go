@@ -3,9 +3,11 @@ package outofband
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/filanov/stateswitch"
 	sw "github.com/filanov/stateswitch"
+	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
@@ -29,15 +31,11 @@ const (
 
 var (
 	// errors
-	errInvalidTransitionHandler = errors.New("expected a valid transitionHandler{} type")
-
-	errInvalidtaskHandlerContext = errors.New("expected a taskHandlerContext{} type")
-
+	errInvalidTransitionHandler       = errors.New("expected a valid transitionHandler{} type")
+	errInvalidtaskHandlerContext      = errors.New("expected a taskHandlerContext{} type")
 	errTaskInstallParametersUndefined = errors.New("task install parameters undefined")
+	errTaskTransition                 = errors.New("error in task transition")
 )
-
-// ActionStateMachineList is an ordered map of taskIDs -> Action IDs -> Action state machine
-type ActionStateMachineList []map[string]map[string]*ActionStateMachine
 
 // taskHandlerContext holds working attributes of a task
 //
@@ -50,13 +48,18 @@ type taskHandlerContext struct {
 	// ctx is the parent context
 	ctx context.Context
 
-	// action plan is an ordered list of action state machines
-	// this is populated in the `init` state
-	actionPlan ActionStateMachineList
+	// plan is an ordered list of actions identified to
+	// complete this task
+	actionPlan ActionPlan
 
 	// err is set when a transition fails in run()
 	err error
 
+	// fwPlanner provides methods to plan the firmware to be installed.
+	fwPlanner firmware.Planner
+
+	// bmc is the BMC client to query the BMC.
+	bmc    bmcQueryor
 	cache  store.Storage
 	inv    inventory.Inventory
 	logger *logrus.Logger
@@ -68,11 +71,7 @@ type TaskStateMachine struct {
 	transitions []sw.TransitionType
 }
 
-// ActionStateMachine drives the firmware install actions
-
-func (m *TaskStateMachine) TransitionFailed(ctx context.Context, task *model.Task, tctx *taskHandlerContext) error {
-	return m.sm.Run(taskFailed, task, tctx)
-}
+// ActionPlanMachine drives the firmware install actions
 
 func NewTaskStateMachine(ctx context.Context, task *model.Task, handler taskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
@@ -106,9 +105,9 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler taskTran
 		TransitionType:   runActions,
 		SourceStates:     sw.States{stateActive},
 		DestinationState: stateSuccess,
-		Condition:        handler.validatePlanAction,
-		Transition:       handler.runActions,
-		PostTransition:   handler.saveState,
+		//	Condition:        handler.validatePlanAction,
+		Transition:     handler.runActions,
+		PostTransition: handler.saveState,
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
@@ -116,8 +115,8 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler taskTran
 		SourceStates:     sw.States{stateActive, stateQueued},
 		DestinationState: stateFailed,
 		Condition:        nil,
-		Transition:       handler.saveState,
-		PostTransition:   nil,
+		Transition:       handler.failed,
+		PostTransition:   handler.saveState,
 	})
 
 	return m, nil
@@ -127,29 +126,78 @@ func (m *TaskStateMachine) setTransitionOrder(transitions []sw.TransitionType) {
 	m.transitions = transitions
 }
 
-func (m *TaskStateMachine) run(ctx context.Context, task *model.Task, tctx *taskHandlerContext) error {
+func (m *TaskStateMachine) run(ctx context.Context, task *model.Task, handler *taskHandler, tctx *taskHandlerContext) error {
+	var err error
+
+	// To ensure that the task state is saved when sm.Run fails
+	// because of a invalid state transition attempt,
+	//
+	// the error for these cases is in the form,
+	// 'no transition rule found for transition type 'runActions' to state 'success': no condition found to run transition'
+	//
+	// The error is returned to the caller and the task is marked as failed
+	defer func() {
+		if err != nil {
+			task.Info = err.Error()
+			// errors from these methods are ignored
+			// so as to not overwrite the original error
+			_ = task.SetState(sw.State(stateFailed))
+			_ = handler.saveState(task, tctx)
+		}
+	}()
+
 	for _, transitionType := range m.transitions {
-		err := m.sm.Run(transitionType, task, tctx)
+		err = m.sm.Run(transitionType, task, tctx)
 		if err != nil {
 			// update error to include some useful context
 			if errors.Is(err, stateswitch.NoConditionPassedToRunTransaction) {
-				errors.Wrap(
-					err,
-					fmt.Sprintf("transition type: %s has no rule for task state: %s", transitionType, task.Status),
+				err = errors.Wrap(
+					errTaskTransition,
+					fmt.Sprintf("no transition rule found for transition type '%s' and state '%s'", transitionType, task.Status),
 				)
 			}
 
 			// set task handler err
 			tctx.err = err
 
-			// run transition failed handler
-			if err := m.TransitionFailed(ctx, task, tctx); err != nil {
-				return err
-			}
-
 			return err
 		}
 	}
 
 	return nil
+}
+
+// planInstallActions plans the firmware install actions
+//
+// The given task is updated with Actions based on the FirmwaresPlanned attribute
+// and an actionPlan is returned which is to be executed.
+func planInstallActions(ctx context.Context, task *model.Task) (ActionPlan, error) {
+	plans := make(ActionPlan, 0)
+
+	// each firmware install parameter results in an action
+	for idx, firmware := range task.FirmwaresPlanned {
+		actionID := actionID(task.ID.String(), firmware.ComponentSlug, idx)
+
+		m, err := NewActionPlanMachine(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		m.actionID = actionID
+		plans = append(plans, m)
+
+		action := model.Action{
+			ID:       actionID,
+			Status:   string(stateQueued),
+			Firmware: task.FirmwaresPlanned[idx],
+		}
+
+		task.ActionsPlanned = append(task.ActionsPlanned, action)
+	}
+
+	return plans, nil
+}
+
+func actionID(taskID, componentSlug string, idx int) string {
+	return fmt.Sprintf("%s-%s-%s", taskID, componentSlug, strconv.Itoa(idx))
 }
