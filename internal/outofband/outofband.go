@@ -6,9 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/metal-toolbox/flasher/internal/bmc"
 	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
+	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/sirupsen/logrus"
 )
@@ -69,20 +71,20 @@ func (o *OutofbandWorker) concurrencyLimit() bool {
 	return count >= o.concurrency
 }
 
-func (o *OutofbandWorker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *taskHandlerContext {
-	return &taskHandlerContext{
-		taskID:    taskID,
-		ctx:       ctx,
-		fwPlanner: firmware.NewPlanner(skipCompareInstalled, device.Vendor, device.Model),
-		bmc:       NewBmcQueryor(ctx, device, o.logger),
-		cache:     o.cache,
-		inv:       o.inv,
-		logger:    o.logger,
+func (o *OutofbandWorker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
+	return &sm.HandlerContext{
+		TaskID:    taskID,
+		Ctx:       ctx,
+		FwPlanner: firmware.NewPlanner(skipCompareInstalled, device.Vendor, device.Model),
+		Bmc:       bmc.NewQueryor(ctx, device, o.logger),
+		Cache:     o.cache,
+		Inv:       o.inv,
+		Logger:    o.logger,
 	}
 }
 
 func (o *OutofbandWorker) run(ctx context.Context) {
-	tasks, err := o.cache.TasksByStatus(ctx, string(stateQueued))
+	tasks, err := o.cache.TasksByStatus(ctx, string(sm.StateQueued))
 	if err != nil {
 		if errors.Is(err, store.ErrNoTasksFound) {
 			return
@@ -91,7 +93,7 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 		o.logger.Warn(err)
 	}
 
-	for _, task := range tasks {
+	for idx, task := range tasks {
 		if o.concurrencyLimit() {
 			return
 		}
@@ -102,10 +104,8 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 		// task handler context
 		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String(), &task.Device, task.Parameters.ForceInstall)
 
-		// TODO: handle case where no task
-
 		// init state machine for task
-		sm, err := NewTaskStateMachine(ctx, &task, handler)
+		sm, err := sm.NewTaskStateMachine(ctx, &tasks[idx], handler)
 		if err != nil {
 			o.logger.Error(err)
 		}
@@ -115,8 +115,7 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 
 		// TODO: spawn block in a go routine with a limiter
 		//
-		// TODO: create channel for actions state machine to trigger state saves
-		if err := sm.run(ctx, &task, handler, taskHandlerCtx); err != nil {
+		if err := sm.Run(ctx, &tasks[idx], handler, taskHandlerCtx); err != nil {
 			o.logger.Error(err)
 
 			// remove from task machines list
@@ -160,7 +159,7 @@ func (o *OutofbandWorker) createTaskForDevice(ctx context.Context, device model.
 		return err
 	}
 
-	task.Status = string(stateQueued)
+	task.Status = string(sm.StateQueued)
 	task.Device = device
 
 	if _, err := o.cache.AddTask(ctx, task); err != nil {

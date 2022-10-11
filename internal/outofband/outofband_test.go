@@ -8,6 +8,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
+	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,7 +32,7 @@ func Test_CreateTaskForDevice(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tasks, err := worker.cache.TasksByStatus(ctx, string(stateQueued))
+	tasks, err := worker.cache.TasksByStatus(ctx, string(sm.StateQueued))
 	if err != nil {
 		t.Fatal(err)
 	}

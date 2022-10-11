@@ -1,7 +1,10 @@
 package outofband
 
 import (
+	"fmt"
+
 	sw "github.com/filanov/stateswitch"
+	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 )
 
 type actionTransitioner interface {
@@ -16,6 +19,7 @@ type actionTransitioner interface {
 type actionHandler struct{}
 
 func (s *actionHandler) loginBMC(sw sw.StateSwitch, args sw.TransitionArgs) error {
+	fmt.Println("login")
 	return nil
 }
 
@@ -45,10 +49,10 @@ func (s *actionHandler) conditionalResetHost(sw sw.StateSwitch, args sw.Transiti
 	return true, nil
 }
 
-func (h *actionHandler) saveState(sw sw.StateSwitch, args sw.TransitionArgs) error {
-	_, ok := args.(*taskHandlerContext)
+func (h *actionHandler) SaveState(sw sw.StateSwitch, args sw.TransitionArgs) error {
+	_, ok := args.(*sm.HandlerContext)
 	if !ok {
-		return errInvalidTransitionHandler
+		return sm.ErrInvalidTransitionHandler
 	}
 
 	//	action, ok := sw.(*model.Action)

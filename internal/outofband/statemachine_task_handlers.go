@@ -1,10 +1,9 @@
 package outofband
 
 import (
-	"fmt"
-
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
+	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/pkg/errors"
 )
 
@@ -15,22 +14,13 @@ var (
 	errTaskPlanValidate   = errors.New("error in task plan validation")
 )
 
-type taskTransitioner interface {
-	planActions(sw sw.StateSwitch, args sw.TransitionArgs) error
-	runActions(sw sw.StateSwitch, args sw.TransitionArgs) error
-	saveState(sw sw.StateSwitch, args sw.TransitionArgs) error
-	failed(sw sw.StateSwitch, args sw.TransitionArgs) error
-
-	validatePlanAction(sw sw.StateSwitch, args sw.TransitionArgs) (bool, error)
-}
-
 // taskHandler implements the taskTransitionHandler methods
 type taskHandler struct{}
 
-func (h *taskHandler) planActions(sw sw.StateSwitch, args sw.TransitionArgs) error {
-	ctx, ok := args.(*taskHandlerContext)
+func (h *taskHandler) Plan(sw sw.StateSwitch, args sw.TransitionArgs) error {
+	ctx, ok := args.(*sm.HandlerContext)
 	if !ok {
-		return errInvalidtaskHandlerContext
+		return sm.ErrInvalidtaskHandlerContext
 	}
 
 	task, ok := sw.(*model.Task)
@@ -51,21 +41,21 @@ func (h *taskHandler) planActions(sw sw.StateSwitch, args sw.TransitionArgs) err
 }
 
 // TODO: move plan methods into firmware package
-func (h *taskHandler) planFromInstalledFirmware(tctx *taskHandlerContext, device model.Device) error {
+func (h *taskHandler) planFromInstalledFirmware(tctx *sm.HandlerContext, device model.Device) error {
 	// 1. query current device inventory - from the BMC
-	if err := tctx.bmc.Open(tctx.ctx); err != nil {
+	if err := tctx.Bmc.Open(tctx.Ctx); err != nil {
 		return err
 	}
 
-	deviceInventory, err := tctx.bmc.Inventory(tctx.ctx)
+	deviceInventory, err := tctx.Bmc.Inventory(tctx.Ctx)
 	if err != nil {
 		return err
 	}
 
-	ctx := tctx.ctx
+	ctx := tctx.Ctx
 
 	// retrieve task from cache
-	task, err := tctx.cache.TaskByID(ctx, tctx.taskID)
+	task, err := tctx.Cache.TaskByID(ctx, tctx.TaskID)
 	if err != nil {
 		return err
 	}
@@ -73,7 +63,7 @@ func (h *taskHandler) planFromInstalledFirmware(tctx *taskHandlerContext, device
 	// plan firmware for install
 	//
 	// TODO(joel): extend to support other device, inventory attributes
-	found, err := tctx.fwPlanner.FromInstalled(deviceInventory)
+	found, err := tctx.FwPlanner.FromInstalled(deviceInventory)
 	if err != nil {
 		return err
 	}
@@ -81,23 +71,23 @@ func (h *taskHandler) planFromInstalledFirmware(tctx *taskHandlerContext, device
 	task.FirmwaresPlanned = found
 
 	// plan actions based and update task action list
-	tctx.actionPlan, err = planInstallActions(ctx, &task)
+	tctx.ActionPlan, err = planInstallActions(ctx, &task)
 	if err != nil {
 		return err
 	}
 
 	// 	update task in cache
-	if err := tctx.cache.UpdateTask(ctx, task); err != nil {
+	if err := tctx.Cache.UpdateTask(ctx, task); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (h *taskHandler) validatePlanAction(sw sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
-	tctx, ok := args.(*taskHandlerContext)
+func (h *taskHandler) Validate(sw sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
+	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
-		return false, errInvalidtaskHandlerContext
+		return false, sm.ErrInvalidtaskHandlerContext
 	}
 
 	task, ok := sw.(*model.Task)
@@ -110,17 +100,17 @@ func (h *taskHandler) validatePlanAction(sw sw.StateSwitch, args sw.TransitionAr
 	}
 
 	// validate task context has actions planned
-	if len(tctx.actionPlan) == 0 {
+	if len(tctx.ActionPlan) == 0 {
 		return false, errors.Wrap(errTaskPlanValidate, "task action plan empty")
 	}
 
 	return true, nil
 }
 
-func (h *taskHandler) runActions(sw sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*taskHandlerContext)
+func (h *taskHandler) Run(sw sw.StateSwitch, args sw.TransitionArgs) error {
+	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
-		return errInvalidTransitionHandler
+		return sm.ErrInvalidTransitionHandler
 	}
 
 	task, ok := sw.(*model.Task)
@@ -128,10 +118,8 @@ func (h *taskHandler) runActions(sw sw.StateSwitch, args sw.TransitionArgs) erro
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertions.Error())
 	}
 
-	for _, plan := range tctx.actionPlan {
-		fmt.Println(plan.transitions)
-		fmt.Println("xxx")
-		err := plan.run(tctx.ctx, task.ActionsPlanned.ByID(plan.actionID), tctx)
+	for _, plan := range tctx.ActionPlan {
+		err := plan.Run(tctx.Ctx, task.ActionsPlanned.ByID(plan.ActionID()), tctx)
 		if err != nil {
 			return err
 		}
@@ -140,10 +128,10 @@ func (h *taskHandler) runActions(sw sw.StateSwitch, args sw.TransitionArgs) erro
 	return nil
 }
 
-func (h *taskHandler) failed(sw sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*taskHandlerContext)
+func (h *taskHandler) FailedState(sw sw.StateSwitch, args sw.TransitionArgs) error {
+	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
-		return errInvalidtaskHandlerContext
+		return sm.ErrInvalidtaskHandlerContext
 	}
 
 	task, ok := sw.(*model.Task)
@@ -153,18 +141,18 @@ func (h *taskHandler) failed(sw sw.StateSwitch, args sw.TransitionArgs) error {
 	}
 
 	// include error in task information
-	if tctx.err != nil {
-		task.Info = tctx.err.Error()
+	if tctx.Err != nil {
+		task.Info = tctx.Err.Error()
 	}
 
 	return nil
 }
 
-func (h *taskHandler) saveState(sw sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) SaveState(sw sw.StateSwitch, args sw.TransitionArgs) error {
 	// check currently queued count of tasks
-	tctx, ok := args.(*taskHandlerContext)
+	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
-		return errInvalidTransitionHandler
+		return sm.ErrInvalidTransitionHandler
 	}
 
 	task, ok := sw.(*model.Task)
@@ -172,7 +160,7 @@ func (h *taskHandler) saveState(sw sw.StateSwitch, args sw.TransitionArgs) error
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertions.Error())
 	}
 
-	if err := tctx.cache.UpdateTask(tctx.ctx, *task); err != nil {
+	if err := tctx.Cache.UpdateTask(tctx.Ctx, *task); err != nil {
 		return errors.Wrap(ErrSaveTask, err.Error())
 	}
 

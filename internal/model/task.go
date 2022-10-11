@@ -39,7 +39,7 @@ const (
 // Action is part of a task, it is resolved from the Firmware configuration
 //
 // Actions transition through states as the action progresses
-// those states are `queued`, `active`, `success`, `failed`.
+// those states are `queued`, `active`, `success`, `FailedState`.
 type Action struct {
 	// ID is a unique identifier for this action
 	// e.g: bmc-<id>

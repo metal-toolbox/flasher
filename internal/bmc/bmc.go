@@ -1,4 +1,4 @@
-package outofband
+package bmc
 
 import (
 	"context"
@@ -29,8 +29,8 @@ var (
 	errBMCLogout = errors.New("bmc logout error")
 )
 
-// bmcQueryor interface defines BMC query methods
-type bmcQueryor interface {
+// Queryor interface defines BMC query methods
+type Queryor interface {
 	// Open logs into the BMC
 	Open(ctx context.Context) error
 	// Close logs out of the BMC, note no context is passed to this method
@@ -45,7 +45,7 @@ type bmc struct {
 	logger *logrus.Logger
 }
 
-func NewBmcQueryor(ctx context.Context, device *model.Device, logger *logrus.Logger) bmcQueryor {
+func NewQueryor(ctx context.Context, device *model.Device, logger *logrus.Logger) Queryor {
 	return &bmc{
 		client: newBmclibv2Client(ctx, device, logger),
 		logger: logger,
@@ -78,7 +78,7 @@ func (b *bmc) Open(ctx context.Context) error {
 			return errors.Wrap(errBMCLoginTimeout, "operation timed out in "+time.Since(startTS).String())
 		}
 
-		if strings.Contains(err.Error(), "401: ") || strings.Contains(err.Error(), "failed to login") {
+		if strings.Contains(err.Error(), "401: ") || strings.Contains(err.Error(), "FailedState to login") {
 			return errors.Wrap(errBMCLoginUnAuthorized, err.Error())
 		}
 

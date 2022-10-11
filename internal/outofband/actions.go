@@ -1,0 +1,141 @@
+package outofband
+
+import (
+	"context"
+
+	sw "github.com/filanov/stateswitch"
+	"github.com/metal-toolbox/flasher/internal/model"
+	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+)
+
+const (
+	// action states
+	//
+	// the SM transitions through these states for each component being updated.
+	stateLoginBMC        sw.State = "loginBMC"
+	stateUploadFirmware  sw.State = "uploadFirmware"
+	stateInstallFirmware sw.State = "installFirmware"
+	stateResetBMC        sw.State = "resetBMC"
+	stateResetHost       sw.State = "resetHost"
+
+	transitionTypeLoginBMC        sw.TransitionType = "logginBMC"
+	transitionTypeInstallFirmware sw.TransitionType = "installingFirmware"
+	transitionTypeUploadFirmware  sw.TransitionType = "uploadingFirmware"
+	transitionTypeResetBMC        sw.TransitionType = "resettingBMC"
+	transitionTypeResetHost       sw.TransitionType = "resettingHost"
+
+	// state, transition for FailedState actions
+	stateInstallFailed sw.State = "installFailed"
+)
+
+func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine, error) {
+	transitions := []sw.TransitionType{
+		transitionTypeLoginBMC,
+		transitionTypeUploadFirmware,
+		transitionTypeInstallFirmware,
+		transitionTypeResetBMC,
+		transitionTypeResetHost,
+	}
+
+	handler := &actionHandler{}
+
+	// The SM has transition rules define the transitionHandler methods
+	// each transitionHandler method is passed as values to the transition rule.
+	transitionsRules := []sw.TransitionRule{
+		{
+			TransitionType:   transitionTypeLoginBMC,
+			SourceStates:     sw.States{sm.StateQueued},
+			DestinationState: stateLoginBMC,
+
+			// Condition for the transition, transition will be executed only if this function return true
+			// Can be nil, in this case it's considered as return true, nil
+			Condition: nil,
+
+			// Transition is users business logic, should not set the state or return next state
+			// If condition returns true this function will be executed
+			Transition: handler.loginBMC,
+
+			// PostTransition will be called if condition and transition are successful.
+			PostTransition: handler.SaveState,
+		},
+
+		{
+			TransitionType:   transitionTypeUploadFirmware,
+			SourceStates:     sw.States{stateLoginBMC},
+			DestinationState: stateUploadFirmware,
+			Condition:        nil,
+			Transition:       handler.uploadFirmware,
+			PostTransition:   handler.SaveState,
+		},
+
+		{
+			TransitionType:   transitionTypeInstallFirmware,
+			SourceStates:     sw.States{stateUploadFirmware},
+			DestinationState: stateInstallFirmware,
+			Condition:        nil,
+			Transition:       handler.uploadFirmware,
+			PostTransition:   handler.SaveState,
+		},
+		{
+			TransitionType:   transitionTypeResetBMC,
+			SourceStates:     sw.States{stateInstallFirmware},
+			DestinationState: stateResetHost,
+			Condition:        handler.conditionalResetBMC,
+			Transition:       handler.resetBMC,
+			PostTransition:   handler.SaveState,
+		},
+		{
+			TransitionType:   transitionTypeResetHost,
+			SourceStates:     sw.States{stateResetHost},
+			DestinationState: sm.StateSuccess,
+			Condition:        handler.conditionalResetHost,
+			Transition:       handler.resetHost,
+			PostTransition:   handler.SaveState,
+		},
+		{
+			TransitionType: sm.TransitionTypeActionFailed,
+			SourceStates: sw.States{
+				stateLoginBMC,
+				stateUploadFirmware,
+				stateInstallFirmware,
+				stateResetBMC,
+				stateResetHost,
+			},
+			DestinationState: stateInstallFailed,
+			Condition:        nil,
+			Transition:       handler.SaveState,
+			PostTransition:   nil,
+		},
+	}
+
+	return sm.NewActionPlanMachine(ctx, actionID, transitions, transitionsRules)
+}
+
+// planInstallActions plans the firmware install actions
+//
+// The given task is updated with Actions based on the FirmwaresPlanned attribute
+// and an actionPlan is returned which is to be executed.
+func planInstallActions(ctx context.Context, task *model.Task) (sm.ActionPlan, error) {
+	plans := make(sm.ActionPlan, 0)
+
+	// each firmware install parameter results in an action
+	for idx, firmware := range task.FirmwaresPlanned {
+		actionID := sm.ActionID(task.ID.String(), firmware.ComponentSlug, idx)
+		m, err := NewActionPlan(ctx, actionID)
+		if err != nil {
+			return nil, err
+		}
+
+		plans = append(plans, m)
+
+		action := model.Action{
+			ID:       actionID,
+			Status:   string(sm.StateQueued),
+			Firmware: task.FirmwaresPlanned[idx],
+		}
+
+		task.ActionsPlanned = append(task.ActionsPlanned, action)
+	}
+
+	return plans, nil
+}
