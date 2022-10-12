@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/bmc"
 	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -55,8 +54,9 @@ type HandlerContext struct {
 	// fwPlanner provides methods to plan the firmware to be installed.
 	FwPlanner firmware.Planner
 
-	// bmc is the BMC client to query the BMC.
-	Bmc    bmc.Queryor
+	// Device provides methods to perform queries on a device.
+	Device model.DeviceQueryor
+
 	Cache  store.Storage
 	Inv    inventory.Inventory
 	Logger *logrus.Logger
@@ -64,11 +64,11 @@ type HandlerContext struct {
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.
 type TaskTransitioner interface {
-	Plan(sw sw.StateSwitch, args sw.TransitionArgs) error
-	Run(sw sw.StateSwitch, args sw.TransitionArgs) error
-	SaveState(sw sw.StateSwitch, args sw.TransitionArgs) error
-	FailedState(sw sw.StateSwitch, args sw.TransitionArgs) error
-	Validate(sw sw.StateSwitch, args sw.TransitionArgs) (bool, error)
+	Plan(task sw.StateSwitch, args sw.TransitionArgs) error
+	Run(task sw.StateSwitch, args sw.TransitionArgs) error
+	SaveState(task sw.StateSwitch, args sw.TransitionArgs) error
+	FailedState(task sw.StateSwitch, args sw.TransitionArgs) error
+	Validate(task sw.StateSwitch, args sw.TransitionArgs) (bool, error)
 }
 
 // TaskStateMachine drives the task

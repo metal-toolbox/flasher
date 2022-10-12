@@ -1,4 +1,4 @@
-package outofband
+package worker
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func initTestWorker() *OutofbandWorker {
+func initTestWorker() *Worker {
 	inv, _ := inventory.NewMockInventory()
-	return &OutofbandWorker{
+	return &Worker{
 		concurrency:  1,
 		taskMachines: sync.Map{},
 		cache:        store.NewCacheStore(),
@@ -38,7 +38,6 @@ func Test_CreateTaskForDevice(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(tasks))
-	assert.Equal(t, model.InstallMethodOutofband, tasks[0].Parameters.InstallMethod)
-	assert.Equal(t, fixtures.Devices[fixtures.Device1.String()], tasks[0].Device)
+	assert.Equal(t, fixtures.Devices[fixtures.Device1.String()], tasks[0].Parameters.Device)
 	assert.Equal(t, model.PlanFromInstalledFirmware, tasks[0].Parameters.FirmwarePlanMethod)
 }

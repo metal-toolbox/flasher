@@ -4,7 +4,6 @@ import (
 	"context"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 )
 
@@ -58,22 +57,20 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 			// PostTransition will be called if condition and transition are successful.
 			PostTransition: handler.SaveState,
 		},
-
 		{
 			TransitionType:   transitionTypeUploadFirmware,
 			SourceStates:     sw.States{stateLoginBMC},
 			DestinationState: stateUploadFirmware,
-			Condition:        nil,
+			Condition:        handler.conditionInstallFirmware,
 			Transition:       handler.uploadFirmware,
 			PostTransition:   handler.SaveState,
 		},
-
 		{
 			TransitionType:   transitionTypeInstallFirmware,
 			SourceStates:     sw.States{stateUploadFirmware},
 			DestinationState: stateInstallFirmware,
 			Condition:        nil,
-			Transition:       handler.uploadFirmware,
+			Transition:       handler.installFirmware,
 			PostTransition:   handler.SaveState,
 		},
 		{
@@ -88,7 +85,7 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 			TransitionType:   transitionTypeResetHost,
 			SourceStates:     sw.States{stateResetHost},
 			DestinationState: sm.StateSuccess,
-			Condition:        handler.conditionalResetHost,
+			Condition:        handler.conditioResetHost,
 			Transition:       handler.resetHost,
 			PostTransition:   handler.SaveState,
 		},
@@ -109,33 +106,4 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 	}
 
 	return sm.NewActionPlanMachine(ctx, actionID, transitions, transitionsRules)
-}
-
-// planInstallActions plans the firmware install actions
-//
-// The given task is updated with Actions based on the FirmwaresPlanned attribute
-// and an actionPlan is returned which is to be executed.
-func planInstallActions(ctx context.Context, task *model.Task) (sm.ActionPlan, error) {
-	plans := make(sm.ActionPlan, 0)
-
-	// each firmware install parameter results in an action
-	for idx, firmware := range task.FirmwaresPlanned {
-		actionID := sm.ActionID(task.ID.String(), firmware.ComponentSlug, idx)
-		m, err := NewActionPlan(ctx, actionID)
-		if err != nil {
-			return nil, err
-		}
-
-		plans = append(plans, m)
-
-		action := model.Action{
-			ID:       actionID,
-			Status:   string(sm.StateQueued),
-			Firmware: task.FirmwaresPlanned[idx],
-		}
-
-		task.ActionsPlanned = append(task.ActionsPlanned, action)
-	}
-
-	return plans, nil
 }

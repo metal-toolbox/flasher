@@ -1,14 +1,16 @@
 package model
 
 import (
+	"context"
 	"net"
 
+	"github.com/bmc-toolbox/common"
 	"github.com/google/uuid"
 )
 
 const (
-	AppKindOutofband = "outofband"
-	AppKindInband    = "inband"
+	AppKindWorker = "worker"
+	AppKindClient = "client"
 
 	InventorySourceYaml          = "Yaml"
 	InventorySourceServerservice = "serverservice"
@@ -19,7 +21,7 @@ const (
 )
 
 // AppKinds returns the supported flasher app kinds
-func AppKinds() []string { return []string{AppKindInband, AppKindOutofband} }
+func AppKinds() []string { return []string{AppKindWorker, AppKindClient} }
 
 // InventorySourceKinds returns the supported asset inventory, firmware configuration sources
 func InventorySourceKinds() []string {
@@ -39,14 +41,6 @@ type Device struct {
 	Model  string
 }
 
-type DeviceFwInstallAttribute struct {
-	Method   string `json:"method"`
-	Status   string `json:"status"`
-	Worker   string `json:"worker"`
-	User     string `json:"user"`
-	Priority int    `json:"priority"`
-}
-
 // Firmware includes a firmware version attributes and is part of FirmwareConfig
 type Firmware struct {
 	Version       string `yaml:"version"`
@@ -57,4 +51,16 @@ type Firmware struct {
 	Vendor        string `yaml:"vendor"`
 	ComponentSlug string `yaml:"componentslug"`
 	Checksum      string `yaml:"checksum"`
+}
+
+// DeviceQueryor interface defines methods to query a device.
+//
+// This is common interface to the ironlib and bmclib libraries.
+type DeviceQueryor interface {
+	// Open logs into the BMC
+	Open(ctx context.Context) error
+	// Close logs out of the BMC, note no context is passed to this method
+	// to allow it to continue to log out when the parent context has been canceled.
+	Close() error
+	Inventory(ctx context.Context) (*common.Device, error)
 }

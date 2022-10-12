@@ -22,7 +22,7 @@ const (
 
 	// PlanPredefinedFirmaware is a TaskParameter attribute that indicates the
 	// firmware to be installed was provided at task initialization (through a CLI parameter or inventory device attribute)
-	// and so no futher firmware planning is required.
+	// and so no further firmware planning is required.
 	PlanUseDefinedFirmware FirmwarePlanMethod = "predefined"
 
 	// PlanFromFirmwareSet is a TaskParameter attribute that indicates a
@@ -42,9 +42,13 @@ const (
 // those states are `queued`, `active`, `success`, `FailedState`.
 type Action struct {
 	// ID is a unique identifier for this action
-	// e.g: bmc-<id>
 	ID string
 
+	// The parent task identifier
+	TaskID string
+
+	// Method of install
+	InstallMethod InstallMethod
 	// BMCTaskID ...
 
 	// Status indicates the action status
@@ -100,34 +104,28 @@ type Task struct {
 	// Parameters for this task
 	Parameters TaskParameters
 
-	// Device attributes
-	Device Device
-
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	CompletedAt time.Time
 }
 
+// SetState implements the stateswitch statemachine interface
 func (t *Task) SetState(state stateswitch.State) error {
 	t.Status = string(state)
 	return nil
 }
 
-func (s *Task) State() stateswitch.State {
-	return stateswitch.State(s.Status)
+// State implements the stateswitch statemachine interface
+func (t *Task) State() stateswitch.State {
+	return stateswitch.State(t.Status)
 }
 
 // NewTask returns a new Task
 //
 // method, device parameters are required.
 // firmwareSetID, firmware are optional and mutually exclusive.
-func NewTask(method InstallMethod, firmwareSetID string, firmware []Firmware) (Task, error) {
-	task := Task{
-		ID: uuid.New(),
-		Parameters: TaskParameters{
-			InstallMethod: method,
-		},
-	}
+func NewTask(firmwareSetID string, firmware []Firmware) (Task, error) {
+	task := Task{ID: uuid.New()}
 
 	if firmwareSetID != "" && len(firmware) > 0 {
 		return task, errors.New("fasdsad")
@@ -168,13 +166,13 @@ type TaskParameters struct {
 	// the task CreatedAt attribute is considered.
 	Priority int `json:"priority"`
 
-	// InstallMethod is one of inband/outofband
-	InstallMethod InstallMethod `json:"installMethod"`
-
 	// The firmware set ID is conditionally set at task initialization based on the FirmwareResolveMethod.
 	FirmwareSetID string `json:"firmwareSetID"`
 
 	// Flasher determines the firmware to be installed for each component based on the firmware plan method,
 	// The method is set at task initialization
 	FirmwarePlanMethod FirmwarePlanMethod `json:"firmwarePlanMethod"`
+
+	// Device attributes
+	Device Device `json:"-"`
 }

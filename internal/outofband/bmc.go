@@ -1,4 +1,4 @@
-package bmc
+package outofband
 
 import (
 	"context"
@@ -29,23 +29,13 @@ var (
 	errBMCLogout = errors.New("bmc logout error")
 )
 
-// Queryor interface defines BMC query methods
-type Queryor interface {
-	// Open logs into the BMC
-	Open(ctx context.Context) error
-	// Close logs out of the BMC, note no context is passed to this method
-	// to allow it to continue to log out when the parent context has been cancelled.
-	Close() error
-	Inventory(ctx context.Context) (*common.Device, error)
-}
-
 // bmc wraps the bmclib client and implements the bmcQueryor interface
 type bmc struct {
 	client *bmclibv2.Client
 	logger *logrus.Logger
 }
 
-func NewQueryor(ctx context.Context, device *model.Device, logger *logrus.Logger) Queryor {
+func NewDeviceQueryor(ctx context.Context, device *model.Device, logger *logrus.Logger) model.DeviceQueryor {
 	return &bmc{
 		client: newBmclibv2Client(ctx, device, logger),
 		logger: logger,

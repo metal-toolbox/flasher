@@ -16,7 +16,8 @@ const (
 )
 
 var (
-	ErrActionTransition = errors.New("error in action transition")
+	ErrActionTransition    = errors.New("error in action transition")
+	ErrActionTypeAssertion = errors.New("error asserting the Action type")
 )
 
 type ActionPlanMachine struct {

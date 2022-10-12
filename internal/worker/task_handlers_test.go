@@ -1,24 +1,24 @@
-package outofband
+package worker
 
 import (
 	"context"
 	"testing"
 
-	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/bmc"
 	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/internal/store"
+
+	sw "github.com/filanov/stateswitch"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
 func newTaskFixture(status string) *model.Task {
-	task, _ := model.NewTask(model.InstallMethodOutofband, "", nil)
+	task, _ := model.NewTask("", nil)
 	task.Status = string(status)
 	task.FirmwaresPlanned = fixtures.Firmware
 
@@ -29,7 +29,7 @@ func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.Handl
 	inv, _ := inventory.NewMockInventory()
 	return &sm.HandlerContext{
 		TaskID:    taskID,
-		Bmc:       bmc.NewMockQueryor(context.Background(), device, logrus.New()),
+		Device:    fixtures.NewMockDeviceQueryor(context.Background(), device, logrus.New()),
 		Ctx:       context.Background(),
 		Cache:     store.NewCacheStore(),
 		Inv:       inv,
@@ -39,7 +39,7 @@ func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.Handl
 }
 
 func Test_NewTaskStateMachine(t *testing.T) {
-	task, _ := model.NewTask(model.InstallMethodOutofband, "", nil)
+	task, _ := model.NewTask("", nil)
 	task.Status = string(sm.StateQueued)
 
 	tests := []struct {

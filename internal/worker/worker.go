@@ -1,4 +1,4 @@
-package outofband
+package worker
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/metal-toolbox/flasher/internal/bmc"
 	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -20,7 +19,7 @@ const (
 	aquireDeviceLimit = 1
 )
 
-type OutofbandWorker struct {
+type Worker struct {
 	concurrency int
 	// map of task IDs to task state machines
 	taskMachines sync.Map
@@ -30,8 +29,8 @@ type OutofbandWorker struct {
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
-func NewOutofbandWorker(concurrency int, cache store.Storage, inv inventory.Inventory, logger *logrus.Logger) *OutofbandWorker {
-	return &OutofbandWorker{
+func NewWorker(concurrency int, cache store.Storage, inv inventory.Inventory, logger *logrus.Logger) *Worker {
+	return &Worker{
 		concurrency:  concurrency,
 		taskMachines: sync.Map{},
 		cache:        cache,
@@ -46,7 +45,7 @@ func NewOutofbandWorker(concurrency int, cache store.Storage, inv inventory.Inve
 // for devices that require updates.
 //
 // It proceeds to queue and install updates on those devices.
-func (o *OutofbandWorker) Run(ctx context.Context) {
+func (o *Worker) RunWorker(ctx context.Context) {
 	tickQueueRun := time.NewTicker(time.Duration(10) * time.Second).C
 
 	for {
@@ -60,7 +59,7 @@ func (o *OutofbandWorker) Run(ctx context.Context) {
 	}
 }
 
-func (o *OutofbandWorker) concurrencyLimit() bool {
+func (o *Worker) concurrencyLimit() bool {
 	var count int
 
 	o.taskMachines.Range(func(key any, value any) bool {
@@ -71,19 +70,19 @@ func (o *OutofbandWorker) concurrencyLimit() bool {
 	return count >= o.concurrency
 }
 
-func (o *OutofbandWorker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
+func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
 	return &sm.HandlerContext{
 		TaskID:    taskID,
 		Ctx:       ctx,
 		FwPlanner: firmware.NewPlanner(skipCompareInstalled, device.Vendor, device.Model),
-		Bmc:       bmc.NewQueryor(ctx, device, o.logger),
-		Cache:     o.cache,
-		Inv:       o.inv,
-		Logger:    o.logger,
+
+		Cache:  o.cache,
+		Inv:    o.inv,
+		Logger: o.logger,
 	}
 }
 
-func (o *OutofbandWorker) run(ctx context.Context) {
+func (o *Worker) run(ctx context.Context) {
 	tasks, err := o.cache.TasksByStatus(ctx, string(sm.StateQueued))
 	if err != nil {
 		if errors.Is(err, store.ErrNoTasksFound) {
@@ -102,7 +101,7 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 		handler := &taskHandler{}
 
 		// task handler context
-		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String(), &task.Device, task.Parameters.ForceInstall)
+		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String(), &task.Parameters.Device, task.Parameters.ForceInstall)
 
 		// init state machine for task
 		sm, err := sm.NewTaskStateMachine(ctx, &tasks[idx], handler)
@@ -126,7 +125,7 @@ func (o *OutofbandWorker) run(ctx context.Context) {
 	}
 }
 
-func (o *OutofbandWorker) queue(ctx context.Context) {
+func (o *Worker) queue(ctx context.Context) {
 	devices, err := o.inv.ListDevicesForFwInstall(ctx, aquireDeviceLimit)
 	if err != nil {
 		o.logger.Warn(err)
@@ -153,14 +152,14 @@ func (o *OutofbandWorker) queue(ctx context.Context) {
 	}
 }
 
-func (o *OutofbandWorker) createTaskForDevice(ctx context.Context, device model.Device) error {
-	task, err := model.NewTask(model.InstallMethodOutofband, "", nil)
+func (o *Worker) createTaskForDevice(ctx context.Context, device model.Device) error {
+	task, err := model.NewTask("", nil)
 	if err != nil {
 		return err
 	}
 
 	task.Status = string(sm.StateQueued)
-	task.Device = device
+	task.Parameters.Device = device
 
 	if _, err := o.cache.AddTask(ctx, task); err != nil {
 		return err

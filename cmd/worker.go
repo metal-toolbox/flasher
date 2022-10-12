@@ -11,26 +11,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type outofbandFlags struct {
+type workerFlags struct {
+	installMethod     string
 	inventorySource   string
 	fwConfigFile      string
 	inventoryYamlFile string
 }
 
 var (
-	outofbandFlagsSet = &outofbandFlags{}
+	workerFlagSet = &workerFlags{}
 )
 
-var cmdOutofband = &cobra.Command{
-	Use:   "outofband",
-	Short: "Install firmware out-of-band",
+var cmdWorker = &cobra.Command{
+	Use:   "worker",
+	Short: "Run worker to identify and install firmware",
 	Run: func(cmd *cobra.Command, args []string) {
-		runOutofband(cmd.Context())
+		runWorker(cmd.Context())
 	},
 }
 
-func runOutofband(ctx context.Context) {
-	flasher, err := app.New(ctx, model.AppKindOutofband, outofbandFlagsSet.inventorySource, cfgFile, store.NewCacheStore())
+func runWorker(ctx context.Context) {
+	var logLevel int
+
+	switch {
+	case debug:
+		logLevel = model.LogLevelDebug
+	case trace:
+		logLevel = model.LogLevelTrace
+	default:
+		logLevel = model.LogLevelInfo
+	}
+
+	flasher, err := app.New(ctx, model.AppKindWorker, workerFlagSet.inventorySource, cfgFile, logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,7 +65,7 @@ func runOutofband(ctx context.Context) {
 
 	switch flasher.Config.AppKind {
 	case model.InventorySourceYaml:
-		//inv, err = inventory.NewYamlInventory(outofbandFlagsSet.inventoryYamlFile)
+		//inv, err = inventory.NewYamlInventory(workerFlagSet.inventoryYamlFile)
 	case model.InventorySourceServerservice:
 
 	}
@@ -75,10 +87,10 @@ func runOutofband(ctx context.Context) {
 }
 
 func init() {
-	cmdOutofband.PersistentFlags().StringVar(&outofbandFlagsSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverService' or 'Yaml'")
-	cmdOutofband.MarkPersistentFlagRequired("inventory-source")
+	cmdWorker.PersistentFlags().StringVar(&workerFlagSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverService' or 'Yaml'")
+	cmdWorker.MarkPersistentFlagRequired("inventory-source")
 
-	cmdOutofband.PersistentFlags().StringVar(&outofbandFlagsSet.inventorySource, "inventory-yaml", "", "inventory YAML containing devices and firmware configuration")
+	cmdWorker.PersistentFlags().StringVar(&workerFlagSet.inventorySource, "inventory-yaml", "", "inventory YAML containing devices and firmware configuration")
 
-	rootCmd.AddCommand(cmdOutofband)
+	rootCmd.AddCommand(cmdWorker)
 }

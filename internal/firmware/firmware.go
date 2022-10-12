@@ -1,7 +1,8 @@
 package firmware
 
 import (
-	"github.com/bmc-toolbox/common"
+	"context"
+
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -10,7 +11,7 @@ import (
 type Planner interface {
 	// FromInstalled identifies candidate firmware from the inventory
 	// and returns the firmware applicable for the device based on the device components.
-	FromInstalled(device *common.Device) ([]model.Firmware, error)
+	FromInstalled(ctx context.Context, deviceID string) ([]model.Firmware, error)
 }
 
 type Plan struct {
@@ -35,7 +36,7 @@ func NewPlanner(skipVersionCompare bool, deviceVendor, deviceModel string) Plann
 	}
 }
 
-func (p *Plan) FromInstalled(device *common.Device) ([]model.Firmware, error) {
+func (p *Plan) FromInstalled(ctx context.Context, deviceID string) ([]model.Firmware, error) {
 	return nil, nil
 }
 
@@ -45,6 +46,6 @@ func NewMockPlanner() Planner {
 	return &MockPlan{}
 }
 
-func (m *MockPlan) FromInstalled(device *common.Device) ([]model.Firmware, error) {
+func (m *MockPlan) FromInstalled(ctx context.Context, deviceID string) ([]model.Firmware, error) {
 	return fixtures.Firmware, nil
 }
