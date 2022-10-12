@@ -3,19 +3,18 @@ package cmd
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/metal-toolbox/flasher/internal/app"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
+	"github.com/metal-toolbox/flasher/internal/worker"
 	"github.com/spf13/cobra"
 )
 
 type workerFlags struct {
-	installMethod     string
-	inventorySource   string
-	fwConfigFile      string
-	inventoryYamlFile string
+	inventorySource string
 }
 
 var (
@@ -53,6 +52,7 @@ func runWorker(ctx context.Context) {
 
 	// routine listens for termination signal and cancels the context
 	flasher.SyncWG.Add(1)
+
 	go func() {
 		defer flasher.SyncWG.Done()
 
@@ -60,37 +60,46 @@ func runWorker(ctx context.Context) {
 		cancelFunc()
 	}()
 
-	cache := store.NewCacheStore()
 	var inv inventory.Inventory
 
-	switch flasher.Config.AppKind {
-	case model.InventorySourceYaml:
-		//inv, err = inventory.NewYamlInventory(workerFlagSet.inventoryYamlFile)
-	case model.InventorySourceServerservice:
-
+	switch {
+	case strings.HasSuffix(workerFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerFlagSet.inventorySource, ".yaml"):
+		inv, err = inventory.NewYamlInventory(workerFlagSet.inventorySource)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case workerFlagSet.inventorySource == model.InventorySourceServerservice:
+		inv, err = inventory.NewServerserviceInventory()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// - figure firmware configuration
-	//  - on failure
-	//   - serverservice
-	//    - update flasher attribute in server
-	//   - Yaml
+	concurrency := 2
+	w := worker.New(concurrency, flasher.SyncWG, store.NewMemStore(), inv, flasher.Logger)
 
-	// - add device to store in state queued
+	flasher.SyncWG.Add(1)
+
+	go func() {
+		defer flasher.SyncWG.Done()
+
+		w.Run(ctx)
+	}()
 
 	flasher.Logger.Trace("wait for goroutines..")
 	flasher.SyncWG.Wait()
 }
 
 func init() {
-	cmdWorker.PersistentFlags().StringVar(&workerFlagSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverService' or 'Yaml'")
-	cmdWorker.MarkPersistentFlagRequired("inventory-source")
+	cmdWorker.PersistentFlags().StringVar(&workerFlagSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
 
-	cmdWorker.PersistentFlags().StringVar(&workerFlagSet.inventorySource, "inventory-yaml", "", "inventory YAML containing devices and firmware configuration")
+	if err := cmdWorker.MarkPersistentFlagRequired("inventory-source"); err != nil {
+		log.Fatal(err)
+	}
 
 	rootCmd.AddCommand(cmdWorker)
 }

@@ -31,7 +31,7 @@ func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.Handl
 		TaskID:    taskID,
 		Device:    fixtures.NewMockDeviceQueryor(context.Background(), device, logrus.New()),
 		Ctx:       context.Background(),
-		Cache:     store.NewCacheStore(),
+		Store:     store.NewMemStore(),
 		Inv:       inv,
 		FwPlanner: firmware.NewMockPlanner(),
 		Logger:    logrus.New(),
@@ -156,7 +156,7 @@ func Test_Transitions(t *testing.T) {
 			}
 
 			// lookup task from cache
-			task, _ := tctx.Cache.TaskByID(ctx, tc.task.ID.String())
+			task, _ := tctx.Store.TaskByID(ctx, tc.task.ID.String())
 
 			assert.Equal(t, string(tc.expectedState), task.Status)
 

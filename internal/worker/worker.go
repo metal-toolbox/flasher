@@ -21,31 +21,33 @@ const (
 
 type Worker struct {
 	concurrency int
+	syncWG      *sync.WaitGroup
 	// map of task IDs to task state machines
 	taskMachines sync.Map
-	cache        store.Storage
+	store        store.Storage
 	inv          inventory.Inventory
 	logger       *logrus.Logger
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
-func NewWorker(concurrency int, cache store.Storage, inv inventory.Inventory, logger *logrus.Logger) *Worker {
+func New(concurrency int, syncWG *sync.WaitGroup, taskStore store.Storage, inv inventory.Inventory, logger *logrus.Logger) *Worker {
 	return &Worker{
 		concurrency:  concurrency,
+		syncWG:       syncWG,
 		taskMachines: sync.Map{},
-		cache:        cache,
+		store:        taskStore,
 		inv:          inv,
 		logger:       logger,
 	}
 }
 
-// RunWorker runs the fimware install worker.
+// Run runs the fimware install worker.
 //
 // A firmware install worker runs in a loop, querying the inventory
 // for devices that require updates.
 //
 // It proceeds to queue and install updates on those devices.
-func (o *Worker) RunWorker(ctx context.Context) {
+func (o *Worker) Run(ctx context.Context) {
 	tickQueueRun := time.NewTicker(time.Duration(10) * time.Second).C
 
 	for {
@@ -76,14 +78,14 @@ func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, devic
 		Ctx:       ctx,
 		FwPlanner: firmware.NewPlanner(skipCompareInstalled, device.Vendor, device.Model),
 
-		Cache:  o.cache,
+		Store:  o.store,
 		Inv:    o.inv,
 		Logger: o.logger,
 	}
 }
 
 func (o *Worker) run(ctx context.Context) {
-	tasks, err := o.cache.TasksByStatus(ctx, string(sm.StateQueued))
+	tasks, err := o.store.TasksByStatus(ctx, string(sm.StateQueued))
 	if err != nil {
 		if errors.Is(err, store.ErrNoTasksFound) {
 			return
@@ -161,7 +163,7 @@ func (o *Worker) createTaskForDevice(ctx context.Context, device model.Device) e
 	task.Status = string(sm.StateQueued)
 	task.Parameters.Device = device
 
-	if _, err := o.cache.AddTask(ctx, task); err != nil {
+	if _, err := o.store.AddTask(ctx, task); err != nil {
 		return err
 	}
 

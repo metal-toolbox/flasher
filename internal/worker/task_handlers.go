@@ -48,7 +48,7 @@ func (h *taskHandler) planFromInstalledFirmware(tctx *sm.HandlerContext, device 
 	ctx := tctx.Ctx
 
 	// retrieve task from cache
-	task, err := tctx.Cache.TaskByID(ctx, tctx.TaskID)
+	task, err := tctx.Store.TaskByID(ctx, tctx.TaskID)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (h *taskHandler) planFromInstalledFirmware(tctx *sm.HandlerContext, device 
 	}
 
 	// 	update task in cache
-	if err := tctx.Cache.UpdateTask(ctx, task); err != nil {
+	if err := tctx.Store.UpdateTask(ctx, task); err != nil {
 		return err
 	}
 
@@ -152,7 +152,7 @@ func (h *taskHandler) SaveState(task sw.StateSwitch, args sw.TransitionArgs) err
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
-	if err := tctx.Cache.UpdateTask(tctx.Ctx, *t); err != nil {
+	if err := tctx.Store.UpdateTask(tctx.Ctx, *t); err != nil {
 		return errors.Wrap(ErrSaveTask, err.Error())
 	}
 

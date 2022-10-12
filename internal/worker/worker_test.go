@@ -18,7 +18,7 @@ func initTestWorker() *Worker {
 	return &Worker{
 		concurrency:  1,
 		taskMachines: sync.Map{},
-		cache:        store.NewCacheStore(),
+		store:        store.NewMemStore(),
 		inv:          inv,
 	}
 }
@@ -27,12 +27,13 @@ func Test_CreateTaskForDevice(t *testing.T) {
 	worker := initTestWorker()
 
 	ctx := context.Background()
+
 	err := worker.createTaskForDevice(ctx, fixtures.Devices[fixtures.Device1.String()])
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tasks, err := worker.cache.TasksByStatus(ctx, string(sm.StateQueued))
+	tasks, err := worker.store.TasksByStatus(ctx, string(sm.StateQueued))
 	if err != nil {
 		t.Fatal(err)
 	}

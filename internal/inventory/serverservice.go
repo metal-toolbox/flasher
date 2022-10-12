@@ -64,6 +64,12 @@ func (s *Serverservice) AquireDevice(ctx context.Context, id string) (model.Devi
 	return model.Device{}, nil
 }
 
+// ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
+// The lock release mechnism is left to the implementation.
+func (s *Serverservice) ReleaseDevice(ctx context.Context, id string) error {
+	return nil
+}
+
 func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
 
 	// looks up device inventory
@@ -83,8 +89,8 @@ type taskAttribute struct {
 }
 
 // DeviceFwInstallTaskAttributes - gets the firmware install attributes for the device.
-func (s *Serverservice) DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (error, model.TaskParameters) {
-	return nil, model.TaskParameters{}
+func (s *Serverservice) DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (model.TaskParameters, error) {
+	return model.TaskParameters{}, nil
 }
 
 // SetDeviceFwInstallTaskAttributes - sets the firmware install attributes to the given values on a device.

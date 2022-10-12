@@ -16,18 +16,18 @@ var (
 	ErrTaskActionUpdate = errors.New("error in task action update")
 )
 
-type Cache struct {
+type MemStore struct {
 	mu *sync.RWMutex
 
 	// tasks is a map of task IDs to tasks
 	tasks map[string]model.Task
 }
 
-func NewCacheStore() *Cache {
-	return &Cache{tasks: map[string]model.Task{}, mu: &sync.RWMutex{}}
+func NewMemStore() *MemStore {
+	return &MemStore{tasks: map[string]model.Task{}, mu: &sync.RWMutex{}}
 }
 
-func (c *Cache) AddTask(ctx context.Context, task model.Task) (uuid.UUID, error) {
+func (c *MemStore) AddTask(ctx context.Context, task model.Task) (uuid.UUID, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -39,7 +39,7 @@ func (c *Cache) AddTask(ctx context.Context, task model.Task) (uuid.UUID, error)
 	return id, nil
 }
 
-func (c *Cache) UpdateTask(ctx context.Context, task model.Task) error {
+func (c *MemStore) UpdateTask(ctx context.Context, task model.Task) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -50,7 +50,7 @@ func (c *Cache) UpdateTask(ctx context.Context, task model.Task) error {
 	return nil
 }
 
-func (c *Cache) TasksByStatus(ctx context.Context, status string) ([]model.Task, error) {
+func (c *MemStore) TasksByStatus(ctx context.Context, status string) ([]model.Task, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -69,14 +69,14 @@ func (c *Cache) TasksByStatus(ctx context.Context, status string) ([]model.Task,
 	return tasks, nil
 }
 
-func (c *Cache) TaskByID(ctx context.Context, id string) (model.Task, error) {
+func (c *MemStore) TaskByID(ctx context.Context, id string) (model.Task, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	return c.tasks[id], nil
 }
 
-func (c *Cache) UpdateTaskAction(ctx context.Context, taskID string, actionID string, update model.Action) error {
+func (c *MemStore) UpdateTaskAction(ctx context.Context, taskID string, actionID string, update model.Action) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -95,7 +95,7 @@ func (c *Cache) UpdateTaskAction(ctx context.Context, taskID string, actionID st
 	return errors.Wrap(ErrTaskActionUpdate, "task: "+taskID+" action not found: "+actionID)
 }
 
-func (c *Cache) RemoveTask(ctx context.Context, id string) error {
+func (c *MemStore) RemoveTask(ctx context.Context, id string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

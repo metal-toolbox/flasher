@@ -57,7 +57,7 @@ type HandlerContext struct {
 	// Device provides methods to perform queries on a device.
 	Device model.DeviceQueryor
 
-	Cache  store.Storage
+	Store  store.Storage
 	Inv    inventory.Inventory
 	Logger *logrus.Logger
 }

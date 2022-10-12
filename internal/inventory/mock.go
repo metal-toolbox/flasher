@@ -35,8 +35,8 @@ func (s *Mock) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, de
 }
 
 // DeviceFwInstallTaskAttributes - gets the firmware install attributes for the device.
-func (s *Mock) DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (error, model.TaskParameters) {
-	return nil, model.TaskParameters{}
+func (s *Mock) DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (model.TaskParameters, error) {
+	return model.TaskParameters{}, nil
 }
 
 // SetDeviceFwInstallTaskAttributes - sets the firmware install attributes to the given values on a device.

@@ -23,7 +23,7 @@ func (h *actionHandler) loginBMC(a sw.StateSwitch, args sw.TransitionArgs) error
 	}
 
 	// init out of band device queryor
-	task, err := tctx.Cache.TaskByID(tctx.Ctx, action.TaskID)
+	task, err := tctx.Store.TaskByID(tctx.Ctx, action.TaskID)
 	if err != nil {
 		return err
 	}
