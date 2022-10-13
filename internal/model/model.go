@@ -8,11 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	AppKindWorker = "worker"
-	AppKindClient = "client"
+type AppKind string
 
-	InventorySourceYaml          = "Yaml"
+const (
+	AppKindWorker AppKind = "worker"
+	AppKindClient AppKind = "client"
+
+	InventorySourceYaml          = "yaml"
 	InventorySourceServerservice = "serverservice"
 
 	LogLevelInfo  = 0
@@ -21,7 +23,7 @@ const (
 )
 
 // AppKinds returns the supported flasher app kinds
-func AppKinds() []string { return []string{AppKindWorker, AppKindClient} }
+func AppKinds() []AppKind { return []AppKind{AppKindWorker, AppKindClient} }
 
 // InventorySourceKinds returns the supported asset inventory, firmware configuration sources
 func InventorySourceKinds() []string {
@@ -36,9 +38,13 @@ type Device struct {
 	BmcUsername string
 	BmcPassword string
 
+	// Inventory attribute
+	State string
+
 	// Manufacturer attributes
 	Vendor string
 	Model  string
+	Serial string
 }
 
 // Firmware includes a firmware version attributes and is part of FirmwareConfig

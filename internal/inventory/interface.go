@@ -20,12 +20,23 @@ type Inventory interface {
 	// The lock release mechnism is left to the implementation.
 	ReleaseDevice(ctx context.Context, id string) error
 
-	// SetDeviceFwInstallTaskAttributes - sets the firmware install attributes to the given value on a device.
-	SetDeviceFwInstallTaskAttributes(ctx context.Context, taskID, status, info, workerID string) error
+	// SetFwInstallAttributes - sets the firmware install attributes for a device.
+	SetFwInstallAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error
 
-	// DeviceFwInstallTaskAttributes - gets the firmware install attributes to the given value for a device.
-	DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (model.TaskParameters, error)
+	// FwInstallAttributes - gets the firmware install attributes to the given value for a device.
+	FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error)
 
 	// FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
 	FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error)
+}
+
+// InstallAttributes is the server service attribute stored in serverservice
+type InstallAttributes struct {
+	model.TaskParameters `json:"parameters"`
+
+	FlasherTaskID string `json:"flasher_task_id"`
+	Status        string `json:"status"`
+	Info          string `json:"info"`
+	Requester     string `json:"requester"`
+	Worker        string `json:"worker"`
 }

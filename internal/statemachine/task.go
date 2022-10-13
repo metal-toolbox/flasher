@@ -14,14 +14,6 @@ import (
 )
 
 const (
-	// task states
-	//
-	// states the task transitions through
-	StateQueued  sw.State = "queued"
-	StateActive  sw.State = "active"
-	StateSuccess sw.State = "success"
-	StateFailed  sw.State = "failed"
-
 	Plan       sw.TransitionType = "plan"
 	Run        sw.TransitionType = "run"
 	TaskFailed sw.TransitionType = "taskFailed"
@@ -92,8 +84,8 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	// each transitionHandler method is passed as values to the transition rule.
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   Plan,
-		SourceStates:     sw.States{StateQueued},
-		DestinationState: StateActive,
+		SourceStates:     sw.States{model.StateQueued},
+		DestinationState: model.StateActive,
 
 		// Condition for the transition, transition will be executed only if this function return true
 		// Can be nil, in this case it's considered as return true, nil
@@ -109,8 +101,8 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   Run,
-		SourceStates:     sw.States{StateActive},
-		DestinationState: StateSuccess,
+		SourceStates:     sw.States{model.StateActive},
+		DestinationState: model.StateSuccess,
 		//	Condition:        handler.Validate,
 		Transition:     handler.Run,
 		PostTransition: handler.SaveState,
@@ -118,8 +110,8 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TaskFailed,
-		SourceStates:     sw.States{StateActive, StateQueued},
-		DestinationState: StateFailed,
+		SourceStates:     sw.States{model.StateActive, model.StateQueued},
+		DestinationState: model.StateFailed,
 		Condition:        nil,
 		Transition:       handler.FailedState,
 		PostTransition:   handler.SaveState,
@@ -147,7 +139,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 			task.Info = err.Error()
 			// errors from these methods are ignored
 			// so as to not overwrite the original error
-			_ = task.SetState(sw.State(StateFailed))
+			_ = task.SetState(sw.State(model.StateFailed))
 			_ = handler.SaveState(task, tctx)
 		}
 	}()

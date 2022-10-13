@@ -189,7 +189,7 @@ func planInstallActions(ctx context.Context, task *model.Task) (sm.ActionPlan, e
 			//
 			// For now this is hardcoded to outofband.
 			InstallMethod: model.InstallMethodOutofband,
-			Status:        string(sm.StateQueued),
+			Status:        string(model.StateQueued),
 			Firmware:      task.FirmwaresPlanned[idx],
 		}
 

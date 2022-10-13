@@ -9,7 +9,7 @@ import (
 
 type Mock struct{}
 
-func NewMockInventory() (*Mock, error) {
+func NewMockInventory() (Inventory, error) {
 	return &Mock{}, nil
 }
 
@@ -34,17 +34,17 @@ func (s *Mock) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, de
 	return fixtures.Firmware, nil
 }
 
-// DeviceFwInstallTaskAttributes - gets the firmware install attributes for the device.
-func (s *Mock) DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (model.TaskParameters, error) {
-	return model.TaskParameters{}, nil
+// FwInstallAttributes - gets the firmware install attributes for the device.
+func (s *Mock) FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
+	return InstallAttributes{}, nil
 }
 
-// SetDeviceFwInstallTaskAttributes - sets the firmware install attributes to the given values on a device.
-func (s *Mock) SetDeviceFwInstallTaskAttributes(ctx context.Context, taskID, status, info, workerID string) error {
+// SetFwInstallAttributes - sets the firmware install attributes to the given values on a device.
+func (s *Mock) SetFwInstallAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error {
 	return nil
 }
 
 // ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
-func (s *Mock) ReleaseDevice(ctx context.Context, ID string) error {
+func (s *Mock) ReleaseDevice(ctx context.Context, id string) error {
 	return nil
 }

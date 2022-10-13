@@ -40,7 +40,7 @@ func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.Handl
 
 func Test_NewTaskStateMachine(t *testing.T) {
 	task, _ := model.NewTask("", nil)
-	task.Status = string(sm.StateQueued)
+	task.Status = string(model.StateQueued)
 
 	tests := []struct {
 		name string
@@ -48,7 +48,7 @@ func Test_NewTaskStateMachine(t *testing.T) {
 	}{
 		{
 			"new task statemachine is created",
-			newTaskFixture(string(sm.StateQueued)),
+			newTaskFixture(string(model.StateQueued)),
 		},
 	}
 
@@ -79,41 +79,41 @@ func Test_Transitions(t *testing.T) {
 	}{
 		{
 			"Queued to Active",
-			newTaskFixture(string(sm.StateQueued)),
+			newTaskFixture(string(model.StateQueued)),
 			[]sw.TransitionType{sm.Plan},
-			string(sm.StateActive),
+			string(model.StateActive),
 			false,
 			false,
 		},
 		{
 			"Active to Success",
-			newTaskFixture(string(sm.StateActive)),
+			newTaskFixture(string(model.StateActive)),
 			[]sw.TransitionType{sm.Run},
-			string(sm.StateSuccess),
+			string(model.StateSuccess),
 			false,
 			false,
 		},
 		{
 			"Queued to Failed",
-			newTaskFixture(string(sm.StateActive)),
+			newTaskFixture(string(model.StateActive)),
 			[]sw.TransitionType{sm.TaskFailed},
-			string(sm.StateFailed),
+			string(model.StateFailed),
 			true,
 			false,
 		},
 		{
 			"Active to Failed",
-			newTaskFixture(string(sm.StateQueued)),
+			newTaskFixture(string(model.StateQueued)),
 			[]sw.TransitionType{sm.TaskFailed},
-			string(sm.StateFailed),
+			string(model.StateFailed),
 			true,
 			false,
 		},
 		{
 			"Success to Active fails - invalid transition",
-			newTaskFixture(string(sm.StateSuccess)),
+			newTaskFixture(string(model.StateSuccess)),
 			[]sw.TransitionType{sm.Run},
-			string(sm.StateFailed),
+			string(model.StateFailed),
 			true,
 			true,
 		},
@@ -174,7 +174,7 @@ func Test_Transitions(t *testing.T) {
 				s := "no transition rule found for transition type 'run' and state 'success': error in task transition"
 				assert.Equal(t, s, err.Error())
 				assert.Equal(t, s, task.Info)
-				assert.Equal(t, string(sm.StateFailed), task.Status)
+				assert.Equal(t, string(model.StateFailed), task.Status)
 			}
 		})
 	}

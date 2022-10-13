@@ -17,13 +17,12 @@ var (
 
 // Yaml type implements the inventory interface
 type Yaml struct {
-	YamlFile     string
-	fwConfigFile string
+	YamlFile string
 }
 
 // NewYamlInventory returns a Yaml type that implements the inventory interface.
-func NewYamlInventory(YamlFile string) (Inventory, error) {
-	return &Yaml{YamlFile: YamlFile}, nil
+func NewYamlInventory(yamlFile string) (Inventory, error) {
+	return &Yaml{YamlFile: yamlFile}, nil
 }
 
 func (c *Yaml) ListDevicesForFwInstall(ctx context.Context, limit int) ([]model.Device, error) {
@@ -44,14 +43,14 @@ func (c *Yaml) ReleaseDevice(ctx context.Context, id string) error {
 	return nil
 }
 
-// SetDeviceFwInstallTaskAttributes - sets the firmware install attributes to the given value on a device.
-func (c *Yaml) SetDeviceFwInstallTaskAttributes(ctx context.Context, taskID, status, info, workerID string) error {
+// SetFwInstallAttributes - sets the firmware install attributes to the given value on a device.
+func (c *Yaml) SetFwInstallAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error {
 	return nil
 }
 
-// DeviceFwInstallTaskAttributes - gets the firmware install attributes to the given value for a device.
-func (c *Yaml) DeviceFwInstallTaskAttributes(ctx context.Context, deviceID string) (model.TaskParameters, error) {
-	return model.TaskParameters{}, nil
+// FwInstallAttributes - gets the firmware install attributes to the given value for a device.
+func (c *Yaml) FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
+	return InstallAttributes{}, nil
 }
 
 // FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.

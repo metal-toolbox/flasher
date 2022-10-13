@@ -13,6 +13,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var cmdRun = &cobra.Command{
+	Use:   "run",
+	Short: "Run flasher worker",
+	Run: func(cmd *cobra.Command, args []string) {
+		runWorker(cmd.Context())
+	},
+}
+
+// run worker command
 type workerFlags struct {
 	inventorySource string
 }
@@ -69,7 +78,7 @@ func runWorker(ctx context.Context) {
 			log.Fatal(err)
 		}
 	case workerFlagSet.inventorySource == model.InventorySourceServerservice:
-		inv, err = inventory.NewServerserviceInventory()
+		inv, err = inventory.NewServerserviceInventory(flasher.Config)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -101,5 +110,6 @@ func init() {
 		log.Fatal(err)
 	}
 
-	rootCmd.AddCommand(cmdWorker)
+	cmdRun.AddCommand(cmdWorker)
+	rootCmd.AddCommand(cmdRun)
 }

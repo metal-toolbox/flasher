@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sw "github.com/filanov/stateswitch"
+	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 )
 
@@ -43,7 +44,7 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 	transitionsRules := []sw.TransitionRule{
 		{
 			TransitionType:   transitionTypeLoginBMC,
-			SourceStates:     sw.States{sm.StateQueued},
+			SourceStates:     sw.States{model.StateQueued},
 			DestinationState: stateLoginBMC,
 
 			// Condition for the transition, transition will be executed only if this function return true
@@ -84,7 +85,7 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 		{
 			TransitionType:   transitionTypeResetHost,
 			SourceStates:     sw.States{stateResetHost},
-			DestinationState: sm.StateSuccess,
+			DestinationState: model.StateSuccess,
 			Condition:        handler.conditioResetHost,
 			Transition:       handler.resetHost,
 			PostTransition:   handler.SaveState,

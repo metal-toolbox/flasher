@@ -85,7 +85,7 @@ func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, devic
 }
 
 func (o *Worker) run(ctx context.Context) {
-	tasks, err := o.store.TasksByStatus(ctx, string(sm.StateQueued))
+	tasks, err := o.store.TasksByStatus(ctx, string(model.StateQueued))
 	if err != nil {
 		if errors.Is(err, store.ErrNoTasksFound) {
 			return
@@ -160,7 +160,7 @@ func (o *Worker) createTaskForDevice(ctx context.Context, device model.Device) e
 		return err
 	}
 
-	task.Status = string(sm.StateQueued)
+	task.Status = string(model.StateQueued)
 	task.Parameters.Device = device
 
 	if _, err := o.store.AddTask(ctx, task); err != nil {

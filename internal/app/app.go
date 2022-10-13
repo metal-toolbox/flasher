@@ -25,7 +25,7 @@ type App struct {
 }
 
 // New returns returns a new instance of the flasher app
-func New(ctx context.Context, appKind, inventorySourceKind, cfgFile string, loglevel int) (*App, error) {
+func New(ctx context.Context, appKind model.AppKind, inventorySourceKind, cfgFile string, loglevel int) (*App, error) {
 	// load configuration
 	cfg := &model.Config{
 		AppKind:         appKind,

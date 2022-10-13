@@ -20,35 +20,60 @@ type Config struct {
 	File string
 	// LogLevel is the app verbose logging level.
 	LogLevel int
-	// AppKind is one of inband, outofband
-	AppKind string `mapstructure:"app_kind"`
+	// AppKind is the application kind - worker / client
+	AppKind AppKind `mapstructure:"app_kind"`
 
-	// Out of band installer configuration
-	Outofband struct {
+	// Worker configuration
+	Worker struct {
 		Concurrency int `mapstructure:"concurrency"`
-	} `mapstructure:"outofband"`
+	} `mapstructure:"worker"`
 
 	// The inventory source - one of serverservice OR Yaml
-	InventorySource string
+	InventorySource string `mapstructure:"inventory_source"`
+	Serverservice   `mapstructure:"serverservice"`
+}
 
-	Yaml struct {
-		Filename string `mapstructure:"filename"`
-	} `mapstructure:"Yaml"`
-
-	// Serverservice is the Hollow server inventory store
-	// https://github.com/metal-toolbox/hollow-serverservice
-	Serverservice struct {
-		DisableOAuth       bool   `mapstructure:"diasble_oauth"`
-		Endpoint           string `mapstructure:"endpoint"`
-		EndpointURL        *url.URL
-		OidcIssuerEndpoint string   `mapstructure:"oidc_issuer_endpoint"`
-		OidcAudience       string   `mapstructure:"oidc_audience"`
-		OidcClientSecret   string   `mapstructure:"oidc_client_secret"`
-		OidcClientID       string   `mapstructure:"oidc_client_id"`
-		OidcClientScopes   []string `mapstructure:"oidc_client_scopes"` // []string{"read:server", ..}
-		FacilityCode       string   `mapstructure:"facility_code"`
-		Concurrency        int      `mapstructure:"concurrency"`
-	} `mapstructure:"serverService"`
+// Serverservice is the Hollow server inventory store
+// https://github.com/metal-toolbox/hollow-serverservice
+type Serverservice struct {
+	EndpointURL        *url.URL
+	Endpoint           string   `mapstructure:"endpoint"`
+	OidcIssuerEndpoint string   `mapstructure:"oidc_issuer_endpoint"`
+	OidcAudience       string   `mapstructure:"oidc_audience"`
+	OidcClientSecret   string   `mapstructure:"oidc_client_secret"`
+	OidcClientID       string   `mapstructure:"oidc_client_id"`
+	FacilityCode       string   `mapstructure:"facility_code"`
+	OidcClientScopes   []string `mapstructure:"oidc_client_scopes"`
+	Concurrency        int      `mapstructure:"concurrency"`
+	DisableOAuth       bool     `mapstructure:"disable_oauth"`
+	// NodeStates are the node (device) states that flasher is allowed to acquire a device
+	// for firmware install.
+	//
+	// This NodeStates are looked up from the server attribute NodeStateAttributeNS namespace.
+	NodeStates []string `mapstructure:"node_states"`
+	// NodeStateAttributeNS specifies the server attribute namespace to look in
+	// for the node (device) state.
+	//
+	// In the below example, the value for the NodeStateAttributeNS field is "com.hollow.sh.node"
+	// An example of such a server attribute is,
+	//
+	//  {
+	//    "namespace": "com.hollow.sh.node",
+	//    "data": {
+	//      "state": "in_use",
+	//   }
+	NodeStateAttributeNS string `mapstructure:"node_state_attribute_ns"`
+	// DeviceStateAttributeNSDataKey specifies the NodeStateAttributeNS namespace data key name
+	// to look under for the device state value.
+	//
+	// In the below example, the value for the NodeStateAttributeNSDataKey field is "state"
+	//  {
+	//    "namespace": "com.hollow.sh.node",
+	//    "data": {
+	//      "state": "in_use",
+	//   },
+	//
+	NodeStateAttributeNSDataKey string `mapstructure:"device_state_attribute_ns_data_key"`
 }
 
 func (c *Config) Load(cfgFile string) error {
@@ -104,6 +129,20 @@ func (c *Config) validateServerServiceParams() error {
 	c.Serverservice.EndpointURL, err = url.Parse(c.Serverservice.Endpoint)
 	if err != nil {
 		return errors.Wrap(ErrConfig, "Serverservice endpoint URL error: "+err.Error())
+	}
+
+	if c.AppKind == AppKindWorker {
+		if len(c.Serverservice.NodeStates) == 0 {
+			return errors.Wrap(ErrConfig, "worker serverservice config must define NodeStates")
+		}
+
+		if c.Serverservice.NodeStateAttributeNS == "" {
+			return errors.Wrap(ErrConfig, "worker serverservice config must define NodeStateAttributeNS")
+		}
+
+		if c.Serverservice.NodeStateAttributeNSDataKey == "" {
+			return errors.Wrap(ErrConfig, "worker serverservice config must define NodeStateAttributeNSDataKey")
+		}
 	}
 
 	if c.Serverservice.DisableOAuth {

@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/filanov/stateswitch"
+	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
@@ -34,6 +34,14 @@ const (
 	// the firmware versions to be installed have to be planned
 	// based on the firmware currently installed on the device.
 	PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
+
+	// task states
+	//
+	// states the task transitions through
+	StateQueued  sw.State = "queued"
+	StateActive  sw.State = "active"
+	StateSuccess sw.State = "success"
+	StateFailed  sw.State = "failed"
 )
 
 // Action is part of a task, it is resolved from the Firmware configuration
@@ -58,13 +66,13 @@ type Action struct {
 	Firmware Firmware
 }
 
-func (a *Action) SetState(state stateswitch.State) error {
+func (a *Action) SetState(state sw.State) error {
 	a.Status = string(state)
 	return nil
 }
 
-func (a *Action) State() stateswitch.State {
-	return stateswitch.State(a.Status)
+func (a *Action) State() sw.State {
+	return sw.State(a.Status)
 }
 
 // Actions is a list of actions
@@ -110,14 +118,14 @@ type Task struct {
 }
 
 // SetState implements the stateswitch statemachine interface
-func (t *Task) SetState(state stateswitch.State) error {
+func (t *Task) SetState(state sw.State) error {
 	t.Status = string(state)
 	return nil
 }
 
 // State implements the stateswitch statemachine interface
-func (t *Task) State() stateswitch.State {
-	return stateswitch.State(t.Status)
+func (t *Task) State() sw.State {
+	return sw.State(t.Status)
 }
 
 // NewTask returns a new Task
