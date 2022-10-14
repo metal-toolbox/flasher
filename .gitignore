@@ -1,0 +1,15 @@
+### Go template
+
+# Test binary, build with `go test -c`
+*.test
+
+# Application binary itself
+/flasher
+/flasher-osx
+
+*~
+.*.swp
+.*.swo
+
+dist/
+examples/

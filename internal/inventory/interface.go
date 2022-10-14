@@ -26,17 +26,20 @@ type Inventory interface {
 	// FwInstallAttributes - gets the firmware install attributes to the given value for a device.
 	FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error)
 
+	// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
+	DeleteFwInstallAttributes(ctx context.Context, deviceID string) error
+
 	// FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
 	FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error)
 }
 
 // InstallAttributes is the server service attribute stored in serverservice
 type InstallAttributes struct {
-	model.TaskParameters `json:"parameters"`
+	model.TaskParameters `json:"parameters,omitempty"`
 
-	FlasherTaskID string `json:"flasher_task_id"`
-	Status        string `json:"status"`
-	Info          string `json:"info"`
-	Requester     string `json:"requester"`
-	Worker        string `json:"worker"`
+	FlasherTaskID string `json:"flasher_task_id,omitempty"`
+	Status        string `json:"status,omitempty"`
+	Info          string `json:"info,omitempty"`
+	Requester     string `json:"requester,omitempty"`
+	Worker        string `json:"worker,omitempty"`
 }

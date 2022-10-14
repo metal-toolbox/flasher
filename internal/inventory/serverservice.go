@@ -25,9 +25,12 @@ const (
 )
 
 var (
-	ErrServerserviceTaskList   = errors.New("error in serverservice task list")
-	ErrServerserviceTaskCreate = errors.New("error in serverservice task create")
-	ErrServerserviceTaskUpdate = errors.New("error in serverservice task update")
+	ErrNoAttributes    = errors.New("no flasher attribute found")
+	ErrAttributeList   = errors.New("error in serverservice flasher attribute list")
+	ErrAttributeCreate = errors.New("error in serverservice flasher attribute create")
+	ErrAttributeUpdate = errors.New("error in serverservice flasher attribute update")
+
+	ErrDeviceID = errors.New("device UUID error")
 
 	// ErrBMCAddress is returned when an error occurs in the BMC address lookup.
 	ErrBMCAddress = errors.New("error in server BMC Address")
@@ -49,7 +52,7 @@ type Serverservice struct {
 
 func NewServerserviceInventory(config *model.Config) (Inventory, error) {
 	// TODO: add helper method for OIDC auth
-	client, err := sservice.NewClientWithToken("", "", nil)
+	client, err := sservice.NewClientWithToken("fake", config.Endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -129,25 +132,25 @@ func (s *Serverservice) FwInstallAttributes(ctx context.Context, deviceID string
 
 	deviceUUID, err := uuid.Parse(deviceID)
 	if err != nil {
-		return params, err
+		return params, errors.Wrap(ErrDeviceID, err.Error()+deviceID)
 	}
 
 	// lookup flasher task attribute
 	attributes, _, err := s.client.ListAttributes(ctx, deviceUUID, nil)
 	if err != nil {
-		return params, err
+		return params, errors.Wrap(err, ErrAttributeList.Error())
 	}
 
 	// update existing task attribute
 	foundAttributes := findAttribute(serverAttributeNSFlasherTask, attributes)
 	if foundAttributes == nil {
-		return params, errors.Wrap(ErrServerserviceTaskList, "no flasher task present for device: "+deviceID)
+		return params, ErrNoAttributes
 	}
 
 	installAttributes := InstallAttributes{}
 
 	if err := json.Unmarshal(foundAttributes.Data, foundAttributes); err != nil {
-		return params, errors.Wrap(ErrServerserviceTaskList, err.Error())
+		return params, errors.Wrap(ErrAttributeList, err.Error())
 	}
 
 	return installAttributes, nil
@@ -176,7 +179,7 @@ func (s *Serverservice) SetFwInstallAttributes(ctx context.Context, deviceID str
 		if taskAttrs.Status == string(model.StateActive) ||
 			taskAttrs.Status == string(model.StateQueued) {
 			return errors.Wrap(
-				ErrServerserviceTaskUpdate,
+				ErrAttributeUpdate,
 				"task present on device in non finalized state: "+taskAttrs.Status,
 			)
 		}
@@ -189,15 +192,14 @@ func (s *Serverservice) SetFwInstallAttributes(ctx context.Context, deviceID str
 }
 
 func (s *Serverservice) updateInstallAttributes(ctx context.Context, deviceUUID uuid.UUID, currentTaskAttrs, newTaskAttrs *InstallAttributes) error {
-
 	payload, err := json.Marshal(newTaskAttrs)
 	if err != nil {
-		return errors.Wrap(ErrServerserviceTaskUpdate, err.Error())
+		return errors.Wrap(ErrAttributeUpdate, err.Error())
 	}
 
 	_, err = s.client.UpdateAttributes(ctx, deviceUUID, serverAttributeNSFlasherTask, payload)
 	if err != nil {
-		return errors.Wrap(ErrServerserviceTaskUpdate, err.Error())
+		return errors.Wrap(ErrAttributeUpdate, err.Error())
 	}
 
 	return nil
@@ -206,12 +208,27 @@ func (s *Serverservice) updateInstallAttributes(ctx context.Context, deviceUUID 
 func (s *Serverservice) createInstallAttributes(ctx context.Context, deviceUUID uuid.UUID, attrs *InstallAttributes) error {
 	payload, err := json.Marshal(attrs)
 	if err != nil {
-		return errors.Wrap(ErrServerserviceTaskCreate, err.Error())
+		return errors.Wrap(ErrAttributeCreate, err.Error())
 	}
 
 	data := sservice.Attributes{Namespace: serverAttributeNSFlasherTask, Data: payload}
 
 	_, err = s.client.CreateAttributes(ctx, deviceUUID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
+func (s *Serverservice) DeleteFwInstallAttributes(ctx context.Context, deviceID string) error {
+	deviceUUID, err := uuid.Parse(deviceID)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.client.DeleteAttributes(ctx, deviceUUID, serverAttributeNSFlasherTask)
 	if err != nil {
 		return err
 	}

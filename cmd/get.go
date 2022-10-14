@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/davecgh/go-spew/spew"
@@ -15,6 +16,7 @@ var cmdGet = &cobra.Command{
 	Use:   "get",
 	Short: "get resources [inventory|firmware|task]",
 	Run: func(cmd *cobra.Command, args []string) {
+		_ = cmd.Help()
 	},
 }
 
@@ -36,7 +38,7 @@ var cmdGetTask = &cobra.Command{
 }
 
 func getTask(ctx context.Context) {
-	flasher, err := app.New(ctx, model.AppKindClient, workerFlagSet.inventorySource, cfgFile, logLevel)
+	flasher, err := app.New(ctx, model.AppKindClient, model.InventorySourceServerservice, cfgFile, logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,13 +48,17 @@ func getTask(ctx context.Context) {
 		flasher.Logger.Fatal(err)
 	}
 
-	attrs, err := inv.FwInstallAttributes(ctx, installFirmwareFlagSet.deviceID)
+	attrs, err := inv.FwInstallAttributes(ctx, getTaskFlagSet.deviceID)
 	if err != nil {
+		if errors.Is(err, inventory.ErrNoAttributes) {
+			flasher.Logger.Info(err.Error() + ": " + getTaskFlagSet.deviceID)
+			return
+		}
+
 		flasher.Logger.Fatal(err)
 	}
 
 	spew.Dump(attrs)
-
 }
 
 func init() {

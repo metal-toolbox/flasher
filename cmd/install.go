@@ -17,6 +17,7 @@ var cmdInstall = &cobra.Command{
 	Use:   "install",
 	Short: "install [firmware]",
 	Run: func(cmd *cobra.Command, args []string) {
+		_ = cmd.Help()
 	},
 }
 
@@ -39,14 +40,13 @@ var cmdInstallFirmware = &cobra.Command{
 }
 
 func runInstall(ctx context.Context) {
-
-	flasher, err := app.New(ctx, model.AppKindClient, workerFlagSet.inventorySource, cfgFile, logLevel)
+	flasher, err := app.New(ctx, model.AppKindClient, workerRunFlagSet.inventorySource, cfgFile, logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	switch {
-	case strings.HasSuffix(installFirmwareFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerFlagSet.inventorySource, ".yaml"):
+	case strings.HasSuffix(installFirmwareFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerRunFlagSet.inventorySource, ".yaml"):
 		fwInstallYAMLInventory(ctx, flasher)
 
 	case installFirmwareFlagSet.inventorySource == model.InventorySourceServerservice:
@@ -72,13 +72,12 @@ func fwInstallServerserviceInventory(ctx context.Context, flasher *app.App) {
 	flasher.Logger.Info("device flagged for firmware install.")
 }
 
-func fwInstallYAMLInventory(ctx context.Context, flasher *app.App) error {
+func fwInstallYAMLInventory(ctx context.Context, flasher *app.App) {
 	//	inv, err = inventory.NewYamlInventory(deviceFlagSet.inventorySource)
 	//	if err != nil {
 	//		log.Fatal(err)
 	//	}
 	//
-	return nil
 }
 
 // install command flags
@@ -93,7 +92,7 @@ func init() {
 
 	cmdInstallFirmware.PersistentFlags().StringVar(&installFirmwareFlagSet.deviceID, "device-id", "", "inventory device identifier")
 
-	if err := cmdInstall.MarkPersistentFlagRequired("device-id"); err != nil {
+	if err := cmdInstallFirmware.MarkPersistentFlagRequired("device-id"); err != nil {
 		log.Fatal(err)
 	}
 

@@ -53,6 +53,11 @@ func (c *Yaml) FwInstallAttributes(ctx context.Context, deviceID string) (Instal
 	return InstallAttributes{}, nil
 }
 
+// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
+func (c *Yaml) DeleteFwInstallAttributes(ctx context.Context, deviceID string) error {
+	return nil
+}
+
 // FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
 func (c *Yaml) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
 	return nil, nil

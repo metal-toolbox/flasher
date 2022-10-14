@@ -44,6 +44,11 @@ func (s *Mock) SetFwInstallAttributes(ctx context.Context, deviceID string, attr
 	return nil
 }
 
+// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
+func (s *Mock) DeleteFwInstallAttributes(ctx context.Context, deviceID string) error {
+	return nil
+}
+
 // ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
 func (s *Mock) ReleaseDevice(ctx context.Context, id string) error {
 	return nil

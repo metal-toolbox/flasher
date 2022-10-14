@@ -22,15 +22,15 @@ var cmdRun = &cobra.Command{
 }
 
 // run worker command
-type workerFlags struct {
+type workerRunFlags struct {
 	inventorySource string
 }
 
 var (
-	workerFlagSet = &workerFlags{}
+	workerRunFlagSet = &workerRunFlags{}
 )
 
-var cmdWorker = &cobra.Command{
+var cmdRunWorker = &cobra.Command{
 	Use:   "worker",
 	Short: "Run worker to identify and install firmware",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -50,7 +50,7 @@ func runWorker(ctx context.Context) {
 		logLevel = model.LogLevelInfo
 	}
 
-	flasher, err := app.New(ctx, model.AppKindWorker, workerFlagSet.inventorySource, cfgFile, logLevel)
+	flasher, err := app.New(ctx, model.AppKindWorker, workerRunFlagSet.inventorySource, cfgFile, logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,12 +72,12 @@ func runWorker(ctx context.Context) {
 	var inv inventory.Inventory
 
 	switch {
-	case strings.HasSuffix(workerFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerFlagSet.inventorySource, ".yaml"):
-		inv, err = inventory.NewYamlInventory(workerFlagSet.inventorySource)
+	case strings.HasSuffix(workerRunFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerRunFlagSet.inventorySource, ".yaml"):
+		inv, err = inventory.NewYamlInventory(workerRunFlagSet.inventorySource)
 		if err != nil {
 			log.Fatal(err)
 		}
-	case workerFlagSet.inventorySource == model.InventorySourceServerservice:
+	case workerRunFlagSet.inventorySource == model.InventorySourceServerservice:
 		inv, err = inventory.NewServerserviceInventory(flasher.Config)
 		if err != nil {
 			log.Fatal(err)
@@ -104,12 +104,12 @@ func runWorker(ctx context.Context) {
 }
 
 func init() {
-	cmdWorker.PersistentFlags().StringVar(&workerFlagSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
+	cmdRunWorker.PersistentFlags().StringVar(&workerRunFlagSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
 
-	if err := cmdWorker.MarkPersistentFlagRequired("inventory-source"); err != nil {
+	if err := cmdRunWorker.MarkPersistentFlagRequired("inventory-source"); err != nil {
 		log.Fatal(err)
 	}
 
-	cmdRun.AddCommand(cmdWorker)
+	cmdRun.AddCommand(cmdRunWorker)
 	rootCmd.AddCommand(cmdRun)
 }

@@ -160,10 +160,10 @@ func NewTask(firmwareSetID string, firmware []Firmware) (Task, error) {
 // these are parameters received from an operator which determines the task execution actions.
 type TaskParameters struct {
 	// Reset device BMC before firmware install
-	ResetBMCBeforeInstall bool `json:"resetBMCBeforeInstall"`
+	ResetBMCBeforeInstall bool `json:"resetBMCBeforeInstall,omitempty"`
 
 	// Force install given firmware regardless of current firmware version.
-	ForceInstall bool `json:"forceInstall"`
+	ForceInstall bool `json:"forceInstall,omitempty"`
 
 	// Task priority is the task priority between 0 and 3
 	// where 0 is the default and 3 is the max.
@@ -172,14 +172,14 @@ type TaskParameters struct {
 	//
 	// When there are multiple tasks with the same priority,
 	// the task CreatedAt attribute is considered.
-	Priority int `json:"priority"`
+	Priority int `json:"priority,omitempty"`
 
 	// The firmware set ID is conditionally set at task initialization based on the FirmwareResolveMethod.
-	FirmwareSetID string `json:"firmwareSetID"`
+	FirmwareSetID string `json:"firmwareSetID,omitempty"`
 
 	// Flasher determines the firmware to be installed for each component based on the firmware plan method,
 	// The method is set at task initialization
-	FirmwarePlanMethod FirmwarePlanMethod `json:"firmwarePlanMethod"`
+	FirmwarePlanMethod FirmwarePlanMethod `json:"firmwarePlanMethod,omitempty"`
 
 	// Device attributes
 	Device Device `json:"-"`
