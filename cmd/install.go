@@ -55,17 +55,17 @@ func runInstall(ctx context.Context) {
 }
 
 func fwInstallServerserviceInventory(ctx context.Context, flasher *app.App) {
-	inv, err := inventory.NewServerserviceInventory(flasher.Config)
+	inv, err := inventory.NewServerserviceInventory(ctx, flasher.Config, flasher.Logger)
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
 
 	attrs := &inventory.InstallAttributes{
-		Status:    string(model.StateQueued),
 		Requester: os.Getenv("USER"),
+		Status:    string(model.StateRequested),
 	}
 
-	if err := inv.SetFwInstallAttributes(ctx, installFirmwareFlagSet.deviceID, attrs); err != nil {
+	if err := inv.SetFlasherAttributes(ctx, installFirmwareFlagSet.deviceID, attrs); err != nil {
 		flasher.Logger.Fatal(err)
 	}
 

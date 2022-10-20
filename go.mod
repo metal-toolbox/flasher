@@ -4,8 +4,9 @@ go 1.19
 
 require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.0
-	github.com/bmc-toolbox/common v0.0.0-20220808122349-335517678873
+	github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80
 	github.com/bombsimon/logrusr/v2 v2.0.1
+	github.com/davecgh/go-spew v1.1.1
 	github.com/filanov/stateswitch v1.0.0
 	github.com/google/uuid v1.3.0
 	github.com/jacobweinstock/registrar v0.4.6
@@ -16,11 +17,11 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.0
 	go.hollow.sh/serverservice v0.14.4
+	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95
 )
 
 require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.16 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20211103172832-aca2edc11f73 // indirect
 	github.com/friendsofgo/errors v0.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
@@ -93,3 +94,5 @@ require (
 )
 
 replace github.com/filanov/stateswitch => ../../filanov/stateswitch
+
+replace go.hollow.sh/serverservice => ../../joelrebel/hollow-serverservice

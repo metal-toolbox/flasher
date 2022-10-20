@@ -3,6 +3,7 @@ package model
 import (
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -23,7 +24,7 @@ const (
 	// PlanPredefinedFirmaware is a TaskParameter attribute that indicates the
 	// firmware to be installed was provided at task initialization (through a CLI parameter or inventory device attribute)
 	// and so no further firmware planning is required.
-	PlanUseDefinedFirmware FirmwarePlanMethod = "predefined"
+	PlanRequestedFirmware FirmwarePlanMethod = "predefined"
 
 	// PlanFromFirmwareSet is a TaskParameter attribute that indicates a
 	// firmware set ID was provided at task initialization (through a CLI parameter or inventory device attribute)
@@ -33,15 +34,20 @@ const (
 	// PlanFromInstalledFirmware is a TaskParameter attribute that indicates
 	// the firmware versions to be installed have to be planned
 	// based on the firmware currently installed on the device.
-	PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
+	//PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
 
 	// task states
 	//
 	// states the task transitions through
-	StateQueued  sw.State = "queued"
-	StateActive  sw.State = "active"
-	StateSuccess sw.State = "success"
-	StateFailed  sw.State = "failed"
+	StateRequested sw.State = "requested"
+	StateQueued    sw.State = "queued"
+	StateActive    sw.State = "active"
+	StateSuccess   sw.State = "success"
+	StateFailed    sw.State = "failed"
+)
+
+var (
+	ErrTaskFirmwareParam = errors.New("error in task firmware parameters")
 )
 
 // Action is part of a task, it is resolved from the Firmware configuration
@@ -67,7 +73,10 @@ type Action struct {
 }
 
 func (a *Action) SetState(state sw.State) error {
+
 	a.Status = string(state)
+
+	spew.Dump(a)
 	return nil
 }
 
@@ -102,7 +111,7 @@ type Task struct {
 	// Info is informational data and includes errors in task execution if any.
 	Info string
 
-	// ActionsPlanned to be executed for task are generated from the Firmware configuration and install parameters
+	// ActionsPlanned to be executed for task are generated from the FirmwaresPlanned and install parameters
 	// these are generated in the `queued` stage of the task.
 	ActionsPlanned Actions
 
@@ -136,21 +145,22 @@ func NewTask(firmwareSetID string, firmware []Firmware) (Task, error) {
 	task := Task{ID: uuid.New()}
 
 	if firmwareSetID != "" && len(firmware) > 0 {
-		return task, errors.New("fasdsad")
-	}
-
-	if firmwareSetID != "" {
-		task.Parameters.FirmwareSetID = firmwareSetID
-		task.Parameters.FirmwarePlanMethod = PlanFromFirmwareSet
+		return task, errors.Wrap(ErrTaskFirmwareParam, "expected a firmware setID OR firmware version(s), got both")
 	}
 
 	if len(firmware) > 0 {
 		task.FirmwaresPlanned = firmware
-		task.Parameters.FirmwarePlanMethod = PlanUseDefinedFirmware
+		task.Parameters.FirmwarePlanMethod = PlanRequestedFirmware
+
+		return task, nil
 	}
 
-	if firmwareSetID == "" && len(firmware) == 0 {
-		task.Parameters.FirmwarePlanMethod = PlanFromInstalledFirmware
+	// firmwareSetID when defined sets the plan to PlanFromFirmwareSet,
+	// in the case where the firmwareSetID AND no firmware versions were defined
+	// the firmwareSetID is looked up in the task handlers.
+	if firmwareSetID != "" || (firmwareSetID == "" && len(firmware) == 0) {
+		task.Parameters.FirmwareSetID = firmwareSetID
+		task.Parameters.FirmwarePlanMethod = PlanFromFirmwareSet
 	}
 
 	return task, nil

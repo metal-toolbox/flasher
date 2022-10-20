@@ -12,6 +12,6 @@ type Storage interface {
 	TaskByID(ctx context.Context, id string) (model.Task, error)
 	AddTask(ctx context.Context, task model.Task) (uuid.UUID, error)
 	UpdateTask(ctx context.Context, task model.Task) error
-	UpdateTaskAction(ctx context.Context, taskID string, actionName string, action model.Action) error
+	UpdateTaskAction(ctx context.Context, taskID string, action model.Action) error
 	RemoveTask(ctx context.Context, id string) error
 }

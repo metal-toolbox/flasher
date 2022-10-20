@@ -1,16 +1,40 @@
 package inventory
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 
+	"github.com/bmc-toolbox/common"
+	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 	sservice "go.hollow.sh/serverservice/pkg/api/v1"
+
+	"github.com/google/uuid"
 )
+
+// firmwareVersionedAttribute is the firmware data format
+type firmwareVersionedAttributes struct {
+	Firmware *common.Firmware `json:"firmware,omitempty"`
+}
+
+func installedFirmwareFromVA(va sservice.VersionedAttributes) (string, error) {
+	data := &common.Firmware{}
+
+	if err := json.Unmarshal(va.Data, data); err != nil {
+		return "", errors.Wrap(ErrServerserviceVersionedAttrObj, "failed to unpack Firmware data: "+err.Error())
+	}
+
+	if data.Installed == "" {
+		return "", errors.Wrap(ErrServerserviceVersionedAttrObj, "installed firmware version unknown")
+	}
+
+	return data.Installed, nil
+}
 
 func findAttribute(ns string, attributes []sservice.Attributes) *sservice.Attributes {
 	for _, attribute := range attributes {
-		if attribute.Namespace == serverAttributeNSFlasherTask {
+		if attribute.Namespace == ns {
 			return &attribute
 		}
 	}
@@ -33,11 +57,11 @@ func (s *Serverservice) flasherTaskAttribute(attributes []sservice.Attributes) (
 	return taskAttrs, nil
 }
 
-// deviceState returns the server state attribute value from the configured NodeStateAttributeNS
+// deviceState returns the server state attribute value from the configured DeviceStateAttributeNS
 func (s *Serverservice) deviceStateAttribute(attributes []sservice.Attributes) (string, error) {
 	var deviceState string
 
-	deviceStateAttribute := findAttribute(s.config.NodeStateAttributeNS, attributes)
+	deviceStateAttribute := findAttribute(s.config.DeviceStateAttributeNS, attributes)
 	if deviceStateAttribute == nil {
 		return deviceState, nil
 	}
@@ -47,7 +71,7 @@ func (s *Serverservice) deviceStateAttribute(attributes []sservice.Attributes) (
 		return deviceState, errors.Wrap(ErrDeviceState, err.Error())
 	}
 
-	return data[s.config.NodeStateAttributeNSDataKey], nil
+	return data[s.config.DeviceStateAttributeKey], nil
 }
 
 func (s *Serverservice) bmcAddressFromAttributes(attributes []sservice.Attributes) (net.IP, error) {
@@ -63,12 +87,11 @@ func (s *Serverservice) bmcAddressFromAttributes(attributes []sservice.Attribute
 		return ip, errors.Wrap(ErrBMCAddress, err.Error())
 	}
 
-	address := data["address"]
-	if address == "" {
+	if data["address"] == "" {
 		return ip, errors.Wrap(ErrBMCAddress, "value undefined: "+serverAttributeNSBmcAddress)
 	}
 
-	return net.ParseIP(address), nil
+	return net.ParseIP(data["address"]), nil
 }
 func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attributes) (deviceVendor, deviceModel, deviceSerial string, err error) {
 	vendorAttrs := map[string]string{}
@@ -85,9 +108,90 @@ func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attribut
 			errors.Wrap(ErrServerserviceAttrObj, "server vendor attribute: "+err.Error())
 	}
 
-	deviceVendor = vendorAttrs["vendor"]
-	deviceModel = vendorAttrs["model"]
+	deviceVendor = common.FormatVendorName(vendorAttrs["vendor"])
+	deviceModel = common.FormatProductName(vendorAttrs["model"])
 	deviceSerial = vendorAttrs["serial"]
 
 	return
+}
+
+func (s *Serverservice) updateFlasherAttributes(ctx context.Context, deviceUUID uuid.UUID, currentTaskAttrs, newTaskAttrs *InstallAttributes) error {
+	payload, err := json.Marshal(newTaskAttrs)
+	if err != nil {
+		return errors.Wrap(ErrAttributeUpdate, err.Error())
+	}
+
+	_, err = s.client.UpdateAttributes(ctx, deviceUUID, serverAttributeNSFlasherTask, payload)
+	if err != nil {
+		return errors.Wrap(ErrAttributeUpdate, err.Error())
+	}
+
+	return nil
+}
+
+func (s *Serverservice) createFlasherAttributes(ctx context.Context, deviceUUID uuid.UUID, attrs *InstallAttributes) error {
+	payload, err := json.Marshal(attrs)
+	if err != nil {
+		return errors.Wrap(ErrAttributeCreate, err.Error())
+	}
+
+	data := sservice.Attributes{Namespace: serverAttributeNSFlasherTask, Data: payload}
+
+	_, err = s.client.CreateAttributes(ctx, deviceUUID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// deviceWithAttributes returns a device object with its fields populated with data from server service.
+//
+// The attributes looked up are,
+// - BMC address
+// - BMC credentials
+// - Device vendor, model, serial attributes
+// - Device state
+func (s *Serverservice) deviceWithAttributes(ctx context.Context, deviceID string) (*model.Device, error) {
+	deviceUUID, err := uuid.Parse(deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	device := &model.Device{ID: deviceUUID}
+
+	// lookup attributes to acquire device for an update
+	attributes, _, err := s.client.ListAttributes(ctx, deviceUUID, nil)
+	if err != nil {
+		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+	}
+
+	// bmc address from attribute
+	device.BmcAddress, err = s.bmcAddressFromAttributes(attributes)
+	if err != nil {
+		return nil, err
+	}
+
+	// credentials from credential store
+	credential, _, err := s.client.GetCredential(ctx, deviceUUID, sservice.ServerCredentialTypeBMC)
+	if err != nil {
+		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+	}
+
+	device.BmcUsername = credential.Username
+	device.BmcPassword = credential.Password
+
+	// vendor attributes
+	device.Vendor, device.Model, device.Serial, err = s.vendorModelFromAttributes(attributes)
+	if err != nil {
+		return nil, err
+	}
+
+	// device state attribute
+	device.State, err = s.deviceStateAttribute(attributes)
+	if err != nil {
+		return nil, err
+	}
+
+	return device, nil
 }

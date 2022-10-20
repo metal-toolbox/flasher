@@ -31,12 +31,10 @@ func (c *MemStore) AddTask(ctx context.Context, task model.Task) (uuid.UUID, err
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	id := uuid.New()
 	task.CreatedAt = time.Now()
+	c.tasks[task.ID.String()] = task
 
-	c.tasks[id.String()] = task
-
-	return id, nil
+	return task.ID, nil
 }
 
 func (c *MemStore) UpdateTask(ctx context.Context, task model.Task) error {
@@ -76,7 +74,7 @@ func (c *MemStore) TaskByID(ctx context.Context, id string) (model.Task, error) 
 	return c.tasks[id], nil
 }
 
-func (c *MemStore) UpdateTaskAction(ctx context.Context, taskID string, actionID string, update model.Action) error {
+func (c *MemStore) UpdateTaskAction(ctx context.Context, taskID string, action model.Action) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -85,14 +83,16 @@ func (c *MemStore) UpdateTaskAction(ctx context.Context, taskID string, actionID
 		return errors.Wrap(ErrTaskUpdate, "task not found: "+taskID)
 	}
 
-	for idx, action := range task.ActionsPlanned {
-		if action.ID == actionID {
-			task.ActionsPlanned[idx] = update
+	task.UpdatedAt = time.Now()
+
+	for idx, taskAction := range task.ActionsPlanned {
+		if taskAction.ID == action.ID {
+			task.ActionsPlanned[idx] = action
 			return nil
 		}
 	}
 
-	return errors.Wrap(ErrTaskActionUpdate, "task: "+taskID+" action not found: "+actionID)
+	return errors.Wrap(ErrTaskActionUpdate, "task: "+taskID+" action not found: "+action.ID)
 }
 
 func (c *MemStore) RemoveTask(ctx context.Context, id string) error {

@@ -10,6 +10,8 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/worker"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +29,8 @@ type workerRunFlags struct {
 }
 
 var (
-	workerRunFlagSet = &workerRunFlags{}
+	workerRunFlagSet            = &workerRunFlags{}
+	ErrInventorySourceUndefined = errors.New("An inventory source was not specified")
 )
 
 var cmdRunWorker = &cobra.Command{
@@ -69,21 +72,7 @@ func runWorker(ctx context.Context) {
 		cancelFunc()
 	}()
 
-	var inv inventory.Inventory
-
-	switch {
-	case strings.HasSuffix(workerRunFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerRunFlagSet.inventorySource, ".yaml"):
-		inv, err = inventory.NewYamlInventory(workerRunFlagSet.inventorySource)
-		if err != nil {
-			log.Fatal(err)
-		}
-	case workerRunFlagSet.inventorySource == model.InventorySourceServerservice:
-		inv, err = inventory.NewServerserviceInventory(flasher.Config)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
+	inv, err := initInventory(ctx, flasher.Config, flasher.Logger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -101,6 +90,25 @@ func runWorker(ctx context.Context) {
 
 	flasher.Logger.Trace("wait for goroutines..")
 	flasher.SyncWG.Wait()
+}
+
+func initInventory(ctx context.Context, config *model.Config, logger *logrus.Logger) (inventory.Inventory, error) {
+	switch {
+	// from CLI flags
+	case strings.HasSuffix(workerRunFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerRunFlagSet.inventorySource, ".yaml"):
+		return inventory.NewYamlInventory(workerRunFlagSet.inventorySource)
+	case workerRunFlagSet.inventorySource == model.InventorySourceServerservice:
+		return inventory.NewServerserviceInventory(ctx, config, logger)
+	// from config file
+	case strings.HasSuffix(config.InventorySource, ".yml"), strings.HasSuffix(config.InventorySource, ".yaml"):
+		return inventory.NewYamlInventory(workerRunFlagSet.inventorySource)
+	case config.InventorySource == model.InventorySourceServerservice:
+		return inventory.NewServerserviceInventory(ctx, config, logger)
+	default:
+
+	}
+
+	return nil, errors.Wrap(ErrInventorySourceUndefined, "expected a valid parameter through CLI or configuration file")
 }
 
 func init() {

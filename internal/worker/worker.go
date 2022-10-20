@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/metal-toolbox/flasher/internal/firmware"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -54,6 +54,7 @@ func (o *Worker) Run(ctx context.Context) {
 		select {
 		case <-tickQueueRun:
 			o.queue(ctx)
+			spew.Dump(o.store)
 			o.run(ctx)
 		case <-ctx.Done():
 			return
@@ -74,10 +75,8 @@ func (o *Worker) concurrencyLimit() bool {
 
 func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
 	return &sm.HandlerContext{
-		TaskID:    taskID,
-		Ctx:       ctx,
-		FwPlanner: firmware.NewPlanner(skipCompareInstalled, device.Vendor, device.Model),
-
+		TaskID: taskID,
+		Ctx:    ctx,
 		Store:  o.store,
 		Inv:    o.inv,
 		Logger: o.logger,
@@ -106,25 +105,45 @@ func (o *Worker) run(ctx context.Context) {
 		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String(), &task.Parameters.Device, task.Parameters.ForceInstall)
 
 		// init state machine for task
-		sm, err := sm.NewTaskStateMachine(ctx, &tasks[idx], handler)
+		m, err := sm.NewTaskStateMachine(ctx, &tasks[idx], handler)
 		if err != nil {
 			o.logger.Error(err)
 		}
 
 		// add to task machines list
-		o.taskMachines.Store(task.ID.String(), *sm)
+		o.taskMachines.Store(task.ID.String(), *m)
+
+		o.logger.WithField("deviceID", task.Parameters.Device.ID.String()).Trace("run task for device")
 
 		// TODO: spawn block in a go routine with a limiter
 		//
-		if err := sm.Run(ctx, &tasks[idx], handler, taskHandlerCtx); err != nil {
-			o.logger.Error(err)
+		if err := m.Run(ctx, &tasks[idx], handler, taskHandlerCtx); err != nil {
+			o.taskFailed(ctx, &tasks[idx])
 
-			// remove from task machines list
-			o.taskMachines.Delete(task.ID.String())
+			o.logger.Error(err)
 
 			continue
 		}
 	}
+}
+
+func (o *Worker) taskFailed(ctx context.Context, task *model.Task) {
+	// update task state in inventory - move to task handler context?
+	attr := &inventory.InstallAttributes{
+		TaskParameters: task.Parameters,
+		FlasherTaskID:  task.ID.String(),
+		Status:         string(model.StateFailed),
+		Info:           task.Info,
+	}
+
+	if err := o.inv.SetFlasherAttributes(ctx, task.Parameters.Device.ID.String(), attr); err != nil {
+		o.logger.WithField("taskID", task.ID.String()).Trace("failed inventory task state update")
+	}
+
+	// purge task state machine
+	o.taskMachines.Delete(task.ID.String())
+
+	o.logger.WithField("taskID", task.ID.String()).Trace("failed task statemachine purged")
 }
 
 func (o *Worker) queue(ctx context.Context) {
@@ -146,26 +165,33 @@ func (o *Worker) queue(ctx context.Context) {
 			continue
 		}
 
-		if err := o.createTaskForDevice(ctx, acquired); err != nil {
+		taskID, err := o.enqueueTask(ctx, acquired)
+		if err != nil {
 			o.logger.Warn(err)
 
 			continue
 		}
+
+		o.logger.WithFields(logrus.Fields{
+			"deviceID": device.ID.String(),
+			"taskID":   taskID,
+		}).Trace("queued task for device")
 	}
 }
 
-func (o *Worker) createTaskForDevice(ctx context.Context, device model.Device) error {
+func (o *Worker) enqueueTask(ctx context.Context, device model.Device) (taskID string, err error) {
 	task, err := model.NewTask("", nil)
 	if err != nil {
-		return err
+		return taskID, err
 	}
 
 	task.Status = string(model.StateQueued)
 	task.Parameters.Device = device
 
-	if _, err := o.store.AddTask(ctx, task); err != nil {
-		return err
+	id, err := o.store.AddTask(ctx, task)
+	if err != nil {
+		return taskID, err
 	}
 
-	return nil
+	return id.String(), nil
 }

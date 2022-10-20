@@ -27,10 +27,12 @@ func Test_CreateTaskForDevice(t *testing.T) {
 
 	ctx := context.Background()
 
-	err := worker.createTaskForDevice(ctx, fixtures.Devices[fixtures.Device1.String()])
+	taskID, err := worker.enqueueTask(ctx, fixtures.Devices[fixtures.Device1.String()])
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	assert.NotNil(t, taskID)
 
 	tasks, err := worker.store.TasksByStatus(ctx, string(model.StateQueued))
 	if err != nil {
@@ -39,5 +41,5 @@ func Test_CreateTaskForDevice(t *testing.T) {
 
 	assert.Equal(t, 1, len(tasks))
 	assert.Equal(t, fixtures.Devices[fixtures.Device1.String()], tasks[0].Parameters.Device)
-	assert.Equal(t, model.PlanFromInstalledFirmware, tasks[0].Parameters.FirmwarePlanMethod)
+	assert.Equal(t, model.PlanFromFirmwareSet, tasks[0].Parameters.FirmwarePlanMethod)
 }

@@ -20,14 +20,17 @@ type Inventory interface {
 	// The lock release mechnism is left to the implementation.
 	ReleaseDevice(ctx context.Context, id string) error
 
-	// SetFwInstallAttributes - sets the firmware install attributes for a device.
-	SetFwInstallAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error
+	// SetFlasherAttributes - sets the firmware install attributes for a device.
+	SetFlasherAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error
 
-	// FwInstallAttributes - gets the firmware install attributes to the given value for a device.
-	FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error)
+	// FlasherAttributes - gets the firmware install attributes to the given value for a device.
+	FlasherAttributes(ctx context.Context, deviceID string) (InstallAttributes, error)
 
-	// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
-	DeleteFwInstallAttributes(ctx context.Context, deviceID string) error
+	// DeleteFlasherAttributes - removes the firmware install attributes from a device.
+	DeleteFlasherAttributes(ctx context.Context, deviceID string) error
+
+	// FirmwareInstalled returns the component installed firmware versions
+	FirmwareInstalled(ctx context.Context, deviceID string) (model.Components, error)
 
 	// FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
 	FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error)
@@ -38,7 +41,7 @@ type InstallAttributes struct {
 	model.TaskParameters `json:"parameters,omitempty"`
 
 	FlasherTaskID string `json:"flasher_task_id,omitempty"`
-	Status        string `json:"status,omitempty"`
+	Status        string `json:"status"`
 	Info          string `json:"info,omitempty"`
 	Requester     string `json:"requester,omitempty"`
 	Worker        string `json:"worker,omitempty"`

@@ -17,7 +17,8 @@ import (
 
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
-	logoutTimeout = "1m"
+	logoutTimeout = "5m"
+	loginTimeout  = "5m"
 
 	// login errors
 	errBMCLogin             = errors.New("bmc login error")
@@ -61,6 +62,14 @@ func (b *bmc) Open(ctx context.Context) error {
 	if b.client == nil {
 		return errors.Wrap(errBMCLogin, "bmclibv2 client not initialized")
 	}
+
+	timeout, err := time.ParseDuration(loginTimeout)
+	if err != nil {
+		return errors.Wrap(errBMCLogout, err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	// initiate bmc login session
 	if err := b.client.Open(ctx); err != nil {

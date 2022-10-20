@@ -41,12 +41,12 @@ func deleteTask(ctx context.Context) {
 		log.Fatal(err)
 	}
 
-	inv, err := inventory.NewServerserviceInventory(flasher.Config)
+	inv, err := inventory.NewServerserviceInventory(ctx, flasher.Config, flasher.Logger)
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
 
-	err = inv.DeleteFwInstallAttributes(ctx, deleteTaskFlagSet.deviceID)
+	err = inv.DeleteFlasherAttributes(ctx, deleteTaskFlagSet.deviceID)
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}

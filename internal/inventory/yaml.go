@@ -43,22 +43,27 @@ func (c *Yaml) ReleaseDevice(ctx context.Context, id string) error {
 	return nil
 }
 
-// SetFwInstallAttributes - sets the firmware install attributes to the given value on a device.
-func (c *Yaml) SetFwInstallAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error {
+// SetFlasherAttributes - sets the firmware install attributes to the given value on a device.
+func (c *Yaml) SetFlasherAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error {
 	return nil
 }
 
-// FwInstallAttributes - gets the firmware install attributes to the given value for a device.
-func (c *Yaml) FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
+// FlasherAttributes - gets the firmware install attributes to the given value for a device.
+func (c *Yaml) FlasherAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
 	return InstallAttributes{}, nil
 }
 
-// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
-func (c *Yaml) DeleteFwInstallAttributes(ctx context.Context, deviceID string) error {
+// DeleteFlasherAttributes - removes the firmware install attributes from a device.
+func (c *Yaml) DeleteFlasherAttributes(ctx context.Context, deviceID string) error {
 	return nil
 }
 
 // FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
 func (c *Yaml) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
+	return nil, nil
+}
+
+// FirmwareInstalled returns the component installed firmware versions
+func (c *Yaml) FirmwareInstalled(ctx context.Context, deviceID string) (model.Components, error) {
 	return nil, nil
 }

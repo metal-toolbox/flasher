@@ -46,15 +46,15 @@ type Serverservice struct {
 	OidcClientScopes   []string `mapstructure:"oidc_client_scopes"`
 	Concurrency        int      `mapstructure:"concurrency"`
 	DisableOAuth       bool     `mapstructure:"disable_oauth"`
-	// NodeStates are the node (device) states that flasher is allowed to acquire a device
+	// DeviceStates are the node (device) states that flasher is allowed to acquire a device
 	// for firmware install.
 	//
-	// This NodeStates are looked up from the server attribute NodeStateAttributeNS namespace.
-	NodeStates []string `mapstructure:"node_states"`
-	// NodeStateAttributeNS specifies the server attribute namespace to look in
+	// This DeviceStates are looked up from the server attribute DeviceStateAttributeNS namespace.
+	DeviceStates []string `mapstructure:"device_states"`
+	// DeviceStateAttributeNS specifies the server attribute namespace to look in
 	// for the node (device) state.
 	//
-	// In the below example, the value for the NodeStateAttributeNS field is "com.hollow.sh.node"
+	// In the below example, the value for the DeviceStateAttributeNS field is "com.hollow.sh.node"
 	// An example of such a server attribute is,
 	//
 	//  {
@@ -62,18 +62,18 @@ type Serverservice struct {
 	//    "data": {
 	//      "state": "in_use",
 	//   }
-	NodeStateAttributeNS string `mapstructure:"node_state_attribute_ns"`
-	// DeviceStateAttributeNSDataKey specifies the NodeStateAttributeNS namespace data key name
+	DeviceStateAttributeNS string `mapstructure:"device_state_attribute_ns"`
+	// DeviceStateAttributeKey specifies the DeviceStateAttributeNS namespace data key name
 	// to look under for the device state value.
 	//
-	// In the below example, the value for the NodeStateAttributeNSDataKey field is "state"
+	// In the below example, the value for the DeviceStateAttributeKey field is "state"
 	//  {
 	//    "namespace": "com.hollow.sh.node",
 	//    "data": {
 	//      "state": "in_use",
 	//   },
 	//
-	NodeStateAttributeNSDataKey string `mapstructure:"device_state_attribute_ns_data_key"`
+	DeviceStateAttributeKey string `mapstructure:"device_state_attribute_key"`
 }
 
 func (c *Config) Load(cfgFile string) error {
@@ -132,16 +132,16 @@ func (c *Config) validateServerServiceParams() error {
 	}
 
 	if c.AppKind == AppKindWorker {
-		if len(c.Serverservice.NodeStates) == 0 {
-			return errors.Wrap(ErrConfig, "worker serverservice config must define NodeStates")
+		if len(c.Serverservice.DeviceStates) == 0 {
+			return errors.Wrap(ErrConfig, "worker serverservice config must define DeviceStates")
 		}
 
-		if c.Serverservice.NodeStateAttributeNS == "" {
-			return errors.Wrap(ErrConfig, "worker serverservice config must define NodeStateAttributeNS")
+		if c.Serverservice.DeviceStateAttributeNS == "" {
+			return errors.Wrap(ErrConfig, "worker serverservice config must define DeviceStateAttributeNS")
 		}
 
-		if c.Serverservice.NodeStateAttributeNSDataKey == "" {
-			return errors.Wrap(ErrConfig, "worker serverservice config must define NodeStateAttributeNSDataKey")
+		if c.Serverservice.DeviceStateAttributeKey == "" {
+			return errors.Wrap(ErrConfig, "worker serverservice config must define DeviceStateAttributeKey")
 		}
 	}
 

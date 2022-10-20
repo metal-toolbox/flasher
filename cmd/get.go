@@ -43,12 +43,12 @@ func getTask(ctx context.Context) {
 		log.Fatal(err)
 	}
 
-	inv, err := inventory.NewServerserviceInventory(flasher.Config)
+	inv, err := inventory.NewServerserviceInventory(ctx, flasher.Config, flasher.Logger)
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
 
-	attrs, err := inv.FwInstallAttributes(ctx, getTaskFlagSet.deviceID)
+	attrs, err := inv.FlasherAttributes(ctx, getTaskFlagSet.deviceID)
 	if err != nil {
 		if errors.Is(err, inventory.ErrNoAttributes) {
 			flasher.Logger.Info(err.Error() + ": " + getTaskFlagSet.deviceID)

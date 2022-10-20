@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -21,20 +20,19 @@ func newTaskFixture(status string) *model.Task {
 	task, _ := model.NewTask("", nil)
 	task.Status = string(status)
 	task.FirmwaresPlanned = fixtures.Firmware
-
+	task.Parameters.Device = fixtures.Devices[fixtures.Device1.String()]
 	return &task
 }
 
 func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.HandlerContext {
 	inv, _ := inventory.NewMockInventory()
 	return &sm.HandlerContext{
-		TaskID:    taskID,
-		Device:    fixtures.NewMockDeviceQueryor(context.Background(), device, logrus.New()),
-		Ctx:       context.Background(),
-		Store:     store.NewMemStore(),
-		Inv:       inv,
-		FwPlanner: firmware.NewMockPlanner(),
-		Logger:    logrus.New(),
+		TaskID:        taskID,
+		DeviceQueryor: fixtures.NewMockDeviceQueryor(context.Background(), device, logrus.New()),
+		Ctx:           context.Background(),
+		Store:         store.NewMemStore(),
+		Inv:           inv,
+		Logger:        logrus.New(),
 	}
 }
 
@@ -141,7 +139,7 @@ func Test_Transitions(t *testing.T) {
 				tctx.Err = errors.New("cosmic rays")
 			// set the action plan for Run
 			case sm.Run:
-				tctx.ActionPlan, err = planInstallActions(context.Background(), tc.task)
+				tctx.ActionStateMachines, tc.task.ActionsPlanned, err = planInstall(context.Background(), tc.task)
 				if err != nil {
 					panic(err)
 				}

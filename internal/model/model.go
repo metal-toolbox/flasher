@@ -38,7 +38,7 @@ type Device struct {
 	BmcUsername string
 	BmcPassword string
 
-	// Inventory attribute
+	// Inventory status attribute
 	State string
 
 	// Manufacturer attributes
@@ -58,6 +58,16 @@ type Firmware struct {
 	ComponentSlug string `yaml:"componentslug"`
 	Checksum      string `yaml:"checksum"`
 }
+
+type Component struct {
+	Slug              string
+	Serial            string
+	Vendor            string
+	Model             string
+	FirmwareInstalled string
+}
+
+type Components []Component
 
 // DeviceQueryor interface defines methods to query a device.
 //

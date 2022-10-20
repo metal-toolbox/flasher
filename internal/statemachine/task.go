@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/firmware"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
@@ -38,16 +37,13 @@ type HandlerContext struct {
 	Ctx context.Context
 
 	// plan is an ordered list of actions planned to complete this task.
-	ActionPlan ActionPlan
+	ActionStateMachines ActionStateMachines
 
 	// err is set when a transition fails in run()
 	Err error
 
-	// fwPlanner provides methods to plan the firmware to be installed.
-	FwPlanner firmware.Planner
-
-	// Device provides methods to perform queries on a device.
-	Device model.DeviceQueryor
+	// DeviceQueryor is an interface run queries on a device.
+	DeviceQueryor model.DeviceQueryor
 
 	Store  store.Storage
 	Inv    inventory.Inventory
@@ -69,7 +65,7 @@ type TaskStateMachine struct {
 	transitions []sw.TransitionType
 }
 
-// ActionPlanMachine drives the firmware install actions
+// ActionStateMachine drives the firmware install actions
 
 func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
@@ -82,6 +78,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	// The SM has transition rules define the transitionHandler methods
 	// each transitionHandler method is passed as values to the transition rule.
+
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   Plan,
 		SourceStates:     sw.States{model.StateQueued},
@@ -103,9 +100,9 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		TransitionType:   Run,
 		SourceStates:     sw.States{model.StateActive},
 		DestinationState: model.StateSuccess,
-		//	Condition:        handler.Validate,
-		Transition:     handler.Run,
-		PostTransition: handler.SaveState,
+		Condition:        handler.Validate,
+		Transition:       handler.Run,
+		PostTransition:   handler.SaveState,
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
@@ -134,13 +131,21 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 	// 'no transition rule found for transition type 'Run' to state 'success': no condition found to run transition'
 	//
 	// The error is returned to the caller and the task is marked as FailedState
+	//
+	// TODO(joel): extend the stateswitch library to have an OnFailure handler and remove this defer
 	defer func() {
 		if err != nil {
+			// save the handler error in the task information
 			task.Info = err.Error()
-			// errors from these methods are ignored
-			// so as to not overwrite the original error
-			_ = task.SetState(sw.State(model.StateFailed))
-			_ = handler.SaveState(task, tctx)
+
+			// save task state, wrap error if any
+			if errSetState := task.SetState(sw.State(model.StateFailed)); errSetState != nil {
+				err = errors.Wrap(errSetState, err.Error())
+			}
+
+			if errSaveState := handler.SaveState(task, tctx); errSaveState != nil {
+				err = errors.Wrap(errSaveState, err.Error())
+			}
 		}
 	}()
 

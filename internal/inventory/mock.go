@@ -34,22 +34,27 @@ func (s *Mock) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, de
 	return fixtures.Firmware, nil
 }
 
-// FwInstallAttributes - gets the firmware install attributes for the device.
-func (s *Mock) FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
+// FlasherAttributes - gets the firmware install attributes for the device.
+func (s *Mock) FlasherAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
 	return InstallAttributes{}, nil
 }
 
-// SetFwInstallAttributes - sets the firmware install attributes to the given values on a device.
-func (s *Mock) SetFwInstallAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error {
+// SetFlasherAttributes - sets the firmware install attributes to the given values on a device.
+func (s *Mock) SetFlasherAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error {
 	return nil
 }
 
-// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
-func (s *Mock) DeleteFwInstallAttributes(ctx context.Context, deviceID string) error {
+// DeleteFlasherAttributes - removes the firmware install attributes from a device.
+func (s *Mock) DeleteFlasherAttributes(ctx context.Context, deviceID string) error {
 	return nil
 }
 
 // ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
 func (s *Mock) ReleaseDevice(ctx context.Context, id string) error {
 	return nil
+}
+
+// FirmwareInstalled returns the component installed firmware versions
+func (s *Mock) FirmwareInstalled(ctx context.Context, deviceID string) (model.Components, error) {
+	return nil, nil
 }

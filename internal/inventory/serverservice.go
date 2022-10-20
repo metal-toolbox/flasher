@@ -3,11 +3,16 @@ package inventory
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"strings"
 
 	sservice "go.hollow.sh/serverservice/pkg/api/v1"
+	"golang.org/x/exp/slices"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
@@ -18,10 +23,15 @@ const (
 	serverAttributeNSFlasherTask = "sh.hollow.flasher.task"
 
 	// serverservice attribute namespace for device vendor, model, serial attributes
-	serverAttributeNSVendor = "sh.hollow.server_vendor_attributes"
+	serverAttributeNSVendor = "sh.hollow.alloy.server_vendor_attributes"
 
 	// serverservice attribute namespace for the BMC address
 	serverAttributeNSBmcAddress = "sh.hollow.bmc_info"
+
+	// serverservice attribute namespace for firmware set labels
+	firmwareAttributeNSFirmwareSetLabels = "sh.hollow.firmware_set.labels"
+
+	component = "inventory.serverservice"
 )
 
 var (
@@ -38,38 +48,63 @@ var (
 	// ErrDeviceState is returned when an error occurs in the device state  lookup.
 	ErrDeviceState = errors.New("error in device state")
 
-	// ErrServerserviceAttrObj is retuned when a serverservice attribute is not as expected.
+	// ErrServerserviceAttrObj is retuned when an error occurred in unpacking the attribute.
 	ErrServerserviceAttrObj = errors.New("serverservice attribute error")
+
+	// ErrServerserviceVersionedAttrObj is retuned when an error occurred in unpacking the versioned attribute.
+	ErrServerserviceVersionedAttrObj = errors.New("serverservice versioned attribute error")
 
 	// ErrServerserviceQuery is returned when a server service query fails.
 	ErrServerserviceQuery = errors.New("serverservice query returned error")
+
+	ErrFirmwareSetLookup = errors.New("firmware set error")
 )
 
 type Serverservice struct {
 	config *model.Config
+	// componentSlugs map[string]string
 	client *sservice.Client
+	logger *logrus.Logger
 }
 
-func NewServerserviceInventory(config *model.Config) (Inventory, error) {
+func NewServerserviceInventory(ctx context.Context, config *model.Config, logger *logrus.Logger) (Inventory, error) {
 	// TODO: add helper method for OIDC auth
 	client, err := sservice.NewClientWithToken("fake", config.Endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Serverservice{client: client, config: config}, nil
+	serverservice := &Serverservice{
+		client: client,
+		config: config,
+		//	componentSlugs: map[string]string{},
+		logger: logger,
+	}
+
+	// cache component type slugs
+	//	componentTypes, _, err := client.ListServerComponentTypes(ctx, nil)
+	//	if err != nil {
+	//		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+	//	}
+	//
+	//	for _, ct := range componentTypes {
+	//		serverservice.componentSlugs[ct.ID] = ct.Slug
+	//	}
+
+	return serverservice, nil
 }
 
 func (s *Serverservice) ListDevicesForFwInstall(ctx context.Context, limit int) ([]model.Device, error) {
 	devices := []model.Device{}
 
 	params := &sservice.ServerListParams{
+		FacilityCode: s.config.FacilityCode,
 		AttributeListParams: []sservice.AttributeListParams{
 			{
 				Namespace: serverAttributeNSFlasherTask,
 				Keys:      []string{"status"},
 				Operator:  sservice.OperatorEqual,
-				Value:     "",
+				Value:     string(model.StateRequested),
 			},
 		},
 	}
@@ -83,20 +118,52 @@ func (s *Serverservice) ListDevicesForFwInstall(ctx context.Context, limit int) 
 		return devices, nil
 	}
 
-	return s.convertServersToDevices(ctx, found)
+	return s.convertServersToDeviceObjs(ctx, found)
 }
 
-func (s *Serverservice) convertServersToDevices(ctx context.Context, servers []sservice.Server) ([]model.Device, error) {
-	return []model.Device{}, nil
+func (s *Serverservice) convertServersToDeviceObjs(ctx context.Context, servers []sservice.Server) ([]model.Device, error) {
+	devices := make([]model.Device, 0, len(servers))
+
+	for _, server := range servers {
+		device, err := s.deviceWithAttributes(ctx, server.UUID.String())
+		if err != nil {
+			s.logger.WithFields(
+				logrus.Fields{
+					"component": component,
+					"deviceID":  server.UUID.String(),
+					"err":       err.Error(),
+				},
+			).Warn("error in device attribute lookup")
+
+			continue
+		}
+
+		// check device state is acceptable for firmware install
+		if device.State != "" && !slices.Contains(s.config.DeviceStates, device.State) {
+			s.logger.WithFields(
+				logrus.Fields{
+					"component": component,
+					"deviceID":  server.UUID.String(),
+				},
+			).Trace("device skipped, inventory state is not one of: ", strings.Join(s.config.DeviceStates, ", "))
+
+			continue
+		}
+
+		device.ID = server.UUID
+		devices = append(devices, *device)
+	}
+
+	return devices, nil
 }
 
 func (s *Serverservice) AquireDevice(ctx context.Context, deviceID string) (model.Device, error) {
 	// updates the server service attribute
 	// - the device should not have any active flasher tasks
 	// - the device state should be maintenance
-	device, err := s.deviceAttributes(ctx, deviceID)
+	device, err := s.deviceWithAttributes(ctx, deviceID)
 	if err != nil {
-		return *device, err
+		return model.Device{}, err
 	}
 
 	// attributes to set
@@ -106,11 +173,11 @@ func (s *Serverservice) AquireDevice(ctx context.Context, deviceID string) (mode
 		Requester: os.Getenv("USER"),
 	}
 
-	if err := s.SetFwInstallAttributes(ctx, deviceID, attrs); err != nil {
-		return *device, err
+	if err := s.SetFlasherAttributes(ctx, deviceID, attrs); err != nil {
+		return model.Device{}, err
 	}
 
-	return model.Device{}, nil
+	return *device, nil
 }
 
 // ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
@@ -119,15 +186,15 @@ func (s *Serverservice) ReleaseDevice(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
-
+func (s *Serverservice) FirmwareSetByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
 	// looks up device inventory
 	// looks up firmware
+
 	return nil, nil
 }
 
-// FwInstallAttributes - gets the firmware install attributes for the device.
-func (s *Serverservice) FwInstallAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
+// FlasherAttributes - gets the firmware install attributes for the device.
+func (s *Serverservice) FlasherAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
 	params := InstallAttributes{}
 
 	deviceUUID, err := uuid.Parse(deviceID)
@@ -149,7 +216,7 @@ func (s *Serverservice) FwInstallAttributes(ctx context.Context, deviceID string
 
 	installAttributes := InstallAttributes{}
 
-	if err := json.Unmarshal(foundAttributes.Data, foundAttributes); err != nil {
+	if err := json.Unmarshal(foundAttributes.Data, &installAttributes); err != nil {
 		return params, errors.Wrap(ErrAttributeList, err.Error())
 	}
 
@@ -157,7 +224,7 @@ func (s *Serverservice) FwInstallAttributes(ctx context.Context, deviceID string
 }
 
 // SetDeviceFwInstallTaskAttributes - sets the firmware install attributes to the given values on a device.
-func (s *Serverservice) SetFwInstallAttributes(ctx context.Context, deviceID string, newTaskAttrs *InstallAttributes) error {
+func (s *Serverservice) SetFlasherAttributes(ctx context.Context, deviceID string, newTaskAttrs *InstallAttributes) error {
 	deviceUUID, err := uuid.Parse(deviceID)
 	if err != nil {
 		return err
@@ -174,55 +241,32 @@ func (s *Serverservice) SetFwInstallAttributes(ctx context.Context, deviceID str
 		return err
 	}
 
-	// update when theres an existing attribute
-	if taskAttrs != nil {
-		if taskAttrs.Status == string(model.StateActive) ||
-			taskAttrs.Status == string(model.StateQueued) {
-			return errors.Wrap(
-				ErrAttributeUpdate,
-				"task present on device in non finalized state: "+taskAttrs.Status,
-			)
-		}
-
-		return s.updateInstallAttributes(ctx, deviceUUID, taskAttrs, newTaskAttrs)
+	// create firmware install attributes when theres none.
+	if taskAttrs == nil {
+		// create new task attribute
+		return s.createFlasherAttributes(ctx, deviceUUID, newTaskAttrs)
 	}
 
-	// create new task attribute
-	return s.createInstallAttributes(ctx, deviceUUID, newTaskAttrs)
+	// if the task status is in a non-finalized state, return error
+	switch taskAttrs.Status {
+	case string(model.StateActive), string(model.StateQueued):
+		return errors.Wrap(
+			ErrAttributeUpdate,
+			"device firmware install in non-finalized state: "+taskAttrs.Status,
+		)
+	case "":
+		return errors.Wrap(
+			ErrAttributeUpdate,
+			"device currently flagged for firmware install: "+taskAttrs.Status,
+		)
+	}
+
+	// update firmware install attributes
+	return s.updateFlasherAttributes(ctx, deviceUUID, taskAttrs, newTaskAttrs)
 }
 
-func (s *Serverservice) updateInstallAttributes(ctx context.Context, deviceUUID uuid.UUID, currentTaskAttrs, newTaskAttrs *InstallAttributes) error {
-	payload, err := json.Marshal(newTaskAttrs)
-	if err != nil {
-		return errors.Wrap(ErrAttributeUpdate, err.Error())
-	}
-
-	_, err = s.client.UpdateAttributes(ctx, deviceUUID, serverAttributeNSFlasherTask, payload)
-	if err != nil {
-		return errors.Wrap(ErrAttributeUpdate, err.Error())
-	}
-
-	return nil
-}
-
-func (s *Serverservice) createInstallAttributes(ctx context.Context, deviceUUID uuid.UUID, attrs *InstallAttributes) error {
-	payload, err := json.Marshal(attrs)
-	if err != nil {
-		return errors.Wrap(ErrAttributeCreate, err.Error())
-	}
-
-	data := sservice.Attributes{Namespace: serverAttributeNSFlasherTask, Data: payload}
-
-	_, err = s.client.CreateAttributes(ctx, deviceUUID, data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// DeleteFwInstallAttributes - removes the firmware install attributes from a device.
-func (s *Serverservice) DeleteFwInstallAttributes(ctx context.Context, deviceID string) error {
+// DeleteFlasherAttributes - removes the firmware install attributes from a device.
+func (s *Serverservice) DeleteFlasherAttributes(ctx context.Context, deviceID string) error {
 	deviceUUID, err := uuid.Parse(deviceID)
 	if err != nil {
 		return err
@@ -236,53 +280,134 @@ func (s *Serverservice) DeleteFwInstallAttributes(ctx context.Context, deviceID 
 	return nil
 }
 
-// deviceAttributes returns a device object with its fields populated.
-//
-// The attributes looked up are,
-// - BMC address
-// - BMC credentials
-// - Device vendor, model, serial attributes
-// - Device state
-func (s *Serverservice) deviceAttributes(ctx context.Context, deviceID string) (*model.Device, error) {
-	device := &model.Device{}
-
+// FirmwareInstalled returns the component installed firmware versions
+func (s *Serverservice) FirmwareInstalled(ctx context.Context, deviceID string) (model.Components, error) {
 	deviceUUID, err := uuid.Parse(deviceID)
 	if err != nil {
+		return nil, errors.Wrap(ErrDeviceID, err.Error()+": "+deviceID)
+	}
+
+	components, _, err := s.client.GetComponents(ctx, deviceUUID, nil)
+	if err != nil {
 		return nil, err
 	}
 
-	// lookup attributes to acquire device for an update
-	attributes, _, err := s.client.ListAttributes(ctx, deviceUUID, nil)
+	converted := model.Components{}
+
+	for _, component := range components {
+		if len(component.VersionedAttributes) == 0 {
+			s.logger.WithFields(logrus.Fields{
+				"slug":     component.ComponentTypeSlug,
+				"deviceID": deviceID,
+			}).Trace("component skipped - no versioned attributes")
+
+			continue
+		}
+
+		installed, err := installedFirmwareFromVA(component.VersionedAttributes[1])
+		if err != nil {
+			s.logger.WithFields(logrus.Fields{
+				"slug":     component.ComponentTypeSlug,
+				"deviceID": deviceID,
+				"err":      err.Error(),
+			}).Trace("component skipped - versioned attribute error")
+		}
+
+		c := model.Component{
+			Slug:              component.ComponentTypeSlug,
+			Vendor:            component.Vendor,
+			Model:             component.Model,
+			Serial:            component.Serial,
+			FirmwareInstalled: installed,
+		}
+
+		converted = append(converted, c)
+	}
+
+	return converted, nil
+}
+
+//func cacheServerComponentTypes(ctx context.Context) error {
+//	s.componentSlugs = map[string]string{}
+//
+//	return nil
+//}
+//
+
+// FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
+func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
+	// lookup flasher task attribute
+	params := &sservice.ComponentFirmwareSetListParams{
+		AttributeListParams: []sservice.AttributeListParams{
+			{
+				Namespace: firmwareAttributeNSFirmwareSetLabels,
+				Keys:      []string{"model"},
+				Operator:  "eq",
+				Value:     deviceModel,
+			},
+			{
+				Namespace: firmwareAttributeNSFirmwareSetLabels,
+				Keys:      []string{"vendor"},
+				Operator:  "eq",
+				Value:     deviceVendor,
+			},
+		},
+	}
+
+	firmwaresets, _, err := s.client.ListServerComponentFirmwareSet(ctx, params)
 	if err != nil {
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
 
-	// bmc address from attribute
-	device.BmcAddress, err = s.bmcAddressFromAttributes(attributes)
-	if err != nil {
-		return nil, err
+	spew.Dump(firmwaresets)
+
+	if len(firmwaresets) == 0 {
+		return nil, errors.Wrap(
+			ErrFirmwareSetLookup,
+			fmt.Sprintf(
+				"lookup by device vendor: %s, model: %s return no firmware set",
+				deviceVendor,
+				deviceModel,
+			),
+		)
 	}
 
-	// credentials from credential store
-	credential, _, err := s.client.GetCredential(ctx, deviceUUID, sservice.ServerCredentialTypeBMC)
-	if err != nil {
-		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+	if len(firmwaresets) > 1 {
+		return nil, errors.Wrap(
+			ErrFirmwareSetLookup,
+			fmt.Sprintf(
+				"lookup by device vendor: %s, model: %s returned multiple firmware sets, expected one",
+				deviceVendor,
+				deviceModel,
+			),
+		)
 	}
 
-	device.BmcUsername = credential.Username
-	device.BmcPassword = credential.Password
-
-	// vendor attributes
-	device.Vendor, device.Model, device.Serial, err = s.vendorModelFromAttributes(attributes)
-	if err != nil {
-		return nil, err
+	if len(firmwaresets[0].ComponentFirmware) == 0 {
+		return nil, errors.Wrap(
+			ErrFirmwareSetLookup,
+			fmt.Sprintf(
+				"lookup by device vendor: %s, model: %s returned firmware set with no component firmware",
+				deviceVendor,
+				deviceModel,
+			),
+		)
 	}
 
-	// device state attribute
-	device.State, err = s.deviceStateAttribute(attributes)
-	if err != nil {
-		return nil, err
+	found := []model.Firmware{}
+	for _, set := range firmwaresets {
+		for _, firmware := range set.ComponentFirmware {
+			found = append(found, model.Firmware{
+				Vendor:        firmware.Vendor,
+				Model:         firmware.Model,
+				Version:       firmware.Version,
+				FileName:      firmware.Filename,
+				URL:           firmware.RepositoryURL,
+				ComponentSlug: firmware.Component,
+				Checksum:      firmware.Checksum,
+			})
+		}
 	}
 
-	return device, nil
+	return found, nil
 }

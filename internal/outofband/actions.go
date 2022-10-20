@@ -28,7 +28,7 @@ const (
 	stateInstallFailed sw.State = "installFailed"
 )
 
-func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine, error) {
+func NewActionStateMachines(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
 	transitions := []sw.TransitionType{
 		transitionTypeLoginBMC,
 		transitionTypeUploadFirmware,
@@ -59,12 +59,13 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 			PostTransition: handler.SaveState,
 		},
 		{
-			TransitionType:   transitionTypeUploadFirmware,
-			SourceStates:     sw.States{stateLoginBMC},
-			DestinationState: stateUploadFirmware,
-			Condition:        handler.conditionInstallFirmware,
-			Transition:       handler.uploadFirmware,
-			PostTransition:   handler.SaveState,
+			TransitionType:        transitionTypeUploadFirmware,
+			SourceStates:          sw.States{stateLoginBMC},
+			DestinationState:      stateUploadFirmware,
+			Condition:             handler.conditionInstallFirmware,
+			Transition:            handler.uploadFirmware,
+			PostTransitionFailure: handler.SaveState,
+			PostTransition:        handler.SaveState,
 		},
 		{
 			TransitionType:   transitionTypeInstallFirmware,
@@ -86,7 +87,7 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 			TransitionType:   transitionTypeResetHost,
 			SourceStates:     sw.States{stateResetHost},
 			DestinationState: model.StateSuccess,
-			Condition:        handler.conditioResetHost,
+			Condition:        handler.conditionalResetHost,
 			Transition:       handler.resetHost,
 			PostTransition:   handler.SaveState,
 		},
@@ -106,5 +107,5 @@ func NewActionPlan(ctx context.Context, actionID string) (*sm.ActionPlanMachine,
 		},
 	}
 
-	return sm.NewActionPlanMachine(ctx, actionID, transitions, transitionsRules)
+	return sm.NewActionStateMachine(ctx, actionID, transitions, transitionsRules)
 }

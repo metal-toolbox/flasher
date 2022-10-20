@@ -18,6 +18,8 @@ var (
 	Devices = map[string]model.Device{
 		Device1.String(): {
 			ID:          Device1,
+			Vendor:      "dell",
+			Model:       "r6515",
 			BmcAddress:  net.ParseIP("127.0.0.1"),
 			BmcUsername: "root",
 			BmcPassword: "hunter2",
@@ -25,6 +27,8 @@ var (
 
 		Device2.String(): {
 			ID:          Device2,
+			Vendor:      "dell",
+			Model:       "r6515",
 			BmcAddress:  net.ParseIP("127.0.0.2"),
 			BmcUsername: "root",
 			BmcPassword: "hunter2",

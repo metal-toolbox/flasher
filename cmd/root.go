@@ -56,4 +56,6 @@ func init() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flasher.yml)")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug level logging")
+	rootCmd.PersistentFlags().BoolVar(&trace, "trace", false, "enable trace level logging")
 }
