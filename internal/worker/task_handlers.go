@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sw "github.com/filanov/stateswitch"
+	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -177,20 +178,34 @@ func (h *taskHandler) FailedState(task sw.StateSwitch, args sw.TransitionArgs) e
 	return nil
 }
 
-func (h *taskHandler) SaveState(task sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) SaveState(t sw.StateSwitch, args sw.TransitionArgs) error {
 	// check currently queued count of tasks
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
 	}
 
-	t, ok := task.(*model.Task)
+	task, ok := t.(*model.Task)
 	if !ok {
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
-	if err := tctx.Store.UpdateTask(tctx.Ctx, *t); err != nil {
+	if err := tctx.Store.UpdateTask(tctx.Ctx, *task); err != nil {
 		return errors.Wrap(ErrSaveTask, err.Error())
+	}
+
+	// update task state in inventory
+	//
+	// TODO(joel) - figure if this can be moved in a different package
+	attr := &inventory.InstallAttributes{
+		TaskParameters: task.Parameters,
+		FlasherTaskID:  task.ID.String(),
+		Worker:         tctx.WorkerName,
+		Status:         task.Status,
+	}
+
+	if err := tctx.Inv.SetFlasherAttributes(tctx.Ctx, task.Parameters.Device.ID.String(), attr); err != nil {
+		return err
 	}
 
 	return nil
@@ -202,6 +217,9 @@ func (h *taskHandler) SaveState(task sw.StateSwitch, args sw.TransitionArgs) err
 func planInstall(ctx context.Context, task *model.Task) (sm.ActionStateMachines, model.Actions, error) {
 	plans := make(sm.ActionStateMachines, 0)
 	actions := make(model.Actions, 0)
+
+	// sort the firmware for install
+	task.FirmwaresPlanned.SortForInstall()
 
 	// each firmware planned results in an ActionPlan and an Action
 	for idx, firmware := range task.FirmwaresPlanned {

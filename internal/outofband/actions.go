@@ -12,17 +12,22 @@ const (
 	// action states
 	//
 	// the SM transitions through these states for each component being updated.
-	stateLoginBMC        sw.State = "loginBMC"
-	stateUploadFirmware  sw.State = "uploadFirmware"
-	stateInstallFirmware sw.State = "installFirmware"
-	stateResetBMC        sw.State = "resetBMC"
-	stateResetHost       sw.State = "resetHost"
+	//
+	// These states should be named in the format "verb+subject"
+	stateInitializeDevice sw.State = "initializeDevice"
+	stateUploadFirmware   sw.State = "uploadFirmware"
+	stateInstallFirmware  sw.State = "installFirmware"
+	stateResetBMC         sw.State = "resetBMC"
+	stateResetHost        sw.State = "resetHost"
 
-	transitionTypeLoginBMC        sw.TransitionType = "logginBMC"
-	transitionTypeInstallFirmware sw.TransitionType = "installingFirmware"
-	transitionTypeUploadFirmware  sw.TransitionType = "uploadingFirmware"
-	transitionTypeResetBMC        sw.TransitionType = "resettingBMC"
-	transitionTypeResetHost       sw.TransitionType = "resettingHost"
+	//
+	// The transition types var names should be in the format - transitionType + "state"
+	// the values should be in the continuous present tense
+	transitionTypeInitializeDevice sw.TransitionType = "initializingDevice"
+	transitionTypeInstallFirmware  sw.TransitionType = "installingFirmware"
+	transitionTypeUploadFirmware   sw.TransitionType = "uploadingFirmware"
+	transitionTypeResetBMC         sw.TransitionType = "resettingBMC"
+	transitionTypeResetHost        sw.TransitionType = "resettingHost"
 
 	// state, transition for FailedState actions
 	stateInstallFailed sw.State = "installFailed"
@@ -30,7 +35,7 @@ const (
 
 func NewActionStateMachines(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
 	transitions := []sw.TransitionType{
-		transitionTypeLoginBMC,
+		transitionTypeInitializeDevice,
 		transitionTypeUploadFirmware,
 		transitionTypeInstallFirmware,
 		transitionTypeResetBMC,
@@ -43,9 +48,9 @@ func NewActionStateMachines(ctx context.Context, actionID string) (*sm.ActionSta
 	// each transitionHandler method is passed as values to the transition rule.
 	transitionsRules := []sw.TransitionRule{
 		{
-			TransitionType:   transitionTypeLoginBMC,
+			TransitionType:   transitionTypeInitializeDevice,
 			SourceStates:     sw.States{model.StateQueued},
-			DestinationState: stateLoginBMC,
+			DestinationState: stateUploadFirmware,
 
 			// Condition for the transition, transition will be executed only if this function return true
 			// Can be nil, in this case it's considered as return true, nil
@@ -53,14 +58,14 @@ func NewActionStateMachines(ctx context.Context, actionID string) (*sm.ActionSta
 
 			// Transition is users business logic, should not set the state or return next state
 			// If condition returns true this function will be executed
-			Transition: handler.loginBMC,
+			Transition: handler.initializeDevice,
 
 			// PostTransition will be called if condition and transition are successful.
 			PostTransition: handler.SaveState,
 		},
 		{
 			TransitionType:        transitionTypeUploadFirmware,
-			SourceStates:          sw.States{stateLoginBMC},
+			SourceStates:          sw.States{stateInitializeDevice},
 			DestinationState:      stateUploadFirmware,
 			Condition:             handler.conditionInstallFirmware,
 			Transition:            handler.uploadFirmware,
@@ -94,7 +99,7 @@ func NewActionStateMachines(ctx context.Context, actionID string) (*sm.ActionSta
 		{
 			TransitionType: sm.TransitionTypeActionFailed,
 			SourceStates: sw.States{
-				stateLoginBMC,
+				stateInitializeDevice,
 				stateUploadFirmware,
 				stateInstallFirmware,
 				stateResetBMC,

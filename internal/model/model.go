@@ -3,6 +3,8 @@ package model
 import (
 	"context"
 	"net"
+	"sort"
+	"strings"
 
 	"github.com/bmc-toolbox/common"
 	"github.com/google/uuid"
@@ -29,6 +31,23 @@ func AppKinds() []AppKind { return []AppKind{AppKindWorker, AppKindClient} }
 func InventorySourceKinds() []string {
 	return []string{InventorySourceYaml, InventorySourceServerservice}
 }
+
+var (
+	// FirmwareInstallOrder defines the order in which firmware is installed.
+	FirmwareInstallOrder = map[string]int{
+		common.SlugBMC:               0,
+		common.SlugBIOS:              1,
+		common.SlugCPLD:              2,
+		common.SlugDrive:             3,
+		common.SlugBackplaneExpander: 4,
+		common.SlugStorageController: 5,
+		common.SlugNIC:               6,
+		common.SlugPSU:               7,
+		common.SlugTPM:               8,
+		common.SlugGPU:               9,
+		common.SlugCPU:               10,
+	}
+)
 
 type Device struct {
 	ID uuid.UUID
@@ -59,6 +78,18 @@ type Firmware struct {
 	Checksum      string `yaml:"checksum"`
 }
 
+// FirmwarePlanned is the list of firmware planned for install
+type FirmwarePlanned []Firmware
+
+// Sort the firmware in the order they are expected to be installed
+func (p FirmwarePlanned) SortForInstall() {
+	sort.Slice(p, func(i, j int) bool {
+		slugi := strings.ToUpper(p[i].ComponentSlug)
+		slugj := strings.ToUpper(p[j].ComponentSlug)
+		return FirmwareInstallOrder[slugi] < FirmwareInstallOrder[slugj]
+	})
+}
+
 type Component struct {
 	Slug              string
 	Serial            string
@@ -73,10 +104,19 @@ type Components []Component
 //
 // This is common interface to the ironlib and bmclib libraries.
 type DeviceQueryor interface {
-	// Open logs into the BMC
+	// Open opens the connection to the device.
 	Open(ctx context.Context) error
-	// Close logs out of the BMC, note no context is passed to this method
-	// to allow it to continue to log out when the parent context has been canceled.
+
+	// Close closes the connection to the device.
 	Close() error
+
+	// SessionActive returns true if a connection is currently active for the device.
+	SessionActive(ctx context.Context) bool
+
+	PowerOn(ctx context.Context) (wasOff bool, err error)
+
+	PowerStatus(ctx context.Context) (status string, err error)
+
+	// Inventory returns the device inventory
 	Inventory(ctx context.Context) (*common.Device, error)
 }

@@ -5,12 +5,10 @@ import (
 	"strings"
 	"time"
 
-	bmclibv2 "github.com/bmc-toolbox/bmclib/v2"
-	logrusrv2 "github.com/bombsimon/logrusr/v2"
 	"github.com/pkg/errors"
 
+	bmclibv2 "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/common"
-	"github.com/jacobweinstock/registrar"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
@@ -18,7 +16,8 @@ import (
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
 	logoutTimeout = "5m"
-	loginTimeout  = "5m"
+	loginTimeout  = "5s"
+	loginAttempts = 3
 
 	// login errors
 	errBMCLogin             = errors.New("bmc login error")
@@ -32,14 +31,19 @@ var (
 
 // bmc wraps the bmclib client and implements the bmcQueryor interface
 type bmc struct {
-	client *bmclibv2.Client
-	logger *logrus.Logger
+	taskID   string
+	deviceID string
+	client   *bmclibv2.Client
+	logger   *logrus.Entry
 }
 
-func NewDeviceQueryor(ctx context.Context, device *model.Device, logger *logrus.Logger) model.DeviceQueryor {
+// NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
+func NewDeviceQueryor(ctx context.Context, device *model.Device, taskID string, logger *logrus.Entry) model.DeviceQueryor {
 	return &bmc{
-		client: newBmclibv2Client(ctx, device, logger),
-		logger: logger,
+		taskID:   taskID,
+		deviceID: device.ID.String(),
+		client:   newBmclibv2Client(ctx, device, logger),
+		logger:   logger,
 	}
 }
 
@@ -57,51 +61,95 @@ func newErrBmcQuery(cause string) error {
 
 // Open creates a BMC session
 func (b *bmc) Open(ctx context.Context) error {
-	startTS := time.Now()
-
 	if b.client == nil {
 		return errors.Wrap(errBMCLogin, "bmclibv2 client not initialized")
 	}
 
-	timeout, err := time.ParseDuration(loginTimeout)
-	if err != nil {
-		return errors.Wrap(errBMCLogout, err.Error())
+	// return if a session is active
+	if b.SessionActive(ctx) {
+		b.logger.WithFields(logrus.Fields{
+			"taskID":   b.taskID,
+			"deviceID": b.deviceID,
+		}).Trace("bmc session active, skipped login attempt")
+
+		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	// initiate bmc login session
-	if err := b.client.Open(ctx); err != nil {
-		if strings.Contains(err.Error(), "operation timed out") {
-			return errors.Wrap(errBMCLoginTimeout, "operation timed out in "+time.Since(startTS).String())
-		}
-
-		if strings.Contains(err.Error(), "401: ") || strings.Contains(err.Error(), "FailedState to login") {
-			return errors.Wrap(errBMCLoginUnAuthorized, err.Error())
-		}
-
-		return errors.Wrap(errBMCLogin, err.Error())
+	// login to the bmc with retries
+	if err := b.loginWithRetries(ctx, 3); err != nil {
+		return err
 	}
 
 	return nil
 }
 
+// SessionActive determines if the connection has an active session.
+func (b *bmc) SessionActive(ctx context.Context) bool {
+	if b.client == nil {
+		return false
+	}
+
+	_, err := b.client.GetPowerState(ctx)
+	if err == nil {
+		return true
+	}
+
+	return false
+}
+
 // Close logs out of the BMC
 func (b *bmc) Close() error {
+	if b.client == nil {
+		return nil
+	}
+
 	timeout, err := time.ParseDuration(logoutTimeout)
 	if err != nil {
 		return errors.Wrap(errBMCLogout, err.Error())
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeout))
 	defer cancel()
 
 	if err := b.client.Close(ctx); err != nil {
 		return errors.Wrap(errBMCLogout, err.Error())
 	}
 
+	b.client = nil
+
 	return nil
+}
+
+// PowerOn powers on the device when its powered off
+//
+// returns true if the host was powered off and had to be powered on.
+func (b *bmc) PowerOn(ctx context.Context) (bool, error) {
+	state, err := b.client.GetPowerState(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	// power on device when its powered off
+	if strings.Contains(strings.ToLower(state), "off") { // covers states - Off, PoweringOff
+		_, err = b.client.SetPowerState(ctx, "on")
+		if err != nil {
+			return true, err
+		}
+
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// PowerStatus returns the device power status
+func (b *bmc) PowerStatus(ctx context.Context) (string, error) {
+	status, err := b.client.GetPowerState(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return status, nil
 }
 
 // Inventory queries the BMC for the device inventory and returns an object with the device inventory.
@@ -121,59 +169,4 @@ func (b *bmc) Inventory(ctx context.Context) (*common.Device, error) {
 	inventory.Vendor = common.FormatVendorName(inventory.Vendor)
 
 	return inventory, nil
-}
-
-// newBmclibv2Client initializes a bmclibv2 client with the given credentials
-func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Logger) *bmclibv2.Client {
-	logger := logrus.New()
-	logger.Formatter = l.Formatter
-
-	// setup a logr logger for bmclib
-	// bmclib uses logr, for which the trace logs are logged with log.V(3),
-	// this is a hax so the logrusr lib will enable trace logging
-	// since any value that is less than (logrus.LogLevel - 4) >= log.V(3) is ignored
-	// https://github.com/bombsimon/logrusr/blob/master/logrusr.go#L64
-	switch l.GetLevel() {
-	case logrus.TraceLevel:
-		logger.Level = 7
-	case logrus.DebugLevel:
-		logger.Level = 5
-	}
-
-	logruslogr := logrusrv2.New(logger)
-
-	bmcClient := bmclibv2.NewClient(
-		device.BmcAddress.String(),
-		"", // port unset
-		device.BmcUsername,
-		device.BmcPassword,
-		bmclibv2.WithLogger(logruslogr),
-	)
-
-	// set bmclibv2 driver
-	//
-	// The bmclib drivers here are limited to the HTTPS means of connection,
-	// that is, drivers like ipmi are excluded.
-	switch device.Vendor {
-	case common.VendorDell, common.VendorHPE:
-		// Set to the bmclib ProviderProtocol value
-		// https://github.com/bmc-toolbox/bmclib/blob/v2/providers/redfish/redfish.go#L26
-		bmcClient.Registry.Drivers = bmcClient.Registry.Using("redfish")
-	case common.VendorAsrockrack:
-		// https://github.com/bmc-toolbox/bmclib/blob/v2/providers/asrockrack/asrockrack.go#L20
-		bmcClient.Registry.Drivers = bmcClient.Registry.Using("vendorapi")
-	default:
-		// attempt both drivers when vendor is unknown
-		drivers := append(registrar.Drivers{},
-			bmcClient.Registry.Using("redfish")...,
-		)
-
-		drivers = append(drivers,
-			bmcClient.Registry.Using("vendorapi")...,
-		)
-
-		bmcClient.Registry.Drivers = drivers
-	}
-
-	return bmcClient
 }

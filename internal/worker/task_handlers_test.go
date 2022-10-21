@@ -32,7 +32,7 @@ func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.Handl
 		Ctx:           context.Background(),
 		Store:         store.NewMemStore(),
 		Inv:           inv,
-		Logger:        logrus.New(),
+		Logger:        logrus.New().WithField("test", "true"),
 	}
 }
 

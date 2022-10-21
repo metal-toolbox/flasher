@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -76,7 +75,6 @@ func (a *Action) SetState(state sw.State) error {
 
 	a.Status = string(state)
 
-	spew.Dump(a)
 	return nil
 }
 
@@ -116,7 +114,7 @@ type Task struct {
 	ActionsPlanned Actions
 
 	// FirmwaresPlanned is the list of firmware planned for install.
-	FirmwaresPlanned []Firmware
+	FirmwaresPlanned FirmwarePlanned
 
 	// Parameters for this task
 	Parameters TaskParameters

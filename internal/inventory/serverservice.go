@@ -247,17 +247,11 @@ func (s *Serverservice) SetFlasherAttributes(ctx context.Context, deviceID strin
 		return s.createFlasherAttributes(ctx, deviceUUID, newTaskAttrs)
 	}
 
-	// if the task status is in a non-finalized state, return error
-	switch taskAttrs.Status {
-	case string(model.StateActive), string(model.StateQueued):
+	// device already flagged for install
+	if taskAttrs.Status == string(model.StateRequested) && newTaskAttrs.Status == string(model.StateRequested) {
 		return errors.Wrap(
 			ErrAttributeUpdate,
-			"device firmware install in non-finalized state: "+taskAttrs.Status,
-		)
-	case "":
-		return errors.Wrap(
-			ErrAttributeUpdate,
-			"device currently flagged for firmware install: "+taskAttrs.Status,
+			"device already flagged for firmware install",
 		)
 	}
 

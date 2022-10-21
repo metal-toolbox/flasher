@@ -3,10 +3,10 @@ package worker
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -20,6 +20,7 @@ const (
 )
 
 type Worker struct {
+	name        string
 	concurrency int
 	syncWG      *sync.WaitGroup
 	// map of task IDs to task state machines
@@ -31,7 +32,9 @@ type Worker struct {
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
 func New(concurrency int, syncWG *sync.WaitGroup, taskStore store.Storage, inv inventory.Inventory, logger *logrus.Logger) *Worker {
+	name, _ := os.Hostname()
 	return &Worker{
+		name:         name,
 		concurrency:  concurrency,
 		syncWG:       syncWG,
 		taskMachines: sync.Map{},
@@ -54,7 +57,6 @@ func (o *Worker) Run(ctx context.Context) {
 		select {
 		case <-tickQueueRun:
 			o.queue(ctx)
-			spew.Dump(o.store)
 			o.run(ctx)
 		case <-ctx.Done():
 			return
@@ -74,12 +76,22 @@ func (o *Worker) concurrencyLimit() bool {
 }
 
 func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
+
+	l := logrus.New()
+	l.Formatter = o.logger.Formatter
+
 	return &sm.HandlerContext{
-		TaskID: taskID,
-		Ctx:    ctx,
-		Store:  o.store,
-		Inv:    o.inv,
-		Logger: o.logger,
+		WorkerName: o.name,
+		TaskID:     taskID,
+		Ctx:        ctx,
+		Store:      o.store,
+		Inv:        o.inv,
+		Logger: l.WithFields(
+			logrus.Fields{
+				"taskID":   taskID,
+				"deviceID": device.ID.String(),
+			},
+		),
 	}
 }
 
@@ -116,8 +128,16 @@ func (o *Worker) run(ctx context.Context) {
 		o.logger.WithField("deviceID", task.Parameters.Device.ID.String()).Trace("run task for device")
 
 		// TODO: spawn block in a go routine with a limiter
-		//
+
+		// run task state machine
 		if err := m.Run(ctx, &tasks[idx], handler, taskHandlerCtx); err != nil {
+			// mark task failed and cleanup
+			//
+			// since the current implementation of the state machine
+			// has no transition failure handler, the failed task actions
+			// ands handled in this method
+			//
+			// TODO(joel) - extend stateswitch library to have an OnFailure method
 			o.taskFailed(ctx, &tasks[idx])
 
 			o.logger.Error(err)
@@ -125,25 +145,6 @@ func (o *Worker) run(ctx context.Context) {
 			continue
 		}
 	}
-}
-
-func (o *Worker) taskFailed(ctx context.Context, task *model.Task) {
-	// update task state in inventory - move to task handler context?
-	attr := &inventory.InstallAttributes{
-		TaskParameters: task.Parameters,
-		FlasherTaskID:  task.ID.String(),
-		Status:         string(model.StateFailed),
-		Info:           task.Info,
-	}
-
-	if err := o.inv.SetFlasherAttributes(ctx, task.Parameters.Device.ID.String(), attr); err != nil {
-		o.logger.WithField("taskID", task.ID.String()).Trace("failed inventory task state update")
-	}
-
-	// purge task state machine
-	o.taskMachines.Delete(task.ID.String())
-
-	o.logger.WithField("taskID", task.ID.String()).Trace("failed task statemachine purged")
 }
 
 func (o *Worker) queue(ctx context.Context) {
@@ -194,4 +195,25 @@ func (o *Worker) enqueueTask(ctx context.Context, device model.Device) (taskID s
 	}
 
 	return id.String(), nil
+}
+
+func (o *Worker) taskFailed(ctx context.Context, task *model.Task) {
+	// update task state in inventory - move to task handler context?
+	attr := &inventory.InstallAttributes{
+		TaskParameters: task.Parameters,
+		FlasherTaskID:  task.ID.String(),
+		Worker:         o.name,
+		Status:         string(model.StateFailed),
+		Info:           task.Info,
+	}
+
+	if err := o.inv.SetFlasherAttributes(ctx, task.Parameters.Device.ID.String(), attr); err != nil {
+		o.logger.WithFields(logrus.Fields{"taskID": task.ID.String(), "err": err.Error()}).Warn("failed inventory task state update")
+		return
+	}
+
+	// purge task state machine
+	o.taskMachines.Delete(task.ID.String())
+
+	o.logger.WithField("taskID", task.ID.String()).Trace("failed task statemachine purged")
 }

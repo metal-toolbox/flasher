@@ -116,6 +116,14 @@ func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attribut
 }
 
 func (s *Serverservice) updateFlasherAttributes(ctx context.Context, deviceUUID uuid.UUID, currentTaskAttrs, newTaskAttrs *InstallAttributes) error {
+	if newTaskAttrs.Requester == "" && currentTaskAttrs.Requester != "" {
+		newTaskAttrs.Requester = currentTaskAttrs.Requester
+	}
+
+	if newTaskAttrs.FlasherTaskID == "" && currentTaskAttrs.FlasherTaskID != "" {
+		newTaskAttrs.FlasherTaskID = currentTaskAttrs.FlasherTaskID
+	}
+
 	payload, err := json.Marshal(newTaskAttrs)
 	if err != nil {
 		return errors.Wrap(ErrAttributeUpdate, err.Error())
@@ -160,7 +168,7 @@ func (s *Serverservice) deviceWithAttributes(ctx context.Context, deviceID strin
 
 	device := &model.Device{ID: deviceUUID}
 
-	// lookup attributes to acquire device for an update
+	// lookup attributes
 	attributes, _, err := s.client.ListAttributes(ctx, deviceUUID, nil)
 	if err != nil {
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())

@@ -2,6 +2,8 @@ package outofband
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -9,7 +11,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// this value indicates the device was powered on by flasher
+	poweredOnByFlasher = "poweredOnByFlasher"
+)
+
 var (
+	// delayAfterPowerStatusChange is the delay after the host has been power cycled or powered on
+	// this delay ensures that any existing pending updates are applied and that the
+	// the host components are initialized properly before inventory and other actions are attempted.
+	delayAfterPowerStatusChange = 10 * time.Minute
+
 	ErrSaveAction          = errors.New("error in action state save")
 	ErrActionTypeAssertion = errors.New("error in action object type assertion")
 )
@@ -17,7 +29,8 @@ var (
 // taskHandler implements the taskTransitionHandler methods
 type actionHandler struct{}
 
-func (h *actionHandler) loginBMC(a sw.StateSwitch, args sw.TransitionArgs) error {
+// initialize initializes the bmc connection and powers on the host if required.
+func (h *actionHandler) initializeDevice(a sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidtaskHandlerContext
@@ -36,13 +49,23 @@ func (h *actionHandler) loginBMC(a sw.StateSwitch, args sw.TransitionArgs) error
 			return err
 		}
 
-		tctx.DeviceQueryor = NewDeviceQueryor(tctx.Ctx, &task.Parameters.Device, tctx.Logger)
+		tctx.DeviceQueryor = NewDeviceQueryor(tctx.Ctx, &task.Parameters.Device, task.ID.String(), tctx.Logger)
 	}
 
-	fmt.Println("login")
 	// login
 	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
 		return err
+	}
+
+	// power on device - when its powered off
+	poweredOn, err := tctx.DeviceQueryor.PowerOn(tctx.Ctx)
+	if err != nil {
+		return err
+	}
+
+	if poweredOn {
+		tctx.Data[poweredOnByFlasher] = strconv.FormatBool(poweredOn)
+		time.Sleep(delayAfterPowerStatusChange)
 	}
 
 	return nil
@@ -54,18 +77,23 @@ func (h *actionHandler) conditionInstallFirmware(a sw.StateSwitch, args sw.Trans
 		return false, sm.ErrInvalidtaskHandlerContext
 	}
 
-	fmt.Println("install condition")
 	action, ok := a.(*model.Action)
 	if !ok {
 		return false, sm.ErrActionTypeAssertion
 	}
 
 	_ = action
-	_, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
+	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {
 		return false, err
 	} //
 
+	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
+	if err != nil {
+		return false, err
+	}
+
+	h.differ(tctx.Ctx, task.FirmwaresPlanned, inv)
 	// compare installed with current
 
 	return true, nil

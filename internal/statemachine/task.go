@@ -30,6 +30,9 @@ var (
 // This struct is passed to transition handlers which
 // depend on the values provided in this struct.
 type HandlerContext struct {
+	// WorkerName is the name of the worker running this task.
+	WorkerName string
+
 	// taskID is only available when an action is invoked under a task.
 	TaskID string
 
@@ -45,9 +48,13 @@ type HandlerContext struct {
 	// DeviceQueryor is an interface run queries on a device.
 	DeviceQueryor model.DeviceQueryor
 
+	// Data is key values the handler may decide to store
+	// so as to record, read handler specific values.
+	Data map[string]string
+
 	Store  store.Storage
 	Inv    inventory.Inventory
-	Logger *logrus.Logger
+	Logger *logrus.Entry
 }
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.

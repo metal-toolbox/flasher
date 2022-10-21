@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 
+	runtime "github.com/banzaicloud/logrus-runtime-formatter"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
@@ -53,7 +54,9 @@ func New(ctx context.Context, appKind model.AppKind, inventorySourceKind, cfgFil
 		app.Logger.Level = logrus.InfoLevel
 	}
 
-	app.Logger.SetFormatter(&logrus.JSONFormatter{})
+	app.Logger.SetFormatter(
+		&runtime.Formatter{ChildFormatter: &logrus.JSONFormatter{}},
+	)
 
 	// register for SIGINT, SIGTERM
 	signal.Notify(app.TermCh, syscall.SIGINT, syscall.SIGTERM)
