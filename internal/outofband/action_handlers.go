@@ -87,7 +87,6 @@ func (h *actionHandler) conditionPowerOnDevice(a sw.StateSwitch, c sw.Transition
 
 	if strings.Contains(strings.ToLower(powerState), "off") { // covers states - Off, PoweringOff
 		return true, nil
-
 	}
 
 	return false, nil
@@ -111,38 +110,6 @@ func (h *actionHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) err
 	}
 
 	return nil
-}
-
-func (h *actionHandler) conditionInstallFirmware(a sw.StateSwitch, c sw.TransitionArgs) (bool, error) {
-	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
-	if err != nil {
-		return false, err
-	}
-
-	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
-	if err != nil {
-		return false, err
-	}
-
-	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
-	if err != nil {
-		return false, err
-	}
-
-	// compare installed firmware versions with the planned versions
-	//
-	// returns an error if a component is unsupported
-	equals, err := h.installedFirmwareVersionEqualsNew(inv, action.Firmware)
-	if err != nil {
-		return false, err
-	}
-
-	// force install ignores version comparison
-	if task.Parameters.ForceInstall {
-		return true, nil
-	}
-
-	return equals, nil
 }
 
 func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
@@ -184,6 +151,38 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 		}).Info("downloaded and verified firmware file checksum")
 
 	return nil
+}
+
+func (h *actionHandler) conditionInstallFirmware(a sw.StateSwitch, c sw.TransitionArgs) (bool, error) {
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	if err != nil {
+		return false, err
+	}
+
+	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
+	if err != nil {
+		return false, err
+	}
+
+	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
+	if err != nil {
+		return false, err
+	}
+
+	// compare installed firmware versions with the planned versions
+	//
+	// returns an error if a component is unsupported
+	equals, err := h.installedFirmwareVersionEqualsNew(inv, action.Firmware)
+	if err != nil {
+		return false, err
+	}
+
+	// force install ignores version comparison
+	if task.Parameters.ForceInstall {
+		return true, nil
+	}
+
+	return equals, nil
 }
 
 func (h *actionHandler) installFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
@@ -428,6 +427,7 @@ func (h *actionHandler) SaveState(a sw.StateSwitch, args sw.TransitionArgs) erro
 		return errors.Wrap(ErrSaveAction, ErrActionTypeAssertion.Error())
 	}
 
+	fmt.Println("save")
 	if err := tctx.Store.UpdateTaskAction(tctx.Ctx, tctx.TaskID, *action); err != nil {
 		return errors.Wrap(ErrSaveAction, err.Error())
 	}

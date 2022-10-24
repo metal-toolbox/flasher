@@ -26,7 +26,7 @@ func sleepWithContext(ctx context.Context, t time.Duration) error {
 }
 
 func (h *actionHandler) installedFirmwareVersionEqualsNew(device *common.Device, planned model.Firmware) (bool, error) {
-	switch planned.ComponentSlug {
+	switch strings.ToUpper(planned.ComponentSlug) {
 	case common.SlugBIOS:
 		if device.BIOS == nil || device.BIOS.Firmware == nil {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)

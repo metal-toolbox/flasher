@@ -23,7 +23,6 @@ var (
 
 // download fetches the file into dst
 func download(ctx context.Context, fileURL, dst string) error {
-
 	// create file
 	fileHandle, err := os.Create(dst)
 	if err != nil {
@@ -44,6 +43,7 @@ func download(ctx context.Context, fileURL, dst string) error {
 
 	client := retryablehttp.NewClient()
 	client.RetryWaitMin = downloadRetryDelay
+	client.Logger = nil
 
 	resp, err := client.Do(requestRetryable)
 	if err != nil {
@@ -53,7 +53,7 @@ func download(ctx context.Context, fileURL, dst string) error {
 
 	// Check server response
 	if resp.StatusCode != http.StatusOK {
-		return errors.Wrap(ErrDownload, fmt.Sprintf("status code %s", resp.Status))
+		return errors.Wrap(ErrDownload, fmt.Sprintf("URL: %s, status code %s", fileURL, resp.Status))
 	}
 
 	_, err = io.Copy(fileHandle, resp.Body)

@@ -29,7 +29,7 @@ func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.Handl
 	logger := logrus.New().WithField("test", "true")
 	return &sm.HandlerContext{
 		TaskID:        taskID,
-		DeviceQueryor: fixtures.NewDeviceQueryor(context.Background(), device, taskID, logger),
+		DeviceQueryor: fixtures.NewDeviceQueryor(context.Background(), device, logger),
 		Ctx:           context.Background(),
 		Store:         store.NewMemStore(),
 		Inv:           inv,

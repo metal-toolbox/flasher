@@ -77,7 +77,7 @@ func (b *bmc) Open(ctx context.Context) error {
 	}
 
 	// login to the bmc with retries
-	if err := b.loginWithRetries(ctx, 3); err != nil {
+	if err := b.loginWithRetries(ctx, loginAttempts); err != nil {
 		return err
 	}
 
@@ -91,11 +91,8 @@ func (b *bmc) SessionActive(ctx context.Context) bool {
 	}
 
 	_, err := b.client.GetPowerState(ctx)
-	if err == nil {
-		return true
-	}
 
-	return false
+	return err == nil
 }
 
 // Close logs out of the BMC
@@ -171,7 +168,6 @@ func (b *bmc) Inventory(ctx context.Context) (*common.Device, error) {
 
 	inventory, err := b.client.Inventory(ctx)
 	if err != nil {
-
 		// increment inventory query error count metric
 		if strings.Contains(err.Error(), "no compatible System Odata IDs identified") {
 			return nil, errors.Wrap(errBMCInventory, "redfish_incompatible: no compatible System Odata IDs identified")

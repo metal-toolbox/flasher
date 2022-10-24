@@ -11,8 +11,15 @@ import (
 )
 
 const (
-	TransitionTypeActionFailed    sw.TransitionType = "actionFailed"
-	transitionTypeActionsComplete sw.TransitionType = "actionsComplete"
+
+	// state for Failed actions
+	StateInstallComplete sw.State = "complete"
+	StateActionFailed    sw.State = "failed"
+
+	// transition for completed actions
+	TransitionTypeActionComplete sw.TransitionType = "completed"
+	// transition for failed actions
+	TransitionTypeActionFailed sw.TransitionType = "failed"
 )
 
 var (
@@ -26,7 +33,7 @@ type ErrAction struct {
 }
 
 func (e *ErrAction) Error() string {
-	return fmt.Sprintf("error occured in action handler '%s': %s", e.handler, e.cause)
+	return fmt.Sprintf("error occurred in action transition handler for '%s': %s", e.handler, e.cause)
 }
 
 func newErrAction(handler, cause string) error {
@@ -77,15 +84,14 @@ func (a *ActionStateMachine) TransitionFailed(ctx context.Context, action *model
 	return a.sm.Run(TransitionTypeActionFailed, action, hctx)
 }
 
-func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, hctx *HandlerContext) error {
+func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx *HandlerContext) error {
 	for _, transitionType := range a.transitions {
-		err := a.sm.Run(transitionType, action, hctx)
+		fmt.Println(transitionType)
+		err := a.sm.Run(transitionType, action, tctx)
 		if err != nil {
+			// When the condition returns false, run the next transition
 			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
-				return errors.Wrap(
-					ErrActionTransition,
-					fmt.Sprintf("no transition rule found for transition type '%s' and state '%s'", transitionType, action.Status),
-				)
+				continue
 			}
 
 			return newErrAction(string(transitionType), err.Error())

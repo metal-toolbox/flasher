@@ -24,7 +24,7 @@ const (
 
 	//
 	// The transition types var names should be in the format - transitionType + "state"
-	// the values should be in the continuous present tense
+	// the values should be in the continuous present tense or past tense
 	transitionTypePowerOnDevice     sw.TransitionType = "poweringOnDevice"
 	transitionTypeDownloadFirmware  sw.TransitionType = "downloadingFirmware"
 	transitionTypeInstallFirmware   sw.TransitionType = "installingFirmware"
@@ -32,9 +32,6 @@ const (
 	transitionTypeResetBMC          sw.TransitionType = "resettingBMC"
 	transitionTypeResetHost         sw.TransitionType = "resettingHost"
 	transitionTypePowerOffDevice    sw.TransitionType = "poweringOffDevice"
-
-	// state, transition for FailedState actions
-	stateInstallFailed sw.State = "installFailed"
 )
 
 func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
@@ -69,19 +66,18 @@ func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStat
 			PostTransition: handler.SaveState,
 		},
 		{
-			TransitionType:        transitionTypeDownloadFirmware,
-			SourceStates:          sw.States{statePowerOnDevice},
-			DestinationState:      stateDownloadFirmware,
-			Condition:             handler.conditionInstallFirmware,
-			Transition:            handler.downloadFirmware,
-			PostTransitionFailure: handler.SaveState,
-			PostTransition:        handler.SaveState,
+			TransitionType:   transitionTypeDownloadFirmware,
+			SourceStates:     sw.States{model.StateQueued, statePowerOnDevice},
+			DestinationState: stateInstallFirmware,
+			Condition:        nil,
+			Transition:       handler.downloadFirmware,
+			PostTransition:   handler.SaveState,
 		},
 		{
 			TransitionType:   transitionTypeInstallFirmware,
 			SourceStates:     sw.States{stateDownloadFirmware},
-			DestinationState: stateInstallFirmware,
-			Condition:        nil,
+			DestinationState: statePollInstallStatus,
+			Condition:        handler.conditionInstallFirmware,
 			Transition:       handler.installFirmware,
 			PostTransition:   handler.SaveState,
 		},
@@ -103,7 +99,7 @@ func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStat
 		},
 		{
 			TransitionType:   transitionTypeResetHost,
-			SourceStates:     sw.States{stateResetBMC},
+			SourceStates:     sw.States{stateInstallFirmware, stateResetBMC},
 			DestinationState: statePowerOffDevice,
 			Condition:        handler.conditionResetHost,
 			Transition:       handler.resetHost,
@@ -111,10 +107,18 @@ func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStat
 		},
 		{
 			TransitionType:   transitionTypePowerOffDevice,
-			SourceStates:     sw.States{stateResetHost},
-			DestinationState: model.StateSuccess,
+			SourceStates:     sw.States{stateInstallFirmware, stateResetHost},
+			DestinationState: sm.StateInstallComplete,
 			Condition:        handler.conditionPowerOffDevice,
 			Transition:       handler.powerOffDevice,
+			PostTransition:   handler.SaveState,
+		},
+		{
+			TransitionType:   sm.TransitionTypeActionComplete,
+			SourceStates:     sw.States{stateInstallFirmware, stateResetBMC, stateResetHost, statePowerOffDevice},
+			DestinationState: model.StateSuccess,
+			Condition:        nil,
+			Transition:       nil,
 			PostTransition:   handler.SaveState,
 		},
 		{
@@ -127,7 +131,7 @@ func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStat
 				stateResetHost,
 				statePowerOffDevice,
 			},
-			DestinationState: stateInstallFailed,
+			DestinationState: sm.StateActionFailed,
 			Condition:        nil,
 			Transition:       handler.SaveState,
 			PostTransition:   nil,
