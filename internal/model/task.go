@@ -60,15 +60,32 @@ type Action struct {
 	// The parent task identifier
 	TaskID string
 
+	// BMCTaskID is the task identifier to track a BMC job
+	// these are returned whent he firmware install is initiated on the BMC.
+	BMCTaskID string
+
 	// Method of install
 	InstallMethod InstallMethod
-	// BMCTaskID ...
 
 	// Status indicates the action status
 	Status string
 
 	// Firmware to be installed
 	Firmware Firmware
+
+	// FirwareTempFile is the temporary file downloaded to be installed.
+	//
+	// This is declared once the firmware file has been downloaded for install.
+	FirmwareTempFile string
+
+	// BMCPowerCycleRequired is set when an action handler determines the BMC requires a reset.
+	BMCPowerCycleRequired bool
+
+	// HostPowerCycleRequired is set when an action handler determines the Host requires a reset.
+	HostPowerCycleRequired bool
+
+	// Final is set to true when its the last action being executed
+	Final bool
 }
 
 func (a *Action) SetState(state sw.State) error {
@@ -98,7 +115,7 @@ func (a Actions) ByID(id string) *Action {
 
 // Task is a top level unit of work handled by flasher.
 //
-// A task performs one or more actions, each of the action corresponds to a Firmware
+// A task performs one or more actions, each of the action corresponds to a Firmware planned for install.
 type Task struct {
 	// Task unique identifier
 	ID uuid.UUID

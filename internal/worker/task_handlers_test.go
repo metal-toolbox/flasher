@@ -26,13 +26,14 @@ func newTaskFixture(status string) *model.Task {
 
 func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.HandlerContext {
 	inv, _ := inventory.NewMockInventory()
+	logger := logrus.New().WithField("test", "true")
 	return &sm.HandlerContext{
 		TaskID:        taskID,
-		DeviceQueryor: fixtures.NewMockDeviceQueryor(context.Background(), device, logrus.New()),
+		DeviceQueryor: fixtures.NewDeviceQueryor(context.Background(), device, taskID, logger),
 		Ctx:           context.Background(),
 		Store:         store.NewMemStore(),
 		Inv:           inv,
-		Logger:        logrus.New().WithField("test", "true"),
+		Logger:        logger,
 	}
 }
 

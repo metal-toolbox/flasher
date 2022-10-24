@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"net"
+	"os"
 	"sort"
 	"strings"
 
@@ -100,6 +101,24 @@ type Component struct {
 
 type Components []Component
 
+// ComponentFirmwareInstallStatus is the device specific firmware install status returned by the FirmwareInstallStatus method
+// in the DeviceQueryor interface.
+//
+// As an example, the BMCs return various firmware install statuses based on the vendor implementation
+// and so these statuses defined reduce all of those differences into a few generic status values
+//
+// Note: this is not related to the Flasher task status.
+type ComponentFirmwareInstallStatus string
+
+var (
+	StatusInstallRunning                ComponentFirmwareInstallStatus = "running"
+	StatusInstallComplete               ComponentFirmwareInstallStatus = "complete"
+	StatusInstallUnknown                ComponentFirmwareInstallStatus = "unknown"
+	StatusInstallFailed                 ComponentFirmwareInstallStatus = "failed"
+	StatusInstallPowerCycleHostRequired ComponentFirmwareInstallStatus = "powerCycleHostRequired"
+	StatusInstallPowerCycleBMCRequired  ComponentFirmwareInstallStatus = "powerCycleBMCRequired"
+)
+
 // DeviceQueryor interface defines methods to query a device.
 //
 // This is common interface to the ironlib and bmclib libraries.
@@ -113,10 +132,17 @@ type DeviceQueryor interface {
 	// SessionActive returns true if a connection is currently active for the device.
 	SessionActive(ctx context.Context) bool
 
-	PowerOn(ctx context.Context) (wasOff bool, err error)
-
 	PowerStatus(ctx context.Context) (status string, err error)
+
+	SetPowerState(ctx context.Context, state string) error
+
+	ResetBMC(ctx context.Context) error
 
 	// Inventory returns the device inventory
 	Inventory(ctx context.Context) (*common.Device, error)
+
+	// FirmwareInstall initiates the firmware install process returning a taskID for the install if any.
+	FirmwareInstall(ctx context.Context, componentSlug string, force bool, file *os.File) (taskID string, err error)
+
+	FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (ComponentFirmwareInstallStatus, error)
 }

@@ -123,7 +123,7 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 					err = multierror.Append(errBMCLoginUnAuthorized, err)
 				}
 
-				return errors.Wrapf(err, "attempts: %s", attemptstr)
+				return errors.Wrapf(errBMCLogin, "attempts: %s", attemptstr)
 			}
 
 			attempts++

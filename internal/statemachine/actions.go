@@ -20,6 +20,19 @@ var (
 	ErrActionTypeAssertion = errors.New("error asserting the Action type")
 )
 
+type ErrAction struct {
+	handler string
+	cause   string
+}
+
+func (e *ErrAction) Error() string {
+	return fmt.Sprintf("error occured in action handler '%s': %s", e.handler, e.cause)
+}
+
+func newErrAction(handler, cause string) error {
+	return &ErrAction{handler, cause}
+}
+
 type ActionStateMachine struct {
 	actionID    string
 	transitions []sw.TransitionType
@@ -75,7 +88,7 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, hctx
 				)
 			}
 
-			return errors.Wrap(ErrActionTransition, err.Error())
+			return newErrAction(string(transitionType), err.Error())
 		}
 	}
 

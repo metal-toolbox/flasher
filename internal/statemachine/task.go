@@ -33,10 +33,10 @@ type HandlerContext struct {
 	// WorkerName is the name of the worker running this task.
 	WorkerName string
 
-	// taskID is only available when an action is invoked under a task.
+	// taskID is available when an action is invoked under a task.
 	TaskID string
 
-	// ctx is the parent context
+	// ctx is the parent cancellation context
 	Ctx context.Context
 
 	// plan is an ordered list of actions planned to complete this task.
@@ -51,6 +51,10 @@ type HandlerContext struct {
 	// Data is key values the handler may decide to store
 	// so as to record, read handler specific values.
 	Data map[string]string
+
+	// FirmwareTempFile is the firmware file downloaded
+	// as part of the action handler, this is set once the file has been downloaded.
+	FirmwareTempFile string
 
 	Store  store.Storage
 	Inv    inventory.Inventory

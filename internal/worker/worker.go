@@ -90,6 +90,7 @@ func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, devic
 			logrus.Fields{
 				"taskID":   taskID,
 				"deviceID": device.ID.String(),
+				"bmc":      device.BmcAddress.String(),
 			},
 		),
 	}
