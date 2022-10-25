@@ -12,51 +12,60 @@ const (
 	// action states
 	//
 	// the SM transitions through these states for each component being updated.
+	// when a action has transitioned into a state, that action is considered complete
 	//
-	// These states should be named in the format "verb+subject"
-	statePowerOnDevice     sw.State = "powerOnDevice"
-	stateDownloadFirmware  sw.State = "downloadFirmware"
-	stateInstallFirmware   sw.State = "installFirmware"
-	statePollInstallStatus sw.State = "pollInstallStatus"
-	stateResetBMC          sw.State = "resetBMC"
-	stateResetHost         sw.State = "resetHost"
-	statePowerOffDevice    sw.State = "powerOffDevice"
+	// These states should be named in the format "state+verb past tense+subject"
+	statePoweredOnDevice             sw.State = "poweredOnDevice"
+	stateDownloadedFirmware          sw.State = "downloadedFirmware"
+	stateInitiatedInstallFirmware    sw.State = "initiatedInstallFirmware"
+	statePolledFirmwareInstallStatus sw.State = "polledFirmwareInstallStatus"
+	stateResetBMC                    sw.State = "resetBMC"
+	stateResetHost                   sw.State = "resetHost"
+	statePoweredOffDevice            sw.State = "poweredOffDevice"
 
 	//
 	// The transition types var names should be in the format - transitionType + "state"
-	// the values should be in the continuous present tense or past tense
-	transitionTypePowerOnDevice     sw.TransitionType = "poweringOnDevice"
-	transitionTypeDownloadFirmware  sw.TransitionType = "downloadingFirmware"
-	transitionTypeInstallFirmware   sw.TransitionType = "installingFirmware"
-	transitionTypePollInstallStatus sw.TransitionType = "pollingInstallStatus"
-	transitionTypeResetBMC          sw.TransitionType = "resettingBMC"
-	transitionTypeResetHost         sw.TransitionType = "resettingHost"
-	transitionTypePowerOffDevice    sw.TransitionType = "poweringOffDevice"
+	// the values should be in the continuous present tense
+	transitionTypePowerOnDevice             sw.TransitionType = "poweringOnDevice"
+	transitionTypeDownloadFirmware          sw.TransitionType = "downloadingFirmware"
+	transitionTypeInitiatingInstallFirmware sw.TransitionType = "initiatingInstallFirmware"
+	transitionTypePollInstallStatus         sw.TransitionType = "pollingInstallStatus"
+	transitionTypeResetBMC                  sw.TransitionType = "resettingBMC"
+	transitionTypeResetHost                 sw.TransitionType = "resettingHost"
+	transitionTypePowerOffDevice            sw.TransitionType = "poweringOffDevice"
 )
 
-func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
-	transitions := []sw.TransitionType{
+func transitionOrder() []sw.TransitionType {
+	return []sw.TransitionType{
 		transitionTypePowerOnDevice,
 		transitionTypeDownloadFirmware,
-		transitionTypeInstallFirmware,
+		transitionTypeInitiatingInstallFirmware,
+		transitionTypePollInstallStatus,
 		transitionTypeResetBMC,
 		transitionTypeResetHost,
 		transitionTypePowerOffDevice,
 	}
+}
 
+func NewStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
+	return sm.NewActionStateMachine(ctx, actionID, transitionOrder(), transitionRules())
+}
+
+func transitionRules() []sw.TransitionRule {
 	handler := &actionHandler{}
 
-	// The SM has transition rules define the transitionHandler methods
-	// each transitionHandler method is passed as values to the transition rule.
-	transitionsRules := []sw.TransitionRule{
+	return []sw.TransitionRule{
 		{
 			TransitionType:   transitionTypePowerOnDevice,
 			SourceStates:     sw.States{model.StateQueued},
-			DestinationState: stateDownloadFirmware,
+			DestinationState: statePoweredOnDevice,
 
 			// Condition for the transition, transition will be executed only if this function return true
 			// Can be nil, in this case it's considered as return true, nil
-			Condition: handler.conditionPowerOnDevice,
+			//
+			// Note: theres no fall through if a condition fails
+			//       and so this code does not use it.
+			Condition: nil,
 
 			// Transition is users business logic, should not set the state or return next state
 			// If condition returns true this function will be executed
@@ -67,76 +76,78 @@ func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStat
 		},
 		{
 			TransitionType:   transitionTypeDownloadFirmware,
-			SourceStates:     sw.States{model.StateQueued, statePowerOnDevice},
-			DestinationState: stateInstallFirmware,
+			SourceStates:     sw.States{statePoweredOnDevice},
+			DestinationState: stateDownloadedFirmware,
 			Condition:        nil,
 			Transition:       handler.downloadFirmware,
 			PostTransition:   handler.SaveState,
 		},
 		{
-			TransitionType:   transitionTypeInstallFirmware,
-			SourceStates:     sw.States{stateDownloadFirmware},
-			DestinationState: statePollInstallStatus,
-			Condition:        handler.conditionInstallFirmware,
-			Transition:       handler.installFirmware,
+			TransitionType:   transitionTypeInitiatingInstallFirmware,
+			SourceStates:     sw.States{stateDownloadedFirmware},
+			DestinationState: stateInitiatedInstallFirmware, // poll is missing
+			Condition:        nil,
+			Transition:       handler.initiateInstallFirmware,
 			PostTransition:   handler.SaveState,
 		},
 		{
 			TransitionType:   transitionTypePollInstallStatus,
-			SourceStates:     sw.States{stateInstallFirmware},
-			DestinationState: stateResetBMC,
+			SourceStates:     sw.States{stateInitiatedInstallFirmware},
+			DestinationState: statePolledFirmwareInstallStatus,
 			Condition:        nil,
-			Transition:       handler.pollInstallStatus,
+			Transition:       handler.pollFirmwareInstallStatus,
 			PostTransition:   handler.SaveState,
 		},
 		{
 			TransitionType:   transitionTypeResetBMC,
-			SourceStates:     sw.States{statePollInstallStatus},
-			DestinationState: stateResetHost,
-			Condition:        handler.conditionResetBMC,
+			SourceStates:     sw.States{statePolledFirmwareInstallStatus},
+			DestinationState: stateResetBMC,
+			Condition:        nil,
 			Transition:       handler.resetBMC,
 			PostTransition:   handler.SaveState,
 		},
 		{
 			TransitionType:   transitionTypeResetHost,
-			SourceStates:     sw.States{stateInstallFirmware, stateResetBMC},
-			DestinationState: statePowerOffDevice,
-			Condition:        handler.conditionResetHost,
+			SourceStates:     sw.States{stateResetBMC},
+			DestinationState: stateResetHost,
+			Condition:        nil,
 			Transition:       handler.resetHost,
 			PostTransition:   handler.SaveState,
 		},
 		{
 			TransitionType:   transitionTypePowerOffDevice,
-			SourceStates:     sw.States{stateInstallFirmware, stateResetHost},
-			DestinationState: sm.StateInstallComplete,
-			Condition:        handler.conditionPowerOffDevice,
+			SourceStates:     sw.States{stateResetHost},
+			DestinationState: statePoweredOffDevice,
+			Condition:        nil,
 			Transition:       handler.powerOffDevice,
 			PostTransition:   handler.SaveState,
 		},
+		// This transition is executed when the action completes successfully
 		{
-			TransitionType:   sm.TransitionTypeActionComplete,
-			SourceStates:     sw.States{stateInstallFirmware, stateResetBMC, stateResetHost, statePowerOffDevice},
-			DestinationState: model.StateSuccess,
+			TransitionType:   sm.TransitionTypeActionSuccess,
+			SourceStates:     sw.States{statePoweredOffDevice},
+			DestinationState: sm.StateActionSuccessful,
 			Condition:        nil,
-			Transition:       nil,
+			Transition:       handler.installSuccessful,
 			PostTransition:   handler.SaveState,
 		},
+
+		// This transition is executed when the transition fails.
 		{
 			TransitionType: sm.TransitionTypeActionFailed,
 			SourceStates: sw.States{
-				statePowerOnDevice,
-				stateDownloadFirmware,
-				stateInstallFirmware,
+				statePoweredOnDevice,
+				stateDownloadedFirmware,
+				stateInitiatedInstallFirmware,
+				statePolledFirmwareInstallStatus,
 				stateResetBMC,
 				stateResetHost,
-				statePowerOffDevice,
+				statePoweredOffDevice,
 			},
 			DestinationState: sm.StateActionFailed,
 			Condition:        nil,
-			Transition:       handler.SaveState,
-			PostTransition:   nil,
+			Transition:       handler.installFailed,
+			PostTransition:   handler.SaveState,
 		},
 	}
-
-	return sm.NewActionStateMachine(ctx, actionID, transitions, transitionsRules)
 }

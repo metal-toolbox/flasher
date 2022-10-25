@@ -12,12 +12,13 @@ import (
 
 const (
 
-	// state for Failed actions
-	StateInstallComplete sw.State = "complete"
-	StateActionFailed    sw.State = "failed"
+	// state for sucessful actions
+	StateActionSuccessful sw.State = "success"
+	// state for failed actions
+	StateActionFailed sw.State = "failed"
 
 	// transition for completed actions
-	TransitionTypeActionComplete sw.TransitionType = "completed"
+	TransitionTypeActionSuccess sw.TransitionType = "success"
 	// transition for failed actions
 	TransitionTypeActionFailed sw.TransitionType = "failed"
 )
@@ -25,6 +26,8 @@ const (
 var (
 	ErrActionTransition    = errors.New("error in action transition")
 	ErrActionTypeAssertion = errors.New("error asserting the Action type")
+
+	ErrConditionFailed = errors.New("transition condition failed")
 )
 
 type ErrAction struct {
@@ -41,13 +44,22 @@ func newErrAction(handler, cause string) error {
 }
 
 type ActionStateMachine struct {
-	actionID    string
-	transitions []sw.TransitionType
-	sm          sw.StateMachine
+	actionID             string
+	transitions          []sw.TransitionType
+	transitionsCompleted []sw.TransitionType
+	sm                   sw.StateMachine
 }
 
 func (a *ActionStateMachine) SetTransitionOrder(transitions []sw.TransitionType) {
 	a.transitions = transitions
+}
+
+func (a *ActionStateMachine) TransitionOrder() []sw.TransitionType {
+	return a.transitions
+}
+
+func (a *ActionStateMachine) TransitionsCompleted() []sw.TransitionType {
+	return a.transitionsCompleted
 }
 
 func (a *ActionStateMachine) ActionID() string {
@@ -71,7 +83,11 @@ func ActionID(taskID, componentSlug string, idx int) string {
 }
 
 func NewActionStateMachine(ctx context.Context, actionID string, transitions []sw.TransitionType, transitionRules []sw.TransitionRule) (*ActionStateMachine, error) {
-	m := &ActionStateMachine{actionID: actionID, sm: sw.NewStateMachine(), transitions: transitions}
+	m := &ActionStateMachine{
+		actionID:    actionID,
+		sm:          sw.NewStateMachine(),
+		transitions: transitions,
+	}
 
 	for _, transitionRule := range transitionRules {
 		m.sm.AddTransition(transitionRule)
@@ -84,9 +100,12 @@ func (a *ActionStateMachine) TransitionFailed(ctx context.Context, action *model
 	return a.sm.Run(TransitionTypeActionFailed, action, hctx)
 }
 
+func (a *ActionStateMachine) TransitionSuccess(ctx context.Context, action *model.Action, hctx *HandlerContext) error {
+	return a.sm.Run(TransitionTypeActionSuccess, action, hctx)
+}
+
 func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx *HandlerContext) error {
 	for _, transitionType := range a.transitions {
-		fmt.Println(transitionType)
 		err := a.sm.Run(transitionType, action, tctx)
 		if err != nil {
 			// When the condition returns false, run the next transition
@@ -94,8 +113,20 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 				continue
 			}
 
+			// run transition failed handler
+			if txErr := a.TransitionFailed(ctx, action, tctx); txErr != nil {
+				err = errors.Wrap(err, txErr.Error())
+			}
+
 			return newErrAction(string(transitionType), err.Error())
 		}
+
+		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
+	}
+
+	// run transition success handler
+	if err := a.TransitionSuccess(ctx, action, tctx); err != nil {
+		return errors.Wrap(err, err.Error())
 	}
 
 	return nil

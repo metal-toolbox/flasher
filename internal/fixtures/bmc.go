@@ -2,12 +2,17 @@ package fixtures
 
 import (
 	"context"
-	"errors"
 	"os"
 
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	// EnvMockFirmwareInstallStatus when will cause the mockBMC FirmwareInstallStatus method
+	// to return the env var value, it should be set to one of the model.ComponentFirmwareInstallStatus types.
+	EnvMockBMCFirmwareInstallStatus = "MOCKBMC_FIRMWARE_INSTALL_STATUS"
 )
 
 type mockBMC struct {
@@ -67,12 +72,11 @@ func (b *mockBMC) FirmwareInstall(ctx context.Context, componentSlug string, for
 
 // FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameteres
 func (b *mockBMC) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (model.ComponentFirmwareInstallStatus, error) {
-	status := os.Getenv("MOCK_FIRMWARE_INSTALL_STATUS")
+	status := os.Getenv(EnvMockBMCFirmwareInstallStatus)
 
-	var err error
 	if status == "" {
-		err = errors.New("env var MOCK_FIRMWARE_INSTALL_STATUS not defined")
+		b.logger.Warn("mock bmc env var not defined: " + EnvMockBMCFirmwareInstallStatus)
 	}
 
-	return model.StatusInstallUnknown, err
+	return model.ComponentFirmwareInstallStatus(status), nil
 }

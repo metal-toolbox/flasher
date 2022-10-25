@@ -1,6 +1,9 @@
 package fixtures
 
-import "github.com/metal-toolbox/flasher/internal/model"
+import (
+	"github.com/jinzhu/copier"
+	"github.com/metal-toolbox/flasher/internal/model"
+)
 
 var (
 	Firmware = []model.Firmware{
@@ -22,3 +25,20 @@ var (
 		},
 	}
 )
+
+func copyFirmware(src []model.Firmware) []model.Firmware {
+	dst := []model.Firmware{}
+
+	copyOptions := copier.Option{IgnoreEmpty: true, DeepCopy: true}
+
+	err := copier.CopyWithOption(&dst, &src, copyOptions)
+	if err != nil {
+		panic(err)
+	}
+
+	return dst
+}
+
+func NewFirmware() []model.Firmware {
+	return copyFirmware(Firmware)
+}

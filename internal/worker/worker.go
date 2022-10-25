@@ -76,7 +76,6 @@ func (o *Worker) concurrencyLimit() bool {
 }
 
 func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
-
 	l := logrus.New()
 	l.Formatter = o.logger.Formatter
 
@@ -86,6 +85,7 @@ func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, devic
 		Ctx:        ctx,
 		Store:      o.store,
 		Inv:        o.inv,
+		Data:       make(map[string]string),
 		Logger: l.WithFields(
 			logrus.Fields{
 				"taskID":   taskID,

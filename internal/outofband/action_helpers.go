@@ -2,6 +2,7 @@ package outofband
 
 import (
 	"context"
+	"os"
 	"strings"
 	"time"
 
@@ -17,6 +18,11 @@ var (
 )
 
 func sleepWithContext(ctx context.Context, t time.Duration) error {
+	// skip sleep in tests
+	if os.Getenv(envTesting) == "1" {
+		return nil
+	}
+
 	select {
 	case <-time.After(t):
 		return nil

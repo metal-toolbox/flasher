@@ -126,32 +126,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
-			// save action on failure
-			//
-			// The action save state handler is not invoked when an action fails
-			// and so the action state saving is done here.
-			//
-			// the returned erorr is ignored, since theres no error expected from the SetState method
-			_ = action.SetState(model.StateFailed)
-
-			saveTaskErr := tctx.Store.UpdateTaskAction(tctx.Ctx, tctx.TaskID, *action)
-			if saveTaskErr != nil {
-				return errors.Wrap(saveTaskErr, err.Error())
-			}
-
 			return errors.Wrap(err, action.Firmware.ComponentSlug)
-		}
-		// save action on success
-		//
-		// The action save state handler is not invoked when an action fails
-		// and so the action state saving is done here.
-		//
-		// the returned erorr is ignored, since theres no error expected from the SetState method
-		_ = action.SetState(model.StateSuccess)
-
-		saveTaskErr := tctx.Store.UpdateTaskAction(tctx.Ctx, tctx.TaskID, *action)
-		if saveTaskErr != nil {
-			return errors.Wrap(saveTaskErr, err.Error())
 		}
 	}
 
@@ -230,7 +205,7 @@ func planInstall(ctx context.Context, task *model.Task) (sm.ActionStateMachines,
 		// based on that the action plan is setup.
 		//
 		// For now this is hardcoded to outofband.
-		m, err := outofband.NewActionStateMachine(ctx, actionID)
+		m, err := outofband.NewStateMachine(ctx, actionID)
 		if err != nil {
 			return nil, nil, err
 		}

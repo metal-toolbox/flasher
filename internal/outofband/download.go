@@ -65,9 +65,9 @@ func download(ctx context.Context, fileURL, dst string) error {
 }
 
 func checksumValidateSHA256(filename, checksum string) error {
-	var expectedChecksum []byte
-
 	var err error
+
+	expectedChecksum := []byte(checksum)
 
 	if filename == "" {
 		return errors.Wrap(ErrChecksum, "expected a filename to validate checksum")

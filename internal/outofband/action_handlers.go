@@ -9,6 +9,7 @@ import (
 	"time"
 
 	sw "github.com/filanov/stateswitch"
+	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -40,6 +41,11 @@ var (
 	backoffMax    = 10 * time.Minute
 	backoffFactor = 2
 
+	// envTesting is set by tests to '1' to skip sleeps and backoffs in the handlers.
+	//
+	// nolint:gosec // no gosec, this isn't a credential
+	envTesting = "ENV_TESTING"
+
 	ErrFirmwareTempFile    = errors.New("error firmware temp file")
 	ErrSaveAction          = errors.New("error occurred in action state save")
 	ErrActionTypeAssertion = errors.New("error occurred in action object type assertion")
@@ -63,12 +69,7 @@ func actionTaskCtxFromInterfaces(a sw.StateSwitch, c sw.TransitionArgs) (*model.
 	return action, taskContext, nil
 }
 
-func (h *actionHandler) conditionPowerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) (bool, error) {
-	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
-	if err != nil {
-		return false, err
-	}
-
+func (h *actionHandler) conditionPowerOnDevice(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
 	task, err := tctx.Store.TaskByID(tctx.Ctx, action.TaskID)
 	if err != nil {
 		return false, err
@@ -94,9 +95,18 @@ func (h *actionHandler) conditionPowerOnDevice(a sw.StateSwitch, c sw.Transition
 
 // initialize initializes the bmc connection and powers on the host if required.
 func (h *actionHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) error {
-	_, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
+	}
+
+	powerOnRequired, err := h.conditionPowerOnDevice(action, tctx)
+	if err != nil {
+		return err
+	}
+
+	if !powerOnRequired {
+		return nil
 	}
 
 	if err := tctx.DeviceQueryor.SetPowerState(tctx.Ctx, "on"); err != nil {
@@ -136,7 +146,7 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 	// This assumes the checksum is of type SHA256
 	// it would be ideal if the firmware object indicated the type of checksum.
 	if err := checksumValidateSHA256(file, action.Firmware.Checksum); err != nil {
-		os.RemoveAll(filepath.Dir(tctx.FirmwareTempFile))
+		os.RemoveAll(filepath.Dir(file))
 		return err
 	}
 
@@ -153,12 +163,7 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 	return nil
 }
 
-func (h *actionHandler) conditionInstallFirmware(a sw.StateSwitch, c sw.TransitionArgs) (bool, error) {
-	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
-	if err != nil {
-		return false, err
-	}
-
+func (h *actionHandler) conditionInitiateInstallFirmware(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
 	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {
 		return false, err
@@ -185,10 +190,19 @@ func (h *actionHandler) conditionInstallFirmware(a sw.StateSwitch, c sw.Transiti
 	return equals, nil
 }
 
-func (h *actionHandler) installFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
+	}
+
+	proceedWithInstall, err := h.conditionInitiateInstallFirmware(action, tctx)
+	if err != nil {
+		return err
+	}
+
+	if !proceedWithInstall {
+		return nil
 	}
 
 	if action.FirmwareTempFile == "" {
@@ -201,13 +215,13 @@ func (h *actionHandler) installFirmware(a sw.StateSwitch, c sw.TransitionArgs) e
 	}
 
 	// open firmware file handle
-	fileHandle, err := os.Open(tctx.FirmwareTempFile)
+	fileHandle, err := os.Open(action.FirmwareTempFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, action.FirmwareTempFile)
 	}
 
 	defer fileHandle.Close()
-	defer os.RemoveAll(filepath.Dir(tctx.FirmwareTempFile))
+	defer os.RemoveAll(filepath.Dir(action.FirmwareTempFile))
 
 	// initiate firmware install
 	bmcTaskID, err := tctx.DeviceQueryor.FirmwareInstall(
@@ -238,7 +252,7 @@ func (h *actionHandler) installFirmware(a sw.StateSwitch, c sw.TransitionArgs) e
 	return nil
 }
 
-func (h *actionHandler) pollInstallStatus(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
@@ -255,7 +269,6 @@ func (h *actionHandler) pollInstallStatus(a sw.StateSwitch, c sw.TransitionArgs)
 		Factor: float64(backoffFactor),
 		Jitter: true,
 	}
-
 	// the component firmware install status is considered final when its in one of these states
 	finalizedStatus := []model.ComponentFirmwareInstallStatus{
 		model.StatusInstallFailed,
@@ -273,13 +286,25 @@ func (h *actionHandler) pollInstallStatus(a sw.StateSwitch, c sw.TransitionArgs)
 	// number of status queries attempted
 	var attempts int
 
+	var failureErrors *multierror.Error
+
 	for {
 		// increment attempts
 		attempts++
 
 		// delay with backoff if we're in the second or subsequent attempts
 		if attempts > 0 {
-			time.Sleep(delay.Duration())
+			if err := sleepWithContext(tctx.Ctx, delay.Duration()); err != nil {
+				return err
+			}
+		}
+
+		// return when attempts exceed maxFailures
+		if attempts > maxFailures {
+			return errors.Wrap(
+				ErrBMCQuery,
+				"too many failures querying FirmwareInstallStatus:"+failureErrors.Error(),
+			)
 		}
 
 		// initiate firmware install
@@ -304,9 +329,15 @@ func (h *actionHandler) pollInstallStatus(a sw.StateSwitch, c sw.TransitionArgs)
 					"err":       err,
 				}).Debug("firmware install status query attempt")
 
-			if attempts >= maxFailures {
-				return errors.Wrap(ErrBMCQuery, "too many failures querying FirmwareInstallStatus: "+strconv.Itoa(maxFailures))
-			}
+			failureErrors = multierror.Append(failureErrors, err)
+
+			continue
+		}
+
+		// record the unknown status as an error
+		if status == model.StatusInstallUnknown {
+			err = errors.New("firmware install status unknown")
+			failureErrors = multierror.Append(failureErrors, err)
 
 			continue
 		}
@@ -326,19 +357,14 @@ func (h *actionHandler) pollInstallStatus(a sw.StateSwitch, c sw.TransitionArgs)
 	}
 }
 
-func (h *actionHandler) conditionResetBMC(a sw.StateSwitch, c sw.TransitionArgs) (bool, error) {
-	action, _, err := actionTaskCtxFromInterfaces(a, c)
-	if err != nil {
-		return false, err
-	}
-
-	return action.BMCPowerCycleRequired, nil
-}
-
 func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
-	_, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
+	}
+
+	if !action.BMCPowerCycleRequired {
+		return nil
 	}
 
 	if err := tctx.DeviceQueryor.ResetBMC(tctx.Ctx); err != nil {
@@ -349,22 +375,17 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 		return err
 	}
 
-	return h.pollInstallStatus(a, c)
-}
-
-func (h *actionHandler) conditionResetHost(a sw.StateSwitch, c sw.TransitionArgs) (bool, error) {
-	action, _, err := actionTaskCtxFromInterfaces(a, c)
-	if err != nil {
-		return false, err
-	}
-
-	return action.HostPowerCycleRequired, nil
+	return h.pollFirmwareInstallStatus(a, c)
 }
 
 func (h *actionHandler) resetHost(a sw.StateSwitch, c sw.TransitionArgs) error {
-	_, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
+	}
+
+	if !action.HostPowerCycleRequired {
+		return nil
 	}
 
 	if err := tctx.DeviceQueryor.SetPowerState(tctx.Ctx, "cycle"); err != nil {
@@ -375,15 +396,10 @@ func (h *actionHandler) resetHost(a sw.StateSwitch, c sw.TransitionArgs) error {
 		return err
 	}
 
-	return h.pollInstallStatus(a, c)
+	return h.pollFirmwareInstallStatus(a, c)
 }
 
-func (h *actionHandler) conditionPowerOffDevice(a sw.StateSwitch, c sw.TransitionArgs) (bool, error) {
-	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
-	if err != nil {
-		return false, err
-	}
-
+func (h *actionHandler) conditionPowerOffDevice(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
 	// proceed if this is the final action
 	if !action.Final {
 		return false, nil
@@ -404,9 +420,18 @@ func (h *actionHandler) conditionPowerOffDevice(a sw.StateSwitch, c sw.Transitio
 
 // initialize initializes the bmc connection and powers on the host if required.
 func (h *actionHandler) powerOffDevice(a sw.StateSwitch, c sw.TransitionArgs) error {
-	_, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
+	}
+
+	powerOffDeviceRequired, err := h.conditionPowerOffDevice(action, tctx)
+	if err != nil {
+		return err
+	}
+
+	if !powerOffDeviceRequired {
+		return nil
 	}
 
 	if err := tctx.DeviceQueryor.SetPowerState(tctx.Ctx, "off"); err != nil {
@@ -427,10 +452,17 @@ func (h *actionHandler) SaveState(a sw.StateSwitch, args sw.TransitionArgs) erro
 		return errors.Wrap(ErrSaveAction, ErrActionTypeAssertion.Error())
 	}
 
-	fmt.Println("save")
 	if err := tctx.Store.UpdateTaskAction(tctx.Ctx, tctx.TaskID, *action); err != nil {
 		return errors.Wrap(ErrSaveAction, err.Error())
 	}
 
+	return nil
+}
+
+func (h *actionHandler) installFailed(a sw.StateSwitch, c sw.TransitionArgs) error {
+	return nil
+}
+
+func (h *actionHandler) installSuccessful(a sw.StateSwitch, c sw.TransitionArgs) error {
 	return nil
 }

@@ -25,6 +25,10 @@ var (
 	ErrTaskTransition            = errors.New("error in task transition")
 )
 
+// sw library drawbacks
+// - when running the sw statemachine - each transition has be run and so the Run method below
+// - Conditions do not fallthrough
+
 // HandlerContext holds working attributes of a task
 //
 // This struct is passed to transition handlers which
@@ -51,10 +55,6 @@ type HandlerContext struct {
 	// Data is key values the handler may decide to store
 	// so as to record, read handler specific values.
 	Data map[string]string
-
-	// FirmwareTempFile is the firmware file downloaded
-	// as part of the action handler, this is set once the file has been downloaded.
-	FirmwareTempFile string
 
 	Store  store.Storage
 	Inv    inventory.Inventory
