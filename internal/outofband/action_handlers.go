@@ -441,7 +441,7 @@ func (h *actionHandler) powerOffDevice(a sw.StateSwitch, c sw.TransitionArgs) er
 	return nil
 }
 
-func (h *actionHandler) SaveState(a sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *actionHandler) PersistState(a sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
@@ -459,10 +459,10 @@ func (h *actionHandler) SaveState(a sw.StateSwitch, args sw.TransitionArgs) erro
 	return nil
 }
 
-func (h *actionHandler) installFailed(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) actionFailed(a sw.StateSwitch, c sw.TransitionArgs) error {
 	return nil
 }
 
-func (h *actionHandler) installSuccessful(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) actionSuccessful(a sw.StateSwitch, c sw.TransitionArgs) error {
 	return nil
 }

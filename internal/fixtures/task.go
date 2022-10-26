@@ -1,6 +1,8 @@
 package fixtures
 
-import "github.com/metal-toolbox/flasher/internal/model"
+import (
+	"github.com/metal-toolbox/flasher/internal/model"
+)
 
 var (
 	TaskParametersA = model.TaskParameters{

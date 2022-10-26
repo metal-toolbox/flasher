@@ -47,7 +47,7 @@ func transitionOrder() []sw.TransitionType {
 	}
 }
 
-func NewStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
+func NewOutofbandActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
 	return sm.NewActionStateMachine(ctx, actionID, transitionOrder(), transitionRules())
 }
 
@@ -63,8 +63,7 @@ func transitionRules() []sw.TransitionRule {
 			// Condition for the transition, transition will be executed only if this function return true
 			// Can be nil, in this case it's considered as return true, nil
 			//
-			// Note: theres no fall through if a condition fails
-			//       and so this code does not use it.
+			// Note: theres no fall through if a condition fails and so this code does not define conditions.
 			Condition: nil,
 
 			// Transition is users business logic, should not set the state or return next state
@@ -72,7 +71,7 @@ func transitionRules() []sw.TransitionRule {
 			Transition: handler.powerOnDevice,
 
 			// PostTransition will be called if condition and transition are successful.
-			PostTransition: handler.SaveState,
+			PostTransition: handler.PersistState,
 		},
 		{
 			TransitionType:   transitionTypeDownloadFirmware,
@@ -80,7 +79,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateDownloadedFirmware,
 			Condition:        nil,
 			Transition:       handler.downloadFirmware,
-			PostTransition:   handler.SaveState,
+			PostTransition:   handler.PersistState,
 		},
 		{
 			TransitionType:   transitionTypeInitiatingInstallFirmware,
@@ -88,7 +87,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateInitiatedInstallFirmware, // poll is missing
 			Condition:        nil,
 			Transition:       handler.initiateInstallFirmware,
-			PostTransition:   handler.SaveState,
+			PostTransition:   handler.PersistState,
 		},
 		{
 			TransitionType:   transitionTypePollInstallStatus,
@@ -96,7 +95,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: statePolledFirmwareInstallStatus,
 			Condition:        nil,
 			Transition:       handler.pollFirmwareInstallStatus,
-			PostTransition:   handler.SaveState,
+			PostTransition:   handler.PersistState,
 		},
 		{
 			TransitionType:   transitionTypeResetBMC,
@@ -104,7 +103,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateResetBMC,
 			Condition:        nil,
 			Transition:       handler.resetBMC,
-			PostTransition:   handler.SaveState,
+			PostTransition:   handler.PersistState,
 		},
 		{
 			TransitionType:   transitionTypeResetHost,
@@ -112,7 +111,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateResetHost,
 			Condition:        nil,
 			Transition:       handler.resetHost,
-			PostTransition:   handler.SaveState,
+			PostTransition:   handler.PersistState,
 		},
 		{
 			TransitionType:   transitionTypePowerOffDevice,
@@ -120,7 +119,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: statePoweredOffDevice,
 			Condition:        nil,
 			Transition:       handler.powerOffDevice,
-			PostTransition:   handler.SaveState,
+			PostTransition:   handler.PersistState,
 		},
 		// This transition is executed when the action completes successfully
 		{
@@ -128,8 +127,8 @@ func transitionRules() []sw.TransitionRule {
 			SourceStates:     sw.States{statePoweredOffDevice},
 			DestinationState: sm.StateActionSuccessful,
 			Condition:        nil,
-			Transition:       handler.installSuccessful,
-			PostTransition:   handler.SaveState,
+			Transition:       handler.actionSuccessful,
+			PostTransition:   handler.PersistState,
 		},
 
 		// This transition is executed when the transition fails.
@@ -146,8 +145,8 @@ func transitionRules() []sw.TransitionRule {
 			},
 			DestinationState: sm.StateActionFailed,
 			Condition:        nil,
-			Transition:       handler.installFailed,
-			PostTransition:   handler.SaveState,
+			Transition:       handler.actionFailed,
+			PostTransition:   handler.PersistState,
 		},
 	}
 }

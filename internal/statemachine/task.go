@@ -13,9 +13,13 @@ import (
 )
 
 const (
-	Plan       sw.TransitionType = "plan"
-	Run        sw.TransitionType = "run"
-	TaskFailed sw.TransitionType = "taskFailed"
+	TransitionTypePlan sw.TransitionType = "plan"
+	TransitionTypeRun  sw.TransitionType = "run"
+
+	// transition for successful tasks
+	TransitionTypeTaskSuccess sw.TransitionType = "success"
+	// transition for failed tasks
+	TransitionTypeTaskFail sw.TransitionType = "failed"
 )
 
 var (
@@ -65,8 +69,9 @@ type HandlerContext struct {
 type TaskTransitioner interface {
 	Plan(task sw.StateSwitch, args sw.TransitionArgs) error
 	Run(task sw.StateSwitch, args sw.TransitionArgs) error
-	SaveState(task sw.StateSwitch, args sw.TransitionArgs) error
-	FailedState(task sw.StateSwitch, args sw.TransitionArgs) error
+	PersistState(task sw.StateSwitch, args sw.TransitionArgs) error
+	TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error
+	TaskSuccessful(task sw.StateSwitch, args sw.TransitionArgs) error
 	Validate(task sw.StateSwitch, args sw.TransitionArgs) (bool, error)
 }
 
@@ -81,8 +86,8 @@ type TaskStateMachine struct {
 func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
 	transitionOrder := []sw.TransitionType{
-		Plan,
-		Run,
+		TransitionTypePlan,
+		TransitionTypeRun,
 	}
 
 	m := &TaskStateMachine{sm: sw.NewStateMachine(), transitions: transitionOrder}
@@ -91,7 +96,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	// each transitionHandler method is passed as values to the transition rule.
 
 	m.sm.AddTransition(sw.TransitionRule{
-		TransitionType:   Plan,
+		TransitionType:   TransitionTypePlan,
 		SourceStates:     sw.States{model.StateQueued},
 		DestinationState: model.StateActive,
 
@@ -104,25 +109,34 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		Transition: handler.Plan,
 
 		// PostTransition will be called if condition and transition are successful.
-		PostTransition: handler.SaveState,
+		PostTransition: handler.PersistState,
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
-		TransitionType:   Run,
+		TransitionType:   TransitionTypeRun,
 		SourceStates:     sw.States{model.StateActive},
 		DestinationState: model.StateSuccess,
 		Condition:        handler.Validate,
 		Transition:       handler.Run,
-		PostTransition:   handler.SaveState,
+		PostTransition:   handler.PersistState,
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
-		TransitionType:   TaskFailed,
+		TransitionType:   TransitionTypeTaskFail,
 		SourceStates:     sw.States{model.StateActive, model.StateQueued},
 		DestinationState: model.StateFailed,
 		Condition:        nil,
-		Transition:       handler.FailedState,
-		PostTransition:   handler.SaveState,
+		Transition:       handler.TaskFailed,
+		PostTransition:   handler.PersistState,
+	})
+
+	m.sm.AddTransition(sw.TransitionRule{
+		TransitionType:   TransitionTypeTaskSuccess,
+		SourceStates:     sw.States{model.StateActive},
+		DestinationState: model.StateSuccess,
+		Condition:        nil,
+		Transition:       handler.TaskSuccessful,
+		PostTransition:   handler.PersistState,
 	})
 
 	return m, nil
@@ -130,6 +144,14 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 func (m *TaskStateMachine) SetTransitionOrder(transitions []sw.TransitionType) {
 	m.transitions = transitions
+}
+
+func (m *TaskStateMachine) TransitionFailed(ctx context.Context, task *model.Task, tctx *HandlerContext) error {
+	return m.sm.Run(TransitionTypeTaskFail, task, tctx)
+}
+
+func (m *TaskStateMachine) TransitionSuccess(ctx context.Context, task *model.Task, tctx *HandlerContext) error {
+	return m.sm.Run(TransitionTypeTaskSuccess, task, tctx)
 }
 
 func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler TaskTransitioner, tctx *HandlerContext) error {
@@ -144,25 +166,28 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 	// The error is returned to the caller and the task is marked as FailedState
 	//
 	// TODO(joel): extend the stateswitch library to have an OnFailure handler and remove this defer
-	defer func() {
-		if err != nil {
-			// save the handler error in the task information
-			task.Info = err.Error()
+	//	defer func() {
+	//		if err != nil {
+	//			// save the handler error in the task information
+	//			task.Info = err.Error()
+	//
+	//			// save task state, wrap error if any
+	//			if errSetState := task.SetState(sw.State(model.StateFailed)); errSetState != nil {
+	//				err = errors.Wrap(errSetState, err.Error())
+	//			}
+	//
+	//			if errSaveState := handler.PersistState(task, tctx); errSaveState != nil {
+	//				err = errors.Wrap(errSaveState, err.Error())
+	//			}
+	//		}
+	//	}()
 
-			// save task state, wrap error if any
-			if errSetState := task.SetState(sw.State(model.StateFailed)); errSetState != nil {
-				err = errors.Wrap(errSetState, err.Error())
-			}
-
-			if errSaveState := handler.SaveState(task, tctx); errSaveState != nil {
-				err = errors.Wrap(errSaveState, err.Error())
-			}
-		}
-	}()
+	var finalTransition sw.TransitionType
 
 	for _, transitionType := range m.transitions {
 		err = m.sm.Run(transitionType, task, tctx)
 		if err != nil {
+			err = errors.Wrap(err, string(transitionType))
 			// update error to include some useful context
 			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
 				err = errors.Wrap(
@@ -171,10 +196,22 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 				)
 			}
 
-			// set task handler err
-			tctx.Err = err
+			// include error in task
+			task.Info = err.Error()
+
+			// run transition failed handler
+			if txErr := m.TransitionFailed(ctx, task, tctx); txErr != nil {
+				err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
+			}
 
 			return err
+		}
+	}
+
+	// run transition success handler when the final successful transition is as expected
+	if finalTransition == TransitionTypeRun {
+		if err := m.TransitionSuccess(ctx, task, tctx); err != nil {
+			return errors.Wrap(err, string(TransitionTypeActionSuccess)+": "+err.Error())
 		}
 	}
 

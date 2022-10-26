@@ -43,7 +43,7 @@ func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.Handl
 func Test_NewActionStateMachine(t *testing.T) {
 	ctx := context.Background()
 	// init new state machine
-	m, err := NewStateMachine(ctx, "testing")
+	m, err := NewOutofbandActionStateMachine(ctx, "testing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	}
 
 	// init new state machine to run actions
-	m, err := NewStateMachine(ctx, "testing")
+	m, err := NewOutofbandActionStateMachine(ctx, "testing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 	}
 
 	// init new state machine to run actions
-	m, err := NewStateMachine(ctx, "testing")
+	m, err := NewOutofbandActionStateMachine(ctx, "testing")
 	if err != nil {
 		t.Fatal(err)
 	}
