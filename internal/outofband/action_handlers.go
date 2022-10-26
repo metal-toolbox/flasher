@@ -277,16 +277,16 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 		model.StatusInstallPowerCycleHostRequired,
 	}
 
-	// maxFailures here is set based on how long the loop below should keep polling for a finalized state before giving up
-	// 10 (maxFailures) * 600s (delay.Max) = 100 minutes (1.6hours)
-	maxFailures := 10
+	// maxAttempts here is set based on how long the loop below should keep polling for a finalized state before giving up
+	// 10 (maxAttempts) * 600s (delay.Max) = 100 minutes (1.6hours)
+	maxAttempts := 10
 
 	startTS := time.Now()
 
 	// number of status queries attempted
 	var attempts int
 
-	var failureErrors *multierror.Error
+	var attemptErrors *multierror.Error
 
 	for {
 		// increment attempts
@@ -299,12 +299,16 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 			}
 		}
 
-		// return when attempts exceed maxFailures
-		if attempts > maxFailures {
-			return errors.Wrap(
-				ErrBMCQuery,
-				"too many failures querying FirmwareInstallStatus:"+failureErrors.Error(),
-			)
+		// return when attempts exceed maxAttempts
+		if attempts >= maxAttempts {
+			attemptErrors = multierror.Append(attemptErrors, errors.Wrapf(
+				ErrMaxBMCQueryAttempts,
+				"%d attempts querying FirmwareInstallStatus(), elapsed: %s",
+				attempts,
+				time.Since(startTS).String(),
+			))
+
+			return attemptErrors
 		}
 
 		// initiate firmware install
@@ -315,7 +319,7 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 			action.BMCTaskID,
 		)
 
-		// error check returns when maxFailures have been reached
+		// error check returns when maxAttempts have been reached
 		if err != nil {
 			tctx.Logger.WithFields(
 				logrus.Fields{
@@ -324,12 +328,12 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 					"version":   action.Firmware.Version,
 					"bmc":       task.Parameters.Device.BmcAddress,
 					"elapsed":   time.Since(startTS).String(),
-					"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxFailures),
+					"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxAttempts),
 					"taskState": status,
 					"err":       err,
 				}).Debug("firmware install status query attempt")
 
-			failureErrors = multierror.Append(failureErrors, err)
+			attemptErrors = multierror.Append(attemptErrors, err)
 
 			continue
 		}
@@ -337,7 +341,7 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 		// record the unknown status as an error
 		if status == model.StatusInstallUnknown {
 			err = errors.New("firmware install status unknown")
-			failureErrors = multierror.Append(failureErrors, err)
+			attemptErrors = multierror.Append(attemptErrors, err)
 
 			continue
 		}
@@ -350,6 +354,11 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 				action.BMCPowerCycleRequired = true
 			case model.StatusInstallPowerCycleHostRequired:
 				action.HostPowerCycleRequired = true
+			case model.StatusInstallFailed:
+				return errors.Wrap(
+					ErrFirmwareInstallFailed,
+					"check logs on the BMC for information, bmc task ID: "+action.BMCTaskID,
+				)
 			}
 
 			return nil

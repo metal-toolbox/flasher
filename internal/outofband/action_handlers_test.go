@@ -1,36 +1,94 @@
 package outofband
 
-//func Test_conditionPowerOnDevice(t *testing.T) {
-//
-//	tctx := newtaskHandlerContextFixture(tc.task.ID.String(), &model.Device{})
-//
-//	ctx := context.Background()
-//	// init new state machine
-//	m, err := NewActionStateMachine(ctx, "testing")
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//
-//	assert.Equal(t, transitionOrder(), m.TransitionOrder())
-//	assert.Len(t, transitionRules(), 9)
-//
-//	// TODO(joel): at some point we'd want to test if the nodes and edges in the transition rules
-//	// match whats expected
-//	// run transition
-//	//	err = m.Run(ctx, &fixtureAction, tctx)
-//	//	if err != nil {
-//	//		if !tc.expectError {
-//	//			t.Fatal(err)
-//	//		}
-//	//	}
-//
-//	// TODO: spawn http service to return dummy firmware file
-//	// assert file is uploaded and firmware install is initiated
-//	// :)
-//
-//	// lookup task from cache
-//	//task, _ := tctx.Store.TaskByID(ctx, tc.task.ID.String())
-//
-//	//spew.Dump(fixtureAction)
-//
-//}
+import (
+	"os"
+	"testing"
+
+	"github.com/metal-toolbox/flasher/internal/fixtures"
+	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/stretchr/testify/assert"
+)
+
+func Test_pollFirmawreInstallStatus(t *testing.T) {
+
+	testcases := []struct {
+		name        string
+		mockStatus  model.ComponentFirmwareInstallStatus
+		expectError string
+	}{
+		{
+			"too many failures, returns error",
+			model.StatusInstallUnknown,
+			"attempts querying FirmwareInstallStatus",
+		},
+		{
+			"install requires a BMC power cycle",
+			model.StatusInstallPowerCycleBMCRequired,
+			"",
+		},
+		{
+			"install requires a Host power cycle",
+			model.StatusInstallPowerCycleHostRequired,
+			"",
+		},
+		{
+			"install state running exceeds max BMC query attempts",
+			model.StatusInstallRunning,
+			"reached maximum BMC query attempts",
+		},
+		{
+			"install state failed returns error",
+			model.StatusInstallFailed,
+			ErrFirmwareInstallFailed.Error(),
+		},
+		{
+			"install state complete returns",
+			model.StatusInstallComplete,
+			"",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := newTaskFixture(string(model.StateActive))
+			tctx := newtaskHandlerContextFixture(task.ID.String(), &model.Device{})
+
+			action := model.Action{
+				ID:       "foobar",
+				TaskID:   task.ID.String(),
+				Status:   string(model.StateActive),
+				Firmware: fixtures.NewFirmware()[0],
+			}
+
+			task.ActionsPlanned = append(task.ActionsPlanned, action)
+
+			_, _ = tctx.Store.AddTask(tctx.Ctx, *task)
+
+			// init handler
+			handler := &actionHandler{}
+
+			os.Setenv(envTesting, "1")
+			defer os.Unsetenv(envTesting)
+
+			os.Setenv(fixtures.EnvMockBMCFirmwareInstallStatus, string(tc.mockStatus))
+			defer os.Unsetenv(fixtures.EnvMockBMCFirmwareInstallStatus)
+
+			if err := handler.pollFirmwareInstallStatus(&action, tctx); err != nil {
+				if tc.expectError != "" {
+					assert.Contains(t, err.Error(), tc.expectError)
+				} else {
+					t.Fatal(err)
+				}
+			}
+
+			// assert action fields are set when bmc/host power cycle is required.
+			switch tc.mockStatus {
+			case model.StatusInstallPowerCycleBMCRequired:
+				assert.True(t, action.BMCPowerCycleRequired)
+			case model.StatusInstallPowerCycleHostRequired:
+				assert.True(t, action.HostPowerCycleRequired)
+			}
+		})
+	}
+
+}

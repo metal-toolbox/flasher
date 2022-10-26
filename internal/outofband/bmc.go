@@ -31,9 +31,9 @@ var (
 
 	errBMCLogout = errors.New("bmc logout error")
 
-	ErrBMCQuery = errors.New("error occured in bmc query")
-
-	ErrFirmwareInstallFail             = errors.New("firmware install failed")
+	ErrBMCQuery                        = errors.New("error occured in bmc query")
+	ErrMaxBMCQueryAttempts             = errors.New("reached maximum BMC query attempts")
+	ErrFirmwareInstallFailed           = errors.New("firmware install failed")
 	ErrFirmwareInstallStatusUnexpected = errors.New("firmware install status unexpected")
 )
 
