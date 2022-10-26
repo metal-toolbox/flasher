@@ -10,7 +10,6 @@ import (
 	sservice "go.hollow.sh/serverservice/pkg/api/v1"
 	"golang.org/x/exp/slices"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
@@ -352,8 +351,6 @@ func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceV
 	if err != nil {
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
-
-	spew.Dump(firmwaresets)
 
 	if len(firmwaresets) == 0 {
 		return nil, errors.Wrap(

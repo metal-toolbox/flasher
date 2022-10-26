@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_pollFirmawreInstallStatus(t *testing.T) {
-
+func Test_pollFirmwareInstallStatus(t *testing.T) {
 	testcases := []struct {
 		name        string
 		mockStatus  model.ComponentFirmwareInstallStatus

@@ -48,9 +48,13 @@ func runInstall(ctx context.Context) {
 	switch {
 	case strings.HasSuffix(installFirmwareFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerRunFlagSet.inventorySource, ".yaml"):
 		fwInstallYAMLInventory(ctx, flasher)
+		return
 
 	case installFirmwareFlagSet.inventorySource == model.InventorySourceServerservice:
 		fwInstallServerserviceInventory(ctx, flasher)
+		return
+	default:
+		log.Fatal("expected a cli flag")
 	}
 }
 

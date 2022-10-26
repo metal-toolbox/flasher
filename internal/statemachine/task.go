@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -38,6 +39,13 @@ var (
 // This struct is passed to transition handlers which
 // depend on the values provided in this struct.
 type HandlerContext struct {
+	// Dryrun does no run any disruptive actions on the device - power on/off, bmc resets, firmware installs,
+	// the task and its actions run as expected, and the device state in the inventory is updated as well,
+	// although the firmware is not installed.
+	//
+	// It is upto the Action handler implementations to ensure the dry run works as described.
+	Dryrun bool
+
 	// WorkerName is the name of the worker running this task.
 	WorkerName string
 
@@ -156,32 +164,6 @@ func (m *TaskStateMachine) TransitionSuccess(ctx context.Context, task *model.Ta
 
 func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler TaskTransitioner, tctx *HandlerContext) error {
 	var err error
-
-	// To ensure that the task state is saved when sm.Run fails
-	// because of a invalid state transition attempt,
-	//
-	// the error for these cases is in the form,
-	// 'no transition rule found for transition type 'Run' to state 'success': no condition found to run transition'
-	//
-	// The error is returned to the caller and the task is marked as FailedState
-	//
-	// TODO(joel): extend the stateswitch library to have an OnFailure handler and remove this defer
-	//	defer func() {
-	//		if err != nil {
-	//			// save the handler error in the task information
-	//			task.Info = err.Error()
-	//
-	//			// save task state, wrap error if any
-	//			if errSetState := task.SetState(sw.State(model.StateFailed)); errSetState != nil {
-	//				err = errors.Wrap(errSetState, err.Error())
-	//			}
-	//
-	//			if errSaveState := handler.PersistState(task, tctx); errSaveState != nil {
-	//				err = errors.Wrap(errSaveState, err.Error())
-	//			}
-	//		}
-	//	}()
-
 	var finalTransition sw.TransitionType
 
 	for _, transitionType := range m.transitions {
@@ -201,6 +183,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 
 			// run transition failed handler
 			if txErr := m.TransitionFailed(ctx, task, tctx); txErr != nil {
+				spew.Dump(err)
 				err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
 			}
 

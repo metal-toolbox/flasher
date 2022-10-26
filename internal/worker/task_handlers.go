@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -59,7 +60,7 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 		}
 	} else {
 		// TODO: implement inventory methods for firmware by set id
-		panic("firmware by set id not implemented")
+		return errors.Wrap(errTaskPlanActions, "firmware set by ID not implemented")
 	}
 
 	// plan actions based and update task action list
@@ -123,7 +124,11 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
-			return errors.Wrap(err, action.Firmware.ComponentSlug)
+			spew.Dump(err)
+			return errors.Wrap(
+				err,
+				"while running action to install firmware on component "+action.Firmware.ComponentSlug,
+			)
 		}
 	}
 

@@ -21,6 +21,7 @@ const (
 
 type Worker struct {
 	name        string
+	dryrun      bool
 	concurrency int
 	syncWG      *sync.WaitGroup
 	// map of task IDs to task state machines
@@ -31,10 +32,12 @@ type Worker struct {
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
-func New(concurrency int, syncWG *sync.WaitGroup, taskStore store.Storage, inv inventory.Inventory, logger *logrus.Logger) *Worker {
+func New(dryrun bool, concurrency int, syncWG *sync.WaitGroup, taskStore store.Storage, inv inventory.Inventory, logger *logrus.Logger) *Worker {
 	name, _ := os.Hostname()
+
 	return &Worker{
 		name:         name,
+		dryrun:       dryrun,
 		concurrency:  concurrency,
 		syncWG:       syncWG,
 		taskMachines: sync.Map{},
@@ -52,6 +55,8 @@ func New(concurrency int, syncWG *sync.WaitGroup, taskStore store.Storage, inv i
 // It proceeds to queue and install updates on those devices.
 func (o *Worker) Run(ctx context.Context) {
 	tickQueueRun := time.NewTicker(time.Duration(10) * time.Second).C
+
+	o.logger.Info("worker started in dry-run mode")
 
 	for {
 		select {
@@ -81,6 +86,7 @@ func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, devic
 
 	return &sm.HandlerContext{
 		WorkerName: o.name,
+		Dryrun:     o.dryrun,
 		TaskID:     taskID,
 		Ctx:        ctx,
 		Store:      o.store,
@@ -128,6 +134,9 @@ func (o *Worker) run(ctx context.Context) {
 
 		o.logger.WithField("deviceID", task.Parameters.Device.ID.String()).Trace("run task for device")
 
+		if taskHandlerCtx.Dryrun {
+			o.logger.WithField("deviceID", task.Parameters.Device.ID.String()).Trace("task to be run in dry-run mode")
+		}
 		// TODO: spawn block in a go routine with a limiter
 
 		// run task state machine

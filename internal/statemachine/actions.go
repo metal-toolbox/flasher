@@ -36,7 +36,7 @@ type ErrAction struct {
 }
 
 func (e *ErrAction) Error() string {
-	return fmt.Sprintf("error occurred in action transition handler for '%s': %s", e.handler, e.cause)
+	return fmt.Sprintf("error occurred in action '%s': %s", e.handler, e.cause)
 }
 
 func newErrAction(handler, cause string) error {

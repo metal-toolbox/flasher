@@ -25,6 +25,7 @@ var cmdRun = &cobra.Command{
 
 // run worker command
 type workerRunFlags struct {
+	dryrun          bool
 	inventorySource string
 }
 
@@ -78,7 +79,7 @@ func runWorker(ctx context.Context) {
 	}
 
 	concurrency := 2
-	w := worker.New(concurrency, flasher.SyncWG, store.NewMemStore(), inv, flasher.Logger)
+	w := worker.New(workerRunFlagSet.dryrun, concurrency, flasher.SyncWG, store.NewMemStore(), inv, flasher.Logger)
 
 	flasher.SyncWG.Add(1)
 
@@ -113,6 +114,7 @@ func initInventory(ctx context.Context, config *model.Config, logger *logrus.Log
 
 func init() {
 	cmdRunWorker.PersistentFlags().StringVar(&workerRunFlagSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
+	cmdRunWorker.PersistentFlags().BoolVarP(&workerRunFlagSet.dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
 
 	if err := cmdRunWorker.MarkPersistentFlagRequired("inventory-source"); err != nil {
 		log.Fatal(err)

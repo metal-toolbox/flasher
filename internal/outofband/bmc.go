@@ -18,8 +18,8 @@ import (
 
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
-	logoutTimeout = "5m"
-	loginTimeout  = "5s"
+	logoutTimeout = "1m"
+	loginTimeout  = "1m"
 	loginAttempts = 3
 
 	// login errors
@@ -31,7 +31,7 @@ var (
 
 	errBMCLogout = errors.New("bmc logout error")
 
-	ErrBMCQuery                        = errors.New("error occured in bmc query")
+	ErrBMCQuery                        = errors.New("error occurred in bmc query")
 	ErrMaxBMCQueryAttempts             = errors.New("reached maximum BMC query attempts")
 	ErrFirmwareInstallFailed           = errors.New("firmware install failed")
 	ErrFirmwareInstallStatusUnexpected = errors.New("firmware install status unexpected")
@@ -39,8 +39,9 @@ var (
 
 // bmc wraps the bmclib client and implements the bmcQueryor interface
 type bmc struct {
-	client *bmclibv2.Client
-	logger *logrus.Entry
+	connectionOpened bool
+	client           *bmclibv2.Client
+	logger           *logrus.Entry
 }
 
 // NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
@@ -70,7 +71,7 @@ func (b *bmc) Open(ctx context.Context) error {
 	}
 
 	// return if a session is active
-	if b.SessionActive(ctx) {
+	if b.connectionOpened && b.SessionActive(ctx) {
 		b.logger.Trace("bmc session active, skipped login attempt")
 
 		return nil
@@ -80,6 +81,9 @@ func (b *bmc) Open(ctx context.Context) error {
 	if err := b.loginWithRetries(ctx, loginAttempts); err != nil {
 		return err
 	}
+
+	b.logger.Trace("bmc login successful")
+	b.connectionOpened = true
 
 	return nil
 }
