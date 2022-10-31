@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -64,7 +63,7 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 	}
 
 	// plan actions based and update task action list
-	tctx.ActionStateMachines, task.ActionsPlanned, err = planInstall(tctx.Ctx, task)
+	tctx.ActionStateMachines, task.ActionsPlanned, err = planInstall(tctx.Ctx, task, tctx.FirmwareURLPrefix)
 	if err != nil {
 		return err
 	}
@@ -124,7 +123,6 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
-			spew.Dump(err)
 			return errors.Wrap(
 				err,
 				"while running action to install firmware on component "+action.Firmware.ComponentSlug,
@@ -162,10 +160,10 @@ func (h *taskHandler) PersistState(t sw.StateSwitch, args sw.TransitionArgs) err
 	// update task state in inventory
 	//
 	// TODO(joel) - figure if this can be moved in a different package
-	attr := &inventory.InstallAttributes{
+	attr := &inventory.FwInstallAttributes{
 		TaskParameters: task.Parameters,
 		FlasherTaskID:  task.ID.String(),
-		Worker:         tctx.WorkerName,
+		WorkerID:       tctx.WorkerID,
 		Status:         task.Status,
 	}
 

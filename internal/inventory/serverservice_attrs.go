@@ -42,14 +42,14 @@ func findAttribute(ns string, attributes []sservice.Attributes) *sservice.Attrib
 	return nil
 }
 
-func (s *Serverservice) flasherTaskAttribute(attributes []sservice.Attributes) (*InstallAttributes, error) {
+func (s *Serverservice) flasherTaskAttribute(attributes []sservice.Attributes) (*FwInstallAttributes, error) {
 	// update existing task attribute
 	found := findAttribute(serverAttributeNSFlasherTask, attributes)
 	if found == nil {
 		return nil, nil
 	}
 
-	taskAttrs := &InstallAttributes{}
+	taskAttrs := &FwInstallAttributes{}
 	if err := json.Unmarshal(found.Data, taskAttrs); err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attribut
 	return
 }
 
-func (s *Serverservice) updateFlasherAttributes(ctx context.Context, deviceUUID uuid.UUID, currentTaskAttrs, newTaskAttrs *InstallAttributes) error {
+func (s *Serverservice) updateFlasherAttributes(ctx context.Context, deviceUUID uuid.UUID, currentTaskAttrs, newTaskAttrs *FwInstallAttributes) error {
 	if newTaskAttrs.Requester == "" && currentTaskAttrs.Requester != "" {
 		newTaskAttrs.Requester = currentTaskAttrs.Requester
 	}
@@ -137,7 +137,7 @@ func (s *Serverservice) updateFlasherAttributes(ctx context.Context, deviceUUID 
 	return nil
 }
 
-func (s *Serverservice) createFlasherAttributes(ctx context.Context, deviceUUID uuid.UUID, attrs *InstallAttributes) error {
+func (s *Serverservice) createFlasherAttributes(ctx context.Context, deviceUUID uuid.UUID, attrs *FwInstallAttributes) error {
 	payload, err := json.Marshal(attrs)
 	if err != nil {
 		return errors.Wrap(ErrAttributeCreate, err.Error())
@@ -153,17 +153,18 @@ func (s *Serverservice) createFlasherAttributes(ctx context.Context, deviceUUID 
 	return nil
 }
 
-// deviceWithAttributes returns a device object with its fields populated with data from server service.
+// deviceWithFwInstallAttributes returns a device, firmware install parameters object with its fields populated with data from server service.
 //
 // The attributes looked up are,
 // - BMC address
 // - BMC credentials
 // - Device vendor, model, serial attributes
 // - Device state
-func (s *Serverservice) deviceWithAttributes(ctx context.Context, deviceID string) (*model.Device, error) {
+// - Flasher install attributes
+func (s *Serverservice) deviceWithFwInstallAttributes(ctx context.Context, deviceID string) (*model.Device, *FwInstallAttributes, error) {
 	deviceUUID, err := uuid.Parse(deviceID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	device := &model.Device{ID: deviceUUID}
@@ -171,19 +172,19 @@ func (s *Serverservice) deviceWithAttributes(ctx context.Context, deviceID strin
 	// lookup attributes
 	attributes, _, err := s.client.ListAttributes(ctx, deviceUUID, nil)
 	if err != nil {
-		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+		return nil, nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
 
 	// bmc address from attribute
 	device.BmcAddress, err = s.bmcAddressFromAttributes(attributes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// credentials from credential store
 	credential, _, err := s.client.GetCredential(ctx, deviceUUID, sservice.ServerCredentialTypeBMC)
 	if err != nil {
-		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+		return nil, nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
 
 	device.BmcUsername = credential.Username
@@ -192,14 +193,19 @@ func (s *Serverservice) deviceWithAttributes(ctx context.Context, deviceID strin
 	// vendor attributes
 	device.Vendor, device.Model, device.Serial, err = s.vendorModelFromAttributes(attributes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// device state attribute
 	device.State, err = s.deviceStateAttribute(attributes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return device, nil
+	installParams, err := s.flasherTaskAttribute(attributes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return device, installParams, nil
 }

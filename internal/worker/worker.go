@@ -20,10 +20,11 @@ const (
 )
 
 type Worker struct {
-	name        string
-	dryrun      bool
-	concurrency int
-	syncWG      *sync.WaitGroup
+	id                string
+	dryrun            bool
+	concurrency       int
+	firmwareURLPrefix string
+	syncWG            *sync.WaitGroup
 	// map of task IDs to task state machines
 	taskMachines sync.Map
 	store        store.Storage
@@ -32,18 +33,28 @@ type Worker struct {
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
-func New(dryrun bool, concurrency int, syncWG *sync.WaitGroup, taskStore store.Storage, inv inventory.Inventory, logger *logrus.Logger) *Worker {
-	name, _ := os.Hostname()
+func New(
+	firmwareURLPrefix,
+	facilityCode string,
+	dryrun bool,
+	concurrency int,
+	syncWG *sync.WaitGroup,
+	taskStore store.Storage,
+	inv inventory.Inventory,
+	logger *logrus.Logger,
+) *Worker {
+	id, _ := os.Hostname()
 
 	return &Worker{
-		name:         name,
-		dryrun:       dryrun,
-		concurrency:  concurrency,
-		syncWG:       syncWG,
-		taskMachines: sync.Map{},
-		store:        taskStore,
-		inv:          inv,
-		logger:       logger,
+		id:                id,
+		dryrun:            dryrun,
+		concurrency:       concurrency,
+		firmwareURLPrefix: firmwareURLPrefix,
+		syncWG:            syncWG,
+		taskMachines:      sync.Map{},
+		store:             taskStore,
+		inv:               inv,
+		logger:            logger,
 	}
 }
 
@@ -64,6 +75,7 @@ func (o *Worker) Run(ctx context.Context) {
 			o.queue(ctx)
 			o.run(ctx)
 		case <-ctx.Done():
+			//o.cleanup(ctx)
 			return
 		}
 	}
@@ -83,17 +95,20 @@ func (o *Worker) concurrencyLimit() bool {
 func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
 	l := logrus.New()
 	l.Formatter = o.logger.Formatter
+	l.Level = o.logger.Level
 
 	return &sm.HandlerContext{
-		WorkerName: o.name,
-		Dryrun:     o.dryrun,
-		TaskID:     taskID,
-		Ctx:        ctx,
-		Store:      o.store,
-		Inv:        o.inv,
-		Data:       make(map[string]string),
+		WorkerID:          o.id,
+		Dryrun:            o.dryrun,
+		TaskID:            taskID,
+		Ctx:               ctx,
+		Store:             o.store,
+		Inv:               o.inv,
+		FirmwareURLPrefix: o.firmwareURLPrefix,
+		Data:              make(map[string]string),
 		Logger: l.WithFields(
 			logrus.Fields{
+				"workerID": o.id,
 				"taskID":   taskID,
 				"deviceID": device.ID.String(),
 				"bmc":      device.BmcAddress.String(),
@@ -154,29 +169,34 @@ func (o *Worker) run(ctx context.Context) {
 
 			continue
 		}
+
+		o.logger.WithFields(logrus.Fields{
+			"deviceID": task.Parameters.Device.ID.String(),
+			"taskID":   task.ID,
+		}).Info("task for device completed")
 	}
 }
 
 func (o *Worker) queue(ctx context.Context) {
-	devices, err := o.inv.ListDevicesForFwInstall(ctx, aquireDeviceLimit)
+	idevices, err := o.inv.ListDevicesForFwInstall(ctx, aquireDeviceLimit)
 	if err != nil {
 		o.logger.Warn(err)
 		return
 	}
 
-	for _, device := range devices {
+	for _, idevice := range idevices {
 		if o.concurrencyLimit() {
 			continue
 		}
 
-		acquired, err := o.inv.AquireDevice(ctx, device.ID.String())
+		acquired, err := o.inv.AquireDevice(ctx, idevice.Device.ID.String(), o.id)
 		if err != nil {
 			o.logger.Warn(err)
 
 			continue
 		}
 
-		taskID, err := o.enqueueTask(ctx, acquired)
+		taskID, err := o.enqueueTask(ctx, &acquired)
 		if err != nil {
 			o.logger.Warn(err)
 
@@ -184,20 +204,24 @@ func (o *Worker) queue(ctx context.Context) {
 		}
 
 		o.logger.WithFields(logrus.Fields{
-			"deviceID": device.ID.String(),
+			"deviceID": idevice.Device.ID.String(),
 			"taskID":   taskID,
 		}).Trace("queued task for device")
 	}
 }
 
-func (o *Worker) enqueueTask(ctx context.Context, device model.Device) (taskID string, err error) {
+func (o *Worker) enqueueTask(ctx context.Context, inventoryDevice *inventory.InventoryDevice) (taskID string, err error) {
 	task, err := model.NewTask("", nil)
 	if err != nil {
 		return taskID, err
 	}
 
+	// set task parameters based on inventory device flasher fw install attributes
 	task.Status = string(model.StateQueued)
-	task.Parameters.Device = device
+	task.Parameters.Device = inventoryDevice.Device
+	task.Parameters.ForceInstall = inventoryDevice.FwInstallAttributes.ForceInstall
+	task.Parameters.ResetBMCBeforeInstall = inventoryDevice.FwInstallAttributes.ResetBMCBeforeInstall
+	task.Parameters.Priority = inventoryDevice.FwInstallAttributes.Priority
 
 	id, err := o.store.AddTask(ctx, task)
 	if err != nil {
@@ -209,21 +233,31 @@ func (o *Worker) enqueueTask(ctx context.Context, device model.Device) (taskID s
 
 func (o *Worker) taskFailed(ctx context.Context, task *model.Task) {
 	// update task state in inventory - move to task handler context?
-	attr := &inventory.InstallAttributes{
+	attr := &inventory.FwInstallAttributes{
 		TaskParameters: task.Parameters,
 		FlasherTaskID:  task.ID.String(),
-		Worker:         o.name,
+		WorkerID:       o.id,
 		Status:         string(model.StateFailed),
 		Info:           task.Info,
 	}
 
 	if err := o.inv.SetFlasherAttributes(ctx, task.Parameters.Device.ID.String(), attr); err != nil {
-		o.logger.WithFields(logrus.Fields{"taskID": task.ID.String(), "err": err.Error()}).Warn("failed inventory task state update")
-		return
+		o.logger.WithFields(
+			logrus.Fields{
+				"deviceID": task.Parameters.Device.ID,
+				"taskID":   task.ID.String(),
+				"err":      err.Error(),
+			},
+		).Warn("failed inventory device flasher attribute set")
 	}
 
 	// purge task state machine
 	o.taskMachines.Delete(task.ID.String())
 
-	o.logger.WithField("taskID", task.ID.String()).Trace("failed task statemachine purged")
+	o.logger.WithFields(
+		logrus.Fields{
+			"deviceID": task.Parameters.Device.ID,
+			"taskID":   task.ID.String(),
+		},
+	).Trace("failed task purged")
 }

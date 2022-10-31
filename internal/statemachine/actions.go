@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	sw "github.com/filanov/stateswitch"
+	"github.com/hashicorp/go-multierror"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 )
@@ -32,15 +33,16 @@ var (
 
 type ErrAction struct {
 	handler string
+	status  string
 	cause   string
 }
 
 func (e *ErrAction) Error() string {
-	return fmt.Sprintf("error occurred in action '%s': %s", e.handler, e.cause)
+	return fmt.Sprintf("action '%s' with status '%s', returned error: %s", e.handler, e.status, e.cause)
 }
 
-func newErrAction(handler, cause string) error {
-	return &ErrAction{handler, cause}
+func newErrAction(status, handler, cause string) error {
+	return &ErrAction{status, handler, cause}
 }
 
 type ActionStateMachine struct {
@@ -115,10 +117,12 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 
 			// run transition failed handler
 			if txErr := a.TransitionFailed(ctx, action, tctx); txErr != nil {
-				err = errors.Wrap(err, txErr.Error())
+				err = multierror.Append(err, errors.Wrap(txErr, "actionSM TransitionFailed() error"))
 			}
 
-			return newErrAction(string(transitionType), err.Error())
+			err = newErrAction(action.Status, string(transitionType), err.Error())
+
+			return err
 		}
 
 		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)

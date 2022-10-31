@@ -23,6 +23,7 @@ var cmdInstall = &cobra.Command{
 
 // command install firmware
 type installFirmwareFlags struct {
+	force           bool
 	deviceID        string
 	inventorySource string
 }
@@ -64,9 +65,10 @@ func fwInstallServerserviceInventory(ctx context.Context, flasher *app.App) {
 		flasher.Logger.Fatal(err)
 	}
 
-	attrs := &inventory.InstallAttributes{
-		Requester: os.Getenv("USER"),
-		Status:    string(model.StateRequested),
+	attrs := &inventory.FwInstallAttributes{
+		TaskParameters: model.TaskParameters{ForceInstall: installFirmwareFlagSet.force},
+		Requester:      os.Getenv("USER"),
+		Status:         string(model.StateRequested),
 	}
 
 	if err := inv.SetFlasherAttributes(ctx, installFirmwareFlagSet.deviceID, attrs); err != nil {
@@ -99,6 +101,8 @@ func init() {
 	if err := cmdInstallFirmware.MarkPersistentFlagRequired("device-id"); err != nil {
 		log.Fatal(err)
 	}
+
+	cmdInstallFirmware.PersistentFlags().BoolVar(&installFirmwareFlagSet.force, "force", false, "force install (ignores currently installed firmware)")
 
 	cmdInstall.AddCommand(cmdInstallFirmware)
 }

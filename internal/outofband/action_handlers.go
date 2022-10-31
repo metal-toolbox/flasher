@@ -44,11 +44,12 @@ var (
 	// nolint:gosec // no gosec, this isn't a credential
 	envTesting = "ENV_TESTING"
 
-	ErrFirmwareTempFile    = errors.New("error firmware temp file")
-	ErrSaveAction          = errors.New("error occurred in action state save")
-	ErrActionTypeAssertion = errors.New("error occurred in action object type assertion")
-	ErrContextCancelled    = errors.New("context canceled")
-	ErrUnexpected          = errors.New("unexpected error occurred")
+	ErrFirmwareTempFile         = errors.New("error firmware temp file")
+	ErrSaveAction               = errors.New("error occurred in action state save")
+	ErrActionTypeAssertion      = errors.New("error occurred in action object type assertion")
+	ErrContextCancelled         = errors.New("context canceled")
+	ErrUnexpected               = errors.New("unexpected error occurred")
+	ErrCurrentFirmwareEqualsNew = errors.New("installed firmware equals newer")
 )
 
 // actionHandler implements the actionTransitionHandler methods
@@ -133,6 +134,49 @@ func (h *actionHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) err
 	return nil
 }
 
+func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	if err != nil {
+		return err
+	}
+
+	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
+	if err != nil {
+		return err
+	}
+
+	// force install ignores version comparison
+	if task.Parameters.ForceInstall {
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"component": action.Firmware.ComponentSlug,
+				"version":   action.Firmware.Version,
+				"bmcTaskID": action.BMCTaskID,
+			}).Info("checkCurrentFirmware() skipped - TaskParameters.Force=true")
+
+		return nil
+	}
+
+	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
+	if err != nil {
+		return err
+	}
+
+	// compare installed firmware versions with the planned versions
+	//
+	// returns an error if a component is unsupported
+	equals, err := h.installedFirmwareVersionEqualsNew(inv, &action.Firmware)
+	if err != nil {
+		return err
+	}
+
+	if equals {
+		return ErrCurrentFirmwareEqualsNew
+	}
+
+	return nil
+}
+
 func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
@@ -168,52 +212,18 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 		logrus.Fields{
 			"component": action.Firmware.ComponentSlug,
 			"version":   action.Firmware.Version,
+			"url":       action.Firmware.URL,
 			"file":      file,
+			"checksum":  action.Firmware.Checksum,
 		}).Info("downloaded and verified firmware file checksum")
 
 	return nil
-}
-
-func (h *actionHandler) conditionInitiateInstallFirmware(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
-	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
-	if err != nil {
-		return false, err
-	}
-
-	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
-	if err != nil {
-		return false, err
-	}
-
-	// compare installed firmware versions with the planned versions
-	//
-	// returns an error if a component is unsupported
-	equals, err := h.installedFirmwareVersionEqualsNew(inv, action.Firmware)
-	if err != nil {
-		return false, err
-	}
-
-	// force install ignores version comparison
-	if task.Parameters.ForceInstall {
-		return true, nil
-	}
-
-	return equals, nil
 }
 
 func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
-	}
-
-	proceedWithInstall, err := h.conditionInitiateInstallFirmware(action, tctx)
-	if err != nil {
-		return err
-	}
-
-	if !proceedWithInstall {
-		return nil
 	}
 
 	if action.FirmwareTempFile == "" {
@@ -535,9 +545,41 @@ func (h *actionHandler) PersistState(a sw.StateSwitch, args sw.TransitionArgs) e
 }
 
 func (h *actionHandler) actionFailed(a sw.StateSwitch, c sw.TransitionArgs) error {
+	_, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	if err != nil {
+		return err
+	}
+
+	// log off the bmc if the action failed
+	if err := tctx.DeviceQueryor.Close(); err != nil {
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"err": err.Error(),
+			},
+		).Warn("bmc logout error")
+	}
+
 	return nil
 }
 
 func (h *actionHandler) actionSuccessful(a sw.StateSwitch, c sw.TransitionArgs) error {
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	if err != nil {
+		return err
+	}
+
+	// proceed to log off the bmc if this is the final action
+	if !action.Final {
+		return nil
+	}
+
+	if err := tctx.DeviceQueryor.Close(); err != nil {
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"err": err.Error(),
+			},
+		).Warn("bmc logout error")
+	}
+
 	return nil
 }

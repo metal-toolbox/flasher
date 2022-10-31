@@ -19,7 +19,7 @@ import (
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
 	logoutTimeout = "1m"
-	loginTimeout  = "1m"
+	//loginTimeout  = "1m"
 	loginAttempts = 3
 
 	// login errors
@@ -82,7 +82,7 @@ func (b *bmc) Open(ctx context.Context) error {
 		return err
 	}
 
-	b.logger.Trace("bmc login successful")
+	b.logger.Debug("bmc login successful")
 	b.connectionOpened = true
 
 	return nil
@@ -117,6 +117,7 @@ func (b *bmc) Close() error {
 		return errors.Wrap(errBMCLogout, err.Error())
 	}
 
+	b.logger.Debug("bmc logout successful")
 	b.client = nil
 
 	return nil
@@ -194,7 +195,7 @@ func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force b
 	return b.client.FirmwareInstall(ctx, componentSlug, bmclibv2consts.FirmwareApplyOnReset, force, file)
 }
 
-// FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameteres
+// FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameters
 func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (model.ComponentFirmwareInstallStatus, error) {
 	if err := b.Open(ctx); err != nil {
 		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())

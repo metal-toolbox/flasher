@@ -2,7 +2,11 @@ package outofband
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/cookiejar"
 	"strings"
 	"time"
 
@@ -11,12 +15,36 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"golang.org/x/net/publicsuffix"
 
 	"github.com/bmc-toolbox/common"
 	"github.com/jacobweinstock/registrar"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
+
+func newHttpClient() *http.Client {
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	if err != nil {
+		panic(err)
+	}
+
+	return &http.Client{
+		Timeout: time.Second * 600,
+		Jar:     jar,
+		Transport: &http.Transport{
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			DisableKeepAlives: true,
+			Dial: (&net.Dialer{
+				Timeout:   180 * time.Second,
+				KeepAlive: 180 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout:   180 * time.Second,
+			ResponseHeaderTimeout: 600 * time.Second,
+			IdleConnTimeout:       180 * time.Second,
+		},
+	}
+}
 
 // newBmclibv2Client initializes a bmclibv2 client with the given credentials
 func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Entry) *bmclibv2.Client {
@@ -43,6 +71,7 @@ func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Entr
 		device.BmcUsername,
 		device.BmcPassword,
 		bmclibv2.WithLogger(logruslogr),
+		bmclibv2.WithHTTPClient(newHttpClient()),
 	)
 
 	// set bmclibv2 driver
@@ -96,16 +125,16 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 		b.logger.WithField("attempt", attemptstr).Trace("bmc login attempt")
 
 		// set login timeout
-		timeout, err := time.ParseDuration(loginTimeout)
-		if err != nil {
-			return errors.Wrap(errBMCLogin, err.Error())
-		}
+		//	timeout, err := time.ParseDuration(loginTimeout)
+		//	if err != nil {
+		//		return errors.Wrap(errBMCLogin, err.Error())
+		//	}
 
-		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
-		defer cancel()
+		// ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
+		// defer cancel()
 
 		// attempt login
-		err = b.client.Open(ctx)
+		err := b.client.Open(ctx)
 		if err != nil {
 			b.logger.WithFields(
 				logrus.Fields{

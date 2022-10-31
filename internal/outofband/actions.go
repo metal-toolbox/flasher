@@ -9,6 +9,15 @@ import (
 )
 
 const (
+	// To add a new transition handler here
+	//
+	// 1. Add an action state
+	// 2. Add a transition type
+	// 3. Include transition type in transitionOrder()
+	// 4. Add transition rule, update previous and next transition rules - for destination states.
+	// 5. Add transition handler method
+	// 6. List transition type in TransitionTypeActionFailed
+
 	// action states
 	//
 	// the SM transitions through these states for each component being updated.
@@ -16,6 +25,7 @@ const (
 	//
 	// These states should be named in the format "state+verb past tense+subject"
 	statePoweredOnDevice             sw.State = "poweredOnDevice"
+	stateCheckedCurrentFirmware      sw.State = "checkedCurrentFirmware"
 	stateDownloadedFirmware          sw.State = "downloadedFirmware"
 	stateInitiatedInstallFirmware    sw.State = "initiatedInstallFirmware"
 	statePolledFirmwareInstallStatus sw.State = "polledFirmwareInstallStatus"
@@ -23,10 +33,12 @@ const (
 	stateResetHost                   sw.State = "resetHost"
 	statePoweredOffDevice            sw.State = "poweredOffDevice"
 
+	// transition types
 	//
 	// The transition types var names should be in the format - transitionType + "state"
 	// the values should be in the continuous present tense
 	transitionTypePowerOnDevice             sw.TransitionType = "poweringOnDevice"
+	transitionTypeCheckInstalledFirmware    sw.TransitionType = "checkingInstalledFirmware"
 	transitionTypeDownloadFirmware          sw.TransitionType = "downloadingFirmware"
 	transitionTypeInitiatingInstallFirmware sw.TransitionType = "initiatingInstallFirmware"
 	transitionTypePollInstallStatus         sw.TransitionType = "pollingInstallStatus"
@@ -35,9 +47,11 @@ const (
 	transitionTypePowerOffDevice            sw.TransitionType = "poweringOffDevice"
 )
 
+// transitionOrder defines the order of transition execution
 func transitionOrder() []sw.TransitionType {
 	return []sw.TransitionType{
 		transitionTypePowerOnDevice,
+		transitionTypeCheckInstalledFirmware,
 		transitionTypeDownloadFirmware,
 		transitionTypeInitiatingInstallFirmware,
 		transitionTypePollInstallStatus,
@@ -74,8 +88,16 @@ func transitionRules() []sw.TransitionRule {
 			PostTransition: handler.PersistState,
 		},
 		{
-			TransitionType:   transitionTypeDownloadFirmware,
+			TransitionType:   transitionTypeCheckInstalledFirmware,
 			SourceStates:     sw.States{statePoweredOnDevice},
+			DestinationState: stateCheckedCurrentFirmware,
+			Condition:        nil,
+			Transition:       handler.checkCurrentFirmware,
+			PostTransition:   handler.PersistState,
+		},
+		{
+			TransitionType:   transitionTypeDownloadFirmware,
+			SourceStates:     sw.States{stateCheckedCurrentFirmware},
 			DestinationState: stateDownloadedFirmware,
 			Condition:        nil,
 			Transition:       handler.downloadFirmware,
@@ -135,7 +157,10 @@ func transitionRules() []sw.TransitionRule {
 		{
 			TransitionType: sm.TransitionTypeActionFailed,
 			SourceStates: sw.States{
+				model.StateQueued,
+				model.StateActive,
 				statePoweredOnDevice,
+				stateCheckedCurrentFirmware,
 				stateDownloadedFirmware,
 				stateInitiatedInstallFirmware,
 				statePolledFirmwareInstallStatus,

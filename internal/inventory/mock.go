@@ -13,21 +13,21 @@ func NewMockInventory() (Inventory, error) {
 	return &Mock{}, nil
 }
 
-func (s *Mock) ListDevicesForFwInstall(ctx context.Context, limit int) ([]model.Device, error) {
-	devices := []model.Device{
-		fixtures.Devices[fixtures.Device1.String()],
-		fixtures.Devices[fixtures.Device2.String()],
+func (s *Mock) ListDevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
+	devices := []InventoryDevice{
+		{Device: fixtures.Devices[fixtures.Device1.String()]},
+		{Device: fixtures.Devices[fixtures.Device2.String()]},
 	}
 
 	return devices, nil
 }
 
-func (s *Mock) AquireDevice(ctx context.Context, id string) (model.Device, error) {
+func (s *Mock) AquireDevice(ctx context.Context, deviceID, workerID string) (InventoryDevice, error) {
 	// updates the server service attribute
 	// - the device should not have any active flasher tasks
 	// - the device state should be maintenance
 
-	return fixtures.Devices[fixtures.Device1.String()], nil
+	return InventoryDevice{Device: fixtures.Devices[fixtures.Device1.String()]}, nil
 }
 
 func (s *Mock) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
@@ -35,12 +35,12 @@ func (s *Mock) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, de
 }
 
 // FlasherAttributes - gets the firmware install attributes for the device.
-func (s *Mock) FlasherAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
-	return InstallAttributes{}, nil
+func (s *Mock) FlasherAttributes(ctx context.Context, deviceID string) (FwInstallAttributes, error) {
+	return FwInstallAttributes{}, nil
 }
 
 // SetFlasherAttributes - sets the firmware install attributes to the given values on a device.
-func (s *Mock) SetFlasherAttributes(ctx context.Context, deviceID string, attrs *InstallAttributes) error {
+func (s *Mock) SetFlasherAttributes(ctx context.Context, deviceID string, attrs *FwInstallAttributes) error {
 	return nil
 }
 

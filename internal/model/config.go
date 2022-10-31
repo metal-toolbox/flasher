@@ -20,6 +20,10 @@ type Config struct {
 	File string
 	// LogLevel is the app verbose logging level.
 	LogLevel int
+
+	// FirmwareURLPrefix is prefixed to the firmware download url
+	FirmwareURLPrefix string `mapstructure:"firmware_url_prefix"`
+
 	// AppKind is the application kind - worker / client
 	AppKind AppKind `mapstructure:"app_kind"`
 
@@ -99,8 +103,12 @@ func (c *Config) Load(cfgFile string) error {
 		return errors.Wrap(err, c.File)
 	}
 
-	if err := viper.Unmarshal(c); err != nil {
+	if err = viper.Unmarshal(c); err != nil {
 		return errors.Wrap(err, c.File)
+	}
+
+	if c.FirmwareURLPrefix == "" {
+		return errors.Wrap(err, "expected a valid FirmwareURLPrefix value")
 	}
 
 	switch c.InventorySource {

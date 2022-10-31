@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	sservice "go.hollow.sh/serverservice/pkg/api/v1"
@@ -93,9 +92,7 @@ func NewServerserviceInventory(ctx context.Context, config *model.Config, logger
 	return serverservice, nil
 }
 
-func (s *Serverservice) ListDevicesForFwInstall(ctx context.Context, limit int) ([]model.Device, error) {
-	devices := []model.Device{}
-
+func (s *Serverservice) ListDevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
 	params := &sservice.ServerListParams{
 		FacilityCode: s.config.FacilityCode,
 		AttributeListParams: []sservice.AttributeListParams{
@@ -110,21 +107,21 @@ func (s *Serverservice) ListDevicesForFwInstall(ctx context.Context, limit int) 
 
 	found, _, err := s.client.List(ctx, params)
 	if err != nil {
-		return devices, err
+		return nil, err
 	}
 
 	if len(found) == 0 {
-		return devices, nil
+		return nil, nil
 	}
 
-	return s.convertServersToDeviceObjs(ctx, found)
+	return s.convertServersToInventoryDeviceObjs(ctx, found)
 }
 
-func (s *Serverservice) convertServersToDeviceObjs(ctx context.Context, servers []sservice.Server) ([]model.Device, error) {
-	devices := make([]model.Device, 0, len(servers))
+func (s *Serverservice) convertServersToInventoryDeviceObjs(ctx context.Context, servers []sservice.Server) ([]InventoryDevice, error) {
+	devices := make([]InventoryDevice, 0, len(servers))
 
 	for _, server := range servers {
-		device, err := s.deviceWithAttributes(ctx, server.UUID.String())
+		device, fwInstallAttributes, err := s.deviceWithFwInstallAttributes(ctx, server.UUID.String())
 		if err != nil {
 			s.logger.WithFields(
 				logrus.Fields{
@@ -150,33 +147,33 @@ func (s *Serverservice) convertServersToDeviceObjs(ctx context.Context, servers 
 		}
 
 		device.ID = server.UUID
-		devices = append(devices, *device)
+
+		devices = append(
+			devices,
+			InventoryDevice{Device: *device, FwInstallAttributes: *fwInstallAttributes},
+		)
 	}
 
 	return devices, nil
 }
 
-func (s *Serverservice) AquireDevice(ctx context.Context, deviceID string) (model.Device, error) {
+func (s *Serverservice) AquireDevice(ctx context.Context, deviceID, workerID string) (InventoryDevice, error) {
 	// updates the server service attribute
 	// - the device should not have any active flasher tasks
 	// - the device state should be maintenance
-	device, err := s.deviceWithAttributes(ctx, deviceID)
+	device, fwInstallAttributes, err := s.deviceWithFwInstallAttributes(ctx, deviceID)
 	if err != nil {
-		return model.Device{}, err
+		return InventoryDevice{}, errors.Wrap(ErrAttributeList, err.Error())
 	}
 
-	// attributes to set
-	attrs := &InstallAttributes{
-		Status: string(model.StateQueued),
-		// TODO(joel): identify user from OIDC login
-		Requester: os.Getenv("USER"),
+	fwInstallAttributes.Status = string(model.StateQueued)
+	fwInstallAttributes.WorkerID = workerID
+
+	if err := s.SetFlasherAttributes(ctx, deviceID, fwInstallAttributes); err != nil {
+		return InventoryDevice{}, errors.Wrap(ErrAttributeUpdate, err.Error())
 	}
 
-	if err := s.SetFlasherAttributes(ctx, deviceID, attrs); err != nil {
-		return model.Device{}, err
-	}
-
-	return *device, nil
+	return InventoryDevice{Device: *device, FwInstallAttributes: *fwInstallAttributes}, nil
 }
 
 // ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
@@ -193,8 +190,8 @@ func (s *Serverservice) FirmwareSetByDeviceVendorModel(ctx context.Context, devi
 }
 
 // FlasherAttributes - gets the firmware install attributes for the device.
-func (s *Serverservice) FlasherAttributes(ctx context.Context, deviceID string) (InstallAttributes, error) {
-	params := InstallAttributes{}
+func (s *Serverservice) FlasherAttributes(ctx context.Context, deviceID string) (FwInstallAttributes, error) {
+	params := FwInstallAttributes{}
 
 	deviceUUID, err := uuid.Parse(deviceID)
 	if err != nil {
@@ -213,7 +210,7 @@ func (s *Serverservice) FlasherAttributes(ctx context.Context, deviceID string) 
 		return params, ErrNoAttributes
 	}
 
-	installAttributes := InstallAttributes{}
+	installAttributes := FwInstallAttributes{}
 
 	if err := json.Unmarshal(foundAttributes.Data, &installAttributes); err != nil {
 		return params, errors.Wrap(ErrAttributeList, err.Error())
@@ -223,7 +220,7 @@ func (s *Serverservice) FlasherAttributes(ctx context.Context, deviceID string) 
 }
 
 // SetDeviceFwInstallTaskAttributes - sets the firmware install attributes to the given values on a device.
-func (s *Serverservice) SetFlasherAttributes(ctx context.Context, deviceID string, newTaskAttrs *InstallAttributes) error {
+func (s *Serverservice) SetFlasherAttributes(ctx context.Context, deviceID string, newTaskAttrs *FwInstallAttributes) error {
 	deviceUUID, err := uuid.Parse(deviceID)
 	if err != nil {
 		return err
@@ -389,12 +386,11 @@ func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceV
 	for _, set := range firmwaresets {
 		for _, firmware := range set.ComponentFirmware {
 			found = append(found, model.Firmware{
-				Vendor:        firmware.Vendor,
-				Model:         firmware.Model,
+				Vendor:        strings.ToLower(firmware.Vendor),
+				Model:         strings.ToLower(firmware.Model),
 				Version:       firmware.Version,
 				FileName:      firmware.Filename,
-				URL:           firmware.RepositoryURL,
-				ComponentSlug: firmware.Component,
+				ComponentSlug: strings.ToLower(firmware.Component),
 				Checksum:      firmware.Checksum,
 			})
 		}

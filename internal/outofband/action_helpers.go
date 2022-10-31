@@ -2,6 +2,7 @@ package outofband
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -31,24 +32,30 @@ func sleepWithContext(ctx context.Context, t time.Duration) error {
 	}
 }
 
-func (h *actionHandler) installedFirmwareVersionEqualsNew(device *common.Device, planned model.Firmware) (bool, error) {
+func (h *actionHandler) installedFirmwareVersionEqualsNew(device *common.Device, planned *model.Firmware) (bool, error) {
 	switch strings.ToUpper(planned.ComponentSlug) {
 	case common.SlugBIOS:
-		if device.BIOS == nil || device.BIOS.Firmware == nil {
+		if device.BIOS == nil || device.BIOS.Firmware == nil || device.BIOS.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
+
+		fmt.Println(device.BIOS.Firmware.Installed)
+		fmt.Println(planned.Version)
 
 		return strings.EqualFold(device.BIOS.Firmware.Installed, planned.Version), nil
 
 	case common.SlugBMC:
-		if device.BMC == nil || device.BMC.Firmware == nil {
+		if device.BMC == nil || device.BMC.Firmware == nil || device.BMC.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
+
+		fmt.Println(device.BMC.Firmware.Installed)
+		fmt.Println(planned.Version)
 
 		return strings.EqualFold(device.BMC.Firmware.Installed, planned.Version), nil
 
 	case common.SlugMainboard:
-		if device.Mainboard == nil || device.Mainboard.Firmware == nil {
+		if device.Mainboard == nil || device.Mainboard.Firmware == nil || device.Mainboard.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -117,9 +124,9 @@ func (h *actionHandler) installedFirmwareVersionEqualsNew(device *common.Device,
 // TODO(joel): when generics allow struct member access, rewrite methods below
 // https://github.com/golang/go/issues/48522
 
-func nicsInstalledFirmwareEqualsNew(components []*common.NIC, planned model.Firmware) (bool, error) {
+func nicsInstalledFirmwareEqualsNew(components []*common.NIC, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -132,9 +139,9 @@ func nicsInstalledFirmwareEqualsNew(components []*common.NIC, planned model.Firm
 	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func cpldsInstalledFirmwareEqualsNew(components []*common.CPLD, planned model.Firmware) (bool, error) {
+func cpldsInstalledFirmwareEqualsNew(components []*common.CPLD, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -147,9 +154,9 @@ func cpldsInstalledFirmwareEqualsNew(components []*common.CPLD, planned model.Fi
 	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func drivesInstalledFirmwareEqualsNew(components []*common.Drive, planned model.Firmware) (bool, error) {
+func drivesInstalledFirmwareEqualsNew(components []*common.Drive, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -162,9 +169,9 @@ func drivesInstalledFirmwareEqualsNew(components []*common.Drive, planned model.
 	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func psusInstalledFirmwareEqualsNew(components []*common.PSU, planned model.Firmware) (bool, error) {
+func psusInstalledFirmwareEqualsNew(components []*common.PSU, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -177,9 +184,9 @@ func psusInstalledFirmwareEqualsNew(components []*common.PSU, planned model.Firm
 	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func tpmsInstalledFirmwareEqualsNew(components []*common.TPM, planned model.Firmware) (bool, error) {
+func tpmsInstalledFirmwareEqualsNew(components []*common.TPM, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -192,9 +199,9 @@ func tpmsInstalledFirmwareEqualsNew(components []*common.TPM, planned model.Firm
 	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func gpusInstalledFirmwareEqualsNew(components []*common.GPU, planned model.Firmware) (bool, error) {
+func gpusInstalledFirmwareEqualsNew(components []*common.GPU, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -207,9 +214,9 @@ func gpusInstalledFirmwareEqualsNew(components []*common.GPU, planned model.Firm
 	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func storageControllersInstalledFirmwareEqualsNew(components []*common.StorageController, planned model.Firmware) (bool, error) {
+func storageControllersInstalledFirmwareEqualsNew(components []*common.StorageController, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
@@ -222,9 +229,9 @@ func storageControllersInstalledFirmwareEqualsNew(components []*common.StorageCo
 	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func enclosuresInstalledFirmwareEqualsNew(components []*common.Enclosure, planned model.Firmware) (bool, error) {
+func enclosuresInstalledFirmwareEqualsNew(components []*common.Enclosure, planned *model.Firmware) (bool, error) {
 	for _, component := range components {
-		if component == nil || component.Firmware == nil {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 

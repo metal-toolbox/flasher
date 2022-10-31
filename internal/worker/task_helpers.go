@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
@@ -11,7 +13,7 @@ import (
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func planInstall(ctx context.Context, task *model.Task) (sm.ActionStateMachines, model.Actions, error) {
+func planInstall(ctx context.Context, task *model.Task, firmwareURLPrefix string) (sm.ActionStateMachines, model.Actions, error) {
 	plans := make(sm.ActionStateMachines, 0)
 	actions := make(model.Actions, 0)
 
@@ -40,6 +42,17 @@ func planInstall(ctx context.Context, task *model.Task) (sm.ActionStateMachines,
 			final = true
 		}
 
+		// set download url based on device vendor, model attributes
+		// example : https://firmware.hosted/firmware/dell/r640/bmc/iDRAC-with-Lifecycle-Controller_Firmware_P8HC9_WN64_5.10.00.00_A00.EXE
+		task.FirmwaresPlanned[idx].URL = fmt.Sprintf(
+			"%s/%s/%s/%s/%s",
+			firmwareURLPrefix,
+			task.Parameters.Device.Vendor,
+			task.Parameters.Device.Model,
+			strings.ToLower(firmware.ComponentSlug),
+			firmware.FileName,
+		)
+
 		actions = append(actions, model.Action{
 			ID:     actionID,
 			TaskID: task.ID.String(),
@@ -57,4 +70,8 @@ func planInstall(ctx context.Context, task *model.Task) (sm.ActionStateMachines,
 	}
 
 	return plans, actions, nil
+}
+
+func downloadURL() {
+
 }

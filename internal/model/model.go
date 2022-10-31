@@ -36,8 +36,8 @@ func InventorySourceKinds() []string {
 var (
 	// FirmwareInstallOrder defines the order in which firmware is installed.
 	FirmwareInstallOrder = map[string]int{
-		common.SlugBMC:               0,
-		common.SlugBIOS:              1,
+		common.SlugBIOS:              0, //TODO: this needs to be BMC first, for now this is set to bios first
+		common.SlugBMC:               1,
 		common.SlugCPLD:              2,
 		common.SlugDrive:             3,
 		common.SlugBackplaneExpander: 4,

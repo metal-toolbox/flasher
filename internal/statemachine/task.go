@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -39,21 +38,25 @@ var (
 // This struct is passed to transition handlers which
 // depend on the values provided in this struct.
 type HandlerContext struct {
-	// Dryrun does no run any disruptive actions on the device - power on/off, bmc resets, firmware installs,
+	// ctx is the parent cancellation context
+	Ctx context.Context
+
+	// Dryrun skips any disruptive actions on the device - power on/off, bmc resets, firmware installs,
 	// the task and its actions run as expected, and the device state in the inventory is updated as well,
 	// although the firmware is not installed.
 	//
 	// It is upto the Action handler implementations to ensure the dry run works as described.
 	Dryrun bool
 
-	// WorkerName is the name of the worker running this task.
-	WorkerName string
+	// WorkerID is the identifier of the worker running this task.
+	WorkerID string
 
 	// taskID is available when an action is invoked under a task.
 	TaskID string
 
-	// ctx is the parent cancellation context
-	Ctx context.Context
+	// This value is prefixed to the path generated to download
+	// the firmware to install.
+	FirmwareURLPrefix string
 
 	// plan is an ordered list of actions planned to complete this task.
 	ActionStateMachines ActionStateMachines
@@ -131,7 +134,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeTaskFail,
-		SourceStates:     sw.States{model.StateActive, model.StateQueued},
+		SourceStates:     sw.States{model.StateQueued, model.StateActive},
 		DestinationState: model.StateFailed,
 		Condition:        nil,
 		Transition:       handler.TaskFailed,
@@ -174,7 +177,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
 				err = errors.Wrap(
 					ErrTaskTransition,
-					fmt.Sprintf("no transition rule found for transition type '%s' and state '%s'", transitionType, task.Status),
+					fmt.Sprintf("no transition rule found for task transition type '%s' and state '%s'", transitionType, task.Status),
 				)
 			}
 
@@ -183,7 +186,6 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 
 			// run transition failed handler
 			if txErr := m.TransitionFailed(ctx, task, tctx); txErr != nil {
-				spew.Dump(err)
 				err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
 			}
 

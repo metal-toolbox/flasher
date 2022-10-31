@@ -44,19 +44,35 @@ func New(ctx context.Context, appKind model.AppKind, inventorySourceKind, cfgFil
 		TermCh: make(chan os.Signal),
 	}
 
+	runtimeFormatter := &runtime.Formatter{
+		ChildFormatter: &logrus.JSONFormatter{},
+		File:           true,
+		Line:           true,
+		BaseNameOnly:   true,
+	}
+
 	// set log level, format
 	switch loglevel {
 	case model.LogLevelDebug:
 		app.Logger.Level = logrus.DebugLevel
+
+		// set runtime formatter options
+		runtimeFormatter.BaseNameOnly = true
+		runtimeFormatter.File = true
+		runtimeFormatter.Line = true
+
 	case model.LogLevelTrace:
 		app.Logger.Level = logrus.TraceLevel
+
+		// set runtime formatter options
+		runtimeFormatter.File = true
+		runtimeFormatter.Line = true
+		runtimeFormatter.Package = true
 	default:
 		app.Logger.Level = logrus.InfoLevel
 	}
 
-	app.Logger.SetFormatter(
-		&runtime.Formatter{ChildFormatter: &logrus.JSONFormatter{}},
-	)
+	app.Logger.SetFormatter(runtimeFormatter)
 
 	// register for SIGINT, SIGTERM
 	signal.Notify(app.TermCh, syscall.SIGINT, syscall.SIGTERM)
