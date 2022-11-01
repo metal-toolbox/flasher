@@ -8,7 +8,33 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/sirupsen/logrus"
 )
+
+func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, device *model.Device, skipCompareInstalled bool) *sm.HandlerContext {
+	l := logrus.New()
+	l.Formatter = o.logger.Formatter
+	l.Level = o.logger.Level
+
+	return &sm.HandlerContext{
+		WorkerID:          o.id,
+		Dryrun:            o.dryrun,
+		TaskID:            taskID,
+		Ctx:               ctx,
+		Store:             o.store,
+		Inv:               o.inv,
+		FirmwareURLPrefix: o.firmwareURLPrefix,
+		Data:              make(map[string]string),
+		Logger: l.WithFields(
+			logrus.Fields{
+				"workerID": o.id,
+				"taskID":   taskID,
+				"deviceID": device.ID.String(),
+				"bmc":      device.BmcAddress.String(),
+			},
+		),
+	}
+}
 
 // planInstall sets up the firmware install plan
 //
@@ -70,8 +96,4 @@ func planInstall(ctx context.Context, task *model.Task, firmwareURLPrefix string
 	}
 
 	return plans, actions, nil
-}
-
-func downloadURL() {
-
 }

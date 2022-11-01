@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	WorkerConcurrency = 1
+)
+
 var (
 	ErrConfig = errors.New("configuration error")
 )
@@ -99,8 +103,8 @@ func (c *Config) Load(cfgFile string) error {
 
 	viper.SetConfigFile(c.File)
 
-	if err := viper.ReadConfig(h); err != nil {
-		return errors.Wrap(err, c.File)
+	if errViper := viper.ReadConfig(h); errViper != nil {
+		return errors.Wrap(errViper, c.File)
 	}
 
 	if err = viper.Unmarshal(c); err != nil {
@@ -109,6 +113,10 @@ func (c *Config) Load(cfgFile string) error {
 
 	if c.FirmwareURLPrefix == "" {
 		return errors.Wrap(err, "expected a valid FirmwareURLPrefix value")
+	}
+
+	if c.Concurrency == 0 {
+		c.Concurrency = WorkerConcurrency
 	}
 
 	switch c.InventorySource {

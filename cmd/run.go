@@ -78,12 +78,11 @@ func runWorker(ctx context.Context) {
 		log.Fatal(err)
 	}
 
-	concurrency := 2
 	w := worker.New(
 		flasher.Config.FirmwareURLPrefix,
 		flasher.Config.FacilityCode,
 		workerRunFlagSet.dryrun,
-		concurrency,
+		flasher.Config.Concurrency,
 		flasher.SyncWG,
 		store.NewMemStore(),
 		inv,
