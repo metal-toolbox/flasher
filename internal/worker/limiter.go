@@ -3,6 +3,7 @@ package worker
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -33,7 +34,7 @@ type Limiter struct {
 	mu sync.RWMutex
 	// dispatched indicates the number of routines dispatched by this limiter.
 	dispatched int32
-	// drain is the flag set when StopWait(), when set no further tasks are accepted.
+	// drain is the flag set when StopWait() invoked, with drain=true, no further tasks are accepted.
 	drain bool
 }
 
@@ -82,6 +83,8 @@ func (l *Limiter) Dispatch(f func()) error {
 func (l *Limiter) dispatcher() {
 	defer l.wg.Done()
 
+	stopWaitCheck := time.NewTicker(time.Millisecond * 200).C
+
 Loop:
 	for {
 		select {
@@ -98,20 +101,20 @@ Loop:
 		case <-l.doneCh:
 			atomic.AddInt32(&l.dispatched, ^int32(0))
 
-		default:
-			// drain was set, return
+		case <-stopWaitCheck:
+			l.mu.RLock()
+
 			if l.dispatched == 0 && l.drain {
 				break Loop
 			}
+
+			l.mu.RUnlock()
 		}
 	}
 }
 
 // ActiveCount returns the count of running routines
 func (l *Limiter) ActiveCount() int {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	return int(l.dispatched)
 }
 

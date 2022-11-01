@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -23,6 +25,7 @@ func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, devic
 		Ctx:               ctx,
 		Store:             o.store,
 		Inv:               o.inv,
+		TaskEventCh:       o.taskEventCh,
 		FirmwareURLPrefix: o.firmwareURLPrefix,
 		Data:              make(map[string]string),
 		Logger: l.WithFields(
@@ -96,4 +99,38 @@ func planInstall(ctx context.Context, task *model.Task, firmwareURLPrefix string
 	}
 
 	return plans, actions, nil
+}
+
+func (o *Worker) persistTaskStatus(taskID, info string) {
+	// a new context is created here to make sure the task status is persisted
+	// even if the worker parent context is closed
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	task, err := o.store.TaskByID(ctx, taskID)
+	if err != nil {
+		o.logger.WithFields(
+			logrus.Fields{
+				"deviceID": task.Parameters.Device.ID.String(),
+				"err":      err.Error(),
+			}).Warn("error retrieving task attributes")
+
+		return
+	}
+
+	attr := &inventory.FwInstallAttributes{
+		TaskParameters: task.Parameters,
+		FlasherTaskID:  task.ID.String(),
+		WorkerID:       o.id,
+		Status:         task.Status,
+		Info:           info,
+	}
+
+	if err := o.inv.SetFlasherAttributes(ctx, task.Parameters.Device.ID.String(), attr); err != nil {
+		o.logger.WithFields(
+			logrus.Fields{
+				"deviceID": task.Parameters.Device.ID.String(),
+				"err":      err.Error(),
+			}).Warn("error writing task attributes to inventory")
+	}
 }

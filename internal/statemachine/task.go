@@ -3,6 +3,7 @@ package statemachine
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/inventory"
@@ -28,6 +29,28 @@ var (
 	ErrInvalidtaskHandlerContext = errors.New("expected a HandlerContext{} type")
 	ErrTaskTransition            = errors.New("error in task transition")
 )
+
+// TaskEvents are events sent by tasks and actions, they include information
+// on the task, action being executed
+type TaskEvent struct {
+	TaskID string
+	Info   string
+}
+
+func SendEvent(ctx context.Context, ch chan<- TaskEvent, e TaskEvent) {
+	if ch == nil {
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+		return
+	case ch <- e:
+	case <-time.After(1 * time.Second):
+		fmt.Println("dropped event with info: " + e.Info)
+		return
+	}
+}
 
 // sw library drawbacks
 // - when running the sw statemachine - each transition has be run and so the Run method below
@@ -71,9 +94,10 @@ type HandlerContext struct {
 	// so as to record, read handler specific values.
 	Data map[string]string
 
-	Store  store.Storage
-	Inv    inventory.Inventory
-	Logger *logrus.Entry
+	TaskEventCh chan TaskEvent
+	Store       store.Storage
+	Inv         inventory.Inventory
+	Logger      *logrus.Entry
 }
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.
@@ -88,11 +112,10 @@ type TaskTransitioner interface {
 
 // TaskStateMachine drives the task
 type TaskStateMachine struct {
-	sm          sw.StateMachine
+	sm sw.StateMachine
+
 	transitions []sw.TransitionType
 }
-
-// ActionStateMachine drives the firmware install actions
 
 func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order

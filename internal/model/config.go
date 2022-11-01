@@ -32,9 +32,7 @@ type Config struct {
 	AppKind AppKind `mapstructure:"app_kind"`
 
 	// Worker configuration
-	Worker struct {
-		Concurrency int `mapstructure:"concurrency"`
-	} `mapstructure:"worker"`
+	Concurrency int `mapstructure:"concurrency"`
 
 	// The inventory source - one of serverservice OR Yaml
 	InventorySource string `mapstructure:"inventory_source"`

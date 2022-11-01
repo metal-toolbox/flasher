@@ -2,7 +2,6 @@ package worker
 
 import (
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/pkg/errors"
@@ -155,20 +154,6 @@ func (h *taskHandler) PersistState(t sw.StateSwitch, args sw.TransitionArgs) err
 
 	if err := tctx.Store.UpdateTask(tctx.Ctx, *task); err != nil {
 		return errors.Wrap(ErrSaveTask, err.Error())
-	}
-
-	// update task state in inventory
-	//
-	// TODO(joel) - figure if this can be moved in a different package
-	attr := &inventory.FwInstallAttributes{
-		TaskParameters: task.Parameters,
-		FlasherTaskID:  task.ID.String(),
-		WorkerID:       tctx.WorkerID,
-		Status:         task.Status,
-	}
-
-	if err := tctx.Inv.SetFlasherAttributes(tctx.Ctx, task.Parameters.Device.ID.String(), attr); err != nil {
-		return err
 	}
 
 	return nil

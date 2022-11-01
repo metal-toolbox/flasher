@@ -13,7 +13,7 @@ import (
 
 const (
 
-	// state for sucessful actions
+	// state for successful actions
 	StateActionSuccessful sw.State = "success"
 	// state for failed actions
 	StateActionFailed sw.State = "failed"
@@ -46,10 +46,10 @@ func newErrAction(status, handler, cause string) error {
 }
 
 type ActionStateMachine struct {
+	sm                   sw.StateMachine
 	actionID             string
 	transitions          []sw.TransitionType
 	transitionsCompleted []sw.TransitionType
-	sm                   sw.StateMachine
 }
 
 func (a *ActionStateMachine) SetTransitionOrder(transitions []sw.TransitionType) {
@@ -108,6 +108,20 @@ func (a *ActionStateMachine) TransitionSuccess(ctx context.Context, action *mode
 
 func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx *HandlerContext) error {
 	for _, transitionType := range a.transitions {
+		// send event task action is running
+		SendEvent(
+			ctx,
+			tctx.TaskEventCh,
+			TaskEvent{
+				tctx.TaskID,
+				fmt.Sprintf(
+					"component: %s, running action: %s ",
+					action.Firmware.ComponentSlug,
+					string(transitionType),
+				),
+			},
+		)
+
 		err := a.sm.Run(transitionType, action, tctx)
 		if err != nil {
 			// When the condition returns false, run the next transition
@@ -126,6 +140,20 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		}
 
 		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
+
+		// send event task action is complete
+		SendEvent(
+			ctx,
+			tctx.TaskEventCh,
+			TaskEvent{
+				tctx.TaskID,
+				fmt.Sprintf(
+					"component: %s, completed action: %s ",
+					action.Firmware.ComponentSlug,
+					string(transitionType),
+				),
+			},
+		)
 	}
 
 	// run transition success handler

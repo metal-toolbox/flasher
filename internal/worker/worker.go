@@ -14,11 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// number of devices to acquire for update per tick.
-	aquireDeviceLimit = 1
-)
-
 type Worker struct {
 	id                string
 	dryrun            bool
@@ -27,6 +22,7 @@ type Worker struct {
 	syncWG            *sync.WaitGroup
 	// map of task IDs to task state machines
 	taskMachines sync.Map
+	taskEventCh  chan sm.TaskEvent
 	limiter      *Limiter
 	store        store.Storage
 	inv          inventory.Inventory
@@ -53,6 +49,7 @@ func New(
 		firmwareURLPrefix: firmwareURLPrefix,
 		syncWG:            syncWG,
 		taskMachines:      sync.Map{},
+		taskEventCh:       make(chan sm.TaskEvent),
 		limiter:           NewLimiter(concurrency),
 		store:             taskStore,
 		inv:               inv,
@@ -76,14 +73,22 @@ func (o *Worker) Run(ctx context.Context) {
 		},
 	).Info("flasher worker running")
 
+Loop:
 	for {
 		select {
 		case <-tickQueueRun:
 			o.queue(ctx)
 			o.run(ctx)
+		case e, ok := <-o.taskEventCh:
+			if !ok {
+				continue
+			}
+
+			o.persistTaskStatus(e.TaskID, e.Info)
+
 		case <-ctx.Done():
 			o.limiter.StopWait()
-			return
+			break Loop
 		}
 	}
 }
@@ -93,7 +98,7 @@ func (o *Worker) concurrencyLimit() bool {
 }
 
 func (o *Worker) queue(ctx context.Context) {
-	idevices, err := o.inv.ListDevicesForFwInstall(ctx, aquireDeviceLimit)
+	idevices, err := o.inv.ListDevicesForFwInstall(ctx, o.concurrency)
 	if err != nil {
 		o.logger.Warn(err)
 		return
@@ -105,9 +110,7 @@ func (o *Worker) queue(ctx context.Context) {
 				"deviceID":    idevice.Device.ID.String(),
 				"concurrency": o.concurrency,
 				"active":      o.limiter.ActiveCount(),
-			}).Trace("skipped queuing task for device, concurrency limit")
-
-			continue
+			}).Trace("skipped queuing task for device, reached concurrency limit")
 		}
 
 		acquired, err := o.inv.AquireDevice(ctx, idevice.Device.ID.String(), o.id)
@@ -189,72 +192,78 @@ func (o *Worker) initializeWork(ctx context.Context, task *model.Task) func() {
 		o.logger.WithFields(logrus.Fields{
 			"deviceID": task.Parameters.Device.ID.String(),
 			"taskID":   task.ID,
+			"dry-run":  o.dryrun,
 		}).Info("running task for device")
+
+		sm.SendEvent(
+			ctx,
+			o.taskEventCh,
+			sm.TaskEvent{
+				TaskID: task.ID.String(),
+				Info:   "running task for device",
+			},
+		)
 
 		// define state machine task handler
 		handler := &taskHandler{}
 
-		// task handler context
-		taskHandlerCtx := o.newtaskHandlerContext(ctx, task.ID.String(), &task.Parameters.Device, task.Parameters.ForceInstall)
+		// define state machine task handler context
+		taskHandlerCtx := o.newtaskHandlerContext(
+			ctx,
+			task.ID.String(),
+			&task.Parameters.Device,
+			task.Parameters.ForceInstall,
+		)
 
 		// init state machine for task
-		m, err := sm.NewTaskStateMachine(ctx, task, handler)
+		machine, err := sm.NewTaskStateMachine(ctx, task, handler)
 		if err != nil {
 			o.logger.Error(err)
 		}
 
 		// add to task machines list
-		o.taskMachines.Store(task.ID.String(), *m)
+		o.taskMachines.Store(task.ID.String(), *machine)
 
 		// purge task state machine when this method returns
 		defer o.taskMachines.Delete(task.ID.String())
 
-		o.logger.WithField("deviceID", task.Parameters.Device.ID.String()).Trace("run task for device")
-
-		if taskHandlerCtx.Dryrun {
-			o.logger.WithField("deviceID", task.Parameters.Device.ID.String()).Trace("task to be run in dry-run mode")
-		}
+		startTS := time.Now()
 
 		// run task state machine
-		if err := m.Run(ctx, task, handler, taskHandlerCtx); err != nil {
-			o.taskFailed(ctx, task)
+		if err := machine.Run(ctx, task, handler, taskHandlerCtx); err != nil {
+			// event cause task state to be persisted
+			sm.SendEvent(
+				ctx,
+				o.taskEventCh,
+				sm.TaskEvent{
+					TaskID: task.ID.String(),
+					Info:   "task failed, elapsed " + time.Since(startTS).String(),
+				},
+			)
 
-			o.logger.Error(err)
+			o.logger.WithFields(
+				logrus.Fields{
+					"deviceID": task.Parameters.Device.ID,
+					"taskID":   task.ID.String(),
+				},
+			).Trace("task for device failed")
 
 			return
 		}
 
+		sm.SendEvent(
+			ctx,
+			o.taskEventCh,
+			sm.TaskEvent{
+				TaskID: task.ID.String(),
+				Info:   "task completed, elapsed " + time.Since(startTS).String(),
+			},
+		)
+
 		o.logger.WithFields(logrus.Fields{
 			"deviceID": task.Parameters.Device.ID.String(),
 			"taskID":   task.ID,
+			"elapsed":  time.Since(startTS).String(),
 		}).Info("task for device completed")
 	}
-}
-
-func (o *Worker) taskFailed(ctx context.Context, task *model.Task) {
-	// update task state in inventory - move to task handler context?
-	attr := &inventory.FwInstallAttributes{
-		TaskParameters: task.Parameters,
-		FlasherTaskID:  task.ID.String(),
-		WorkerID:       o.id,
-		Status:         string(model.StateFailed),
-		Info:           task.Info,
-	}
-
-	if err := o.inv.SetFlasherAttributes(ctx, task.Parameters.Device.ID.String(), attr); err != nil {
-		o.logger.WithFields(
-			logrus.Fields{
-				"deviceID": task.Parameters.Device.ID,
-				"taskID":   task.ID.String(),
-				"err":      err.Error(),
-			},
-		).Warn("failed inventory device flasher attribute set")
-	}
-
-	o.logger.WithFields(
-		logrus.Fields{
-			"deviceID": task.Parameters.Device.ID,
-			"taskID":   task.ID.String(),
-		},
-	).Trace("task for device failed")
 }

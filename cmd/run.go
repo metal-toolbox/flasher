@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"log"
+	"net/http"
 	"strings"
 
 	"github.com/metal-toolbox/flasher/internal/app"
@@ -13,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	_ "net/http/pprof"
 )
 
 var cmdRun = &cobra.Command{
@@ -44,6 +47,10 @@ var cmdRunWorker = &cobra.Command{
 
 func runWorker(ctx context.Context) {
 	var logLevel int
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:9091", nil))
+	}()
 
 	switch {
 	case debug:
