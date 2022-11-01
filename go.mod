@@ -21,7 +21,9 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.0
 	go.hollow.sh/serverservice v0.14.4
+	go.uber.org/goleak v1.1.11
 	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95
+	golang.org/x/net v0.1.0
 )
 
 require (
@@ -83,7 +85,6 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	gocloud.dev v0.26.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
