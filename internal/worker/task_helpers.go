@@ -47,7 +47,7 @@ func planInstall(ctx context.Context, task *model.Task, firmwareURLPrefix string
 	actions := make(model.Actions, 0)
 
 	// sort the firmware for install
-	task.FirmwaresPlanned.SortForInstall()
+	task.FirmwaresPlanned.SortByInstallOrder()
 
 	var final bool
 	// each firmware planned results in an ActionPlan and an Action
@@ -95,7 +95,6 @@ func planInstall(ctx context.Context, task *model.Task, firmwareURLPrefix string
 			// Final is set to true when its the last action in the list.
 			Final: final,
 		})
-
 	}
 
 	return plans, actions, nil

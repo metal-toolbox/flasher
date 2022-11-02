@@ -7,8 +7,11 @@ import (
 )
 
 type Inventory interface {
-	// ListDevicesForFwInstall returns a list of devices eligible for firmware installation.
-	ListDevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error)
+	// DevicesForFwInstall returns a list of devices eligible for firmware installation.
+	DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error)
+
+	// DeviceByID returns device attributes by its identifier
+	DeviceByID(ctx context.Context, id string) (*InventoryDevice, error)
 
 	// AcquireDevice looks up a device by its identifier and flags or locks it for an update.
 	//
@@ -41,7 +44,7 @@ type FwInstallAttributes struct {
 	model.TaskParameters `json:"parameters,omitempty"`
 
 	FlasherTaskID string `json:"flasher_task_id,omitempty"`
-	Status        string `json:"status"`
+	Status        string `json:"status,omitempty"`
 	Info          string `json:"info,omitempty"`
 	Requester     string `json:"requester,omitempty"`
 	WorkerID      string `json:"worker_id,omitempty"`
@@ -49,6 +52,7 @@ type FwInstallAttributes struct {
 
 // InventoryDevice objects are returned by the inventory package
 type InventoryDevice struct {
-	Device              model.Device
-	FwInstallAttributes FwInstallAttributes
+	Device              model.Device        `json:"device"`
+	FwInstallAttributes FwInstallAttributes `json:"fw_install_attributes,omitempty"`
+	Firmware            []model.Firmware    `json:"firmware,omitempty"`
 }

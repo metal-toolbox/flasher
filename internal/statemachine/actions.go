@@ -41,8 +41,8 @@ func (e *ErrAction) Error() string {
 	return fmt.Sprintf("action '%s' with status '%s', returned error: %s", e.handler, e.status, e.cause)
 }
 
-func newErrAction(status, handler, cause string) error {
-	return &ErrAction{status, handler, cause}
+func newErrAction(handler, status, cause string) error {
+	return &ErrAction{handler, status, cause}
 }
 
 type ActionStateMachine struct {

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -68,6 +69,8 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 	}
 
 	// 	update task in cache
+
+	// THIS can go
 	if err := tctx.Store.UpdateTask(tctx.Ctx, *task); err != nil {
 		return err
 	}
@@ -122,6 +125,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
+			spew.Dump(err)
 			return errors.Wrap(
 				err,
 				"while running action to install firmware on component "+action.Firmware.ComponentSlug,

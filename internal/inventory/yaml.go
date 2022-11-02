@@ -25,7 +25,12 @@ func NewYamlInventory(yamlFile string) (Inventory, error) {
 	return &Yaml{YamlFile: yamlFile}, nil
 }
 
-func (c *Yaml) ListDevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
+// DeviceByID returns device attributes by its identifier
+func (c *Yaml) DeviceByID(ctx context.Context, id string) (*InventoryDevice, error) {
+	return nil, nil
+}
+
+func (c *Yaml) DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
 	return nil, nil
 }
 

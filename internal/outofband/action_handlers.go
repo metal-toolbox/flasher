@@ -171,7 +171,14 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 	}
 
 	if equals {
-		return ErrCurrentFirmwareEqualsNew
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"component": action.Firmware.ComponentSlug,
+				"version":   action.Firmware.Version,
+				"bmcTaskID": action.BMCTaskID,
+			}).Info("Current firmware equals newer, set TaskParameters.Force=true to force install.")
+
+		return errors.Wrap(ErrCurrentFirmwareEqualsNew, "set TaskParameters.Force=true to force install")
 	}
 
 	return nil

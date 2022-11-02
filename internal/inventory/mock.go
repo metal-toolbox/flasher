@@ -13,7 +13,12 @@ func NewMockInventory() (Inventory, error) {
 	return &Mock{}, nil
 }
 
-func (s *Mock) ListDevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
+// DeviceByID returns device attributes by its identifier
+func (s *Mock) DeviceByID(ctx context.Context, id string) (*InventoryDevice, error) {
+	return nil, nil
+}
+
+func (s *Mock) DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
 	devices := []InventoryDevice{
 		{Device: fixtures.Devices[fixtures.Device1.String()]},
 		{Device: fixtures.Devices[fixtures.Device2.String()]},

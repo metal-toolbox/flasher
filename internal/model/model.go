@@ -33,23 +33,6 @@ func InventorySourceKinds() []string {
 	return []string{InventorySourceYaml, InventorySourceServerservice}
 }
 
-var (
-	// FirmwareInstallOrder defines the order in which firmware is installed.
-	FirmwareInstallOrder = map[string]int{
-		common.SlugBIOS:              0, //TODO: this needs to be BMC first, for now this is set to bios first
-		common.SlugBMC:               1,
-		common.SlugCPLD:              2,
-		common.SlugDrive:             3,
-		common.SlugBackplaneExpander: 4,
-		common.SlugStorageController: 5,
-		common.SlugNIC:               6,
-		common.SlugPSU:               7,
-		common.SlugTPM:               8,
-		common.SlugGPU:               9,
-		common.SlugCPU:               10,
-	}
-)
-
 type Device struct {
 	ID uuid.UUID
 
@@ -82,14 +65,33 @@ type Firmware struct {
 // FirmwarePlanned is the list of firmware planned for install
 type FirmwarePlanned []Firmware
 
-// Sort the firmware in the order they are expected to be installed
-func (p FirmwarePlanned) SortForInstall() {
+// SortByInstallOrder sorts the firmwares planned in the order they should be installed
+func (p FirmwarePlanned) SortByInstallOrder() {
 	sort.Slice(p, func(i, j int) bool {
-		slugi := strings.ToUpper(p[i].ComponentSlug)
-		slugj := strings.ToUpper(p[j].ComponentSlug)
+		slugi := strings.ToLower(p[i].ComponentSlug)
+		slugj := strings.ToLower(p[j].ComponentSlug)
 		return FirmwareInstallOrder[slugi] < FirmwareInstallOrder[slugj]
 	})
 }
+
+var (
+	// FirmwareInstallOrder defines the order in which firmware is installed.
+	//
+	// TODO(joel): fix up bmc-toolbox/common slugs to be of lower case instead of upper
+	FirmwareInstallOrder = map[string]int{
+		strings.ToLower(common.SlugBMC):               0,
+		strings.ToLower(common.SlugBIOS):              1,
+		strings.ToLower(common.SlugCPLD):              2,
+		strings.ToLower(common.SlugDrive):             3,
+		strings.ToLower(common.SlugBackplaneExpander): 4,
+		strings.ToLower(common.SlugStorageController): 5,
+		strings.ToLower(common.SlugNIC):               6,
+		strings.ToLower(common.SlugPSU):               7,
+		strings.ToLower(common.SlugTPM):               8,
+		strings.ToLower(common.SlugGPU):               9,
+		strings.ToLower(common.SlugCPU):               10,
+	}
+)
 
 type Component struct {
 	Slug              string

@@ -49,9 +49,6 @@ func (h *actionHandler) installedFirmwareVersionEqualsNew(device *common.Device,
 			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
-		fmt.Println(device.BMC.Firmware.Installed)
-		fmt.Println(planned.Version)
-
 		return strings.EqualFold(device.BMC.Firmware.Installed, planned.Version), nil
 
 	case common.SlugMainboard:

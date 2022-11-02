@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -98,7 +99,7 @@ func (o *Worker) concurrencyLimit() bool {
 }
 
 func (o *Worker) queue(ctx context.Context) {
-	idevices, err := o.inv.ListDevicesForFwInstall(ctx, o.concurrency)
+	idevices, err := o.inv.DevicesForFwInstall(ctx, o.concurrency)
 	if err != nil {
 		o.logger.Warn(err)
 		return
@@ -237,7 +238,10 @@ func (o *Worker) initializeWork(ctx context.Context, task *model.Task) func() {
 				o.taskEventCh,
 				sm.TaskEvent{
 					TaskID: task.ID.String(),
-					Info:   "task failed, elapsed " + time.Since(startTS).String(),
+					Info: fmt.Sprintf(
+						"task failed, elapsed: %s, cause: %s ",
+						time.Since(startTS).String(),
+						err.Error()),
 				},
 			)
 
@@ -246,7 +250,7 @@ func (o *Worker) initializeWork(ctx context.Context, task *model.Task) func() {
 					"deviceID": task.Parameters.Device.ID,
 					"taskID":   task.ID.String(),
 				},
-			).Trace("task for device failed")
+			).Warn("task for device failed")
 
 			return
 		}

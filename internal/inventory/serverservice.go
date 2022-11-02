@@ -92,7 +92,32 @@ func NewServerserviceInventory(ctx context.Context, config *model.Config, logger
 	return serverservice, nil
 }
 
-func (s *Serverservice) ListDevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
+// DeviceByID returns device attributes by its identifier
+func (s *Serverservice) DeviceByID(ctx context.Context, id string) (*InventoryDevice, error) {
+	_, err := uuid.Parse(id)
+	if err != nil {
+		return nil, errors.Wrap(ErrDeviceID, err.Error()+id)
+	}
+
+	device, installAttributes, err := s.deviceWithFwInstallAttributes(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if device == nil {
+		return nil, errors.Wrap(ErrServerserviceQuery, "got nil device object")
+	}
+
+	inventoryDevice := &InventoryDevice{Device: *device}
+
+	if installAttributes != nil {
+		inventoryDevice.FwInstallAttributes = *installAttributes
+	}
+
+	return inventoryDevice, nil
+}
+
+func (s *Serverservice) DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
 	params := &sservice.ServerListParams{
 		FacilityCode: s.config.FacilityCode,
 		AttributeListParams: []sservice.AttributeListParams{
