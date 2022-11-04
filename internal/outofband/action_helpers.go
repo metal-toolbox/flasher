@@ -124,8 +124,11 @@ func componentMatchesFirmwarePlan(componentVendor, componentModel, planVendor, p
 	}
 
 	for _, pModel := range planModels {
+		// print comment left here for debugging
+		// fmt.Printf("pM: %s, cM: %s, pV: %s, cV: %s\n", pModel, componentModel, planVendor, componentVendor)
 		if strings.EqualFold(componentVendor, planVendor) &&
-			strings.EqualFold(componentModel, strings.TrimSpace(pModel)) {
+			// model match is not exact, but contains
+			strings.Contains(strings.ToLower(componentModel), strings.TrimSpace(pModel)) {
 			return true
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/davecgh/go-spew/spew"
 	sw "github.com/filanov/stateswitch"
 	"github.com/hashicorp/go-multierror"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -128,8 +129,15 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		err := a.sm.Run(transitionType, action, tctx)
 		if err != nil {
 			// When the condition returns false, run the next transition
+			// note: do we want to log this for debugging?
 			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
 				continue
+			}
+
+			// Action handler indicated the action can be skipped, and so transition to success
+			if errors.Is(err, ErrActionSkipped) {
+				err = nil
+				break
 			}
 
 			// run transition failed handler
@@ -161,6 +169,8 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 
 	// run transition success handler
 	if err := a.TransitionSuccess(ctx, action, tctx); err != nil {
+		spew.Dump(action)
+		spew.Dump(err)
 		return errors.Wrap(err, err.Error())
 	}
 

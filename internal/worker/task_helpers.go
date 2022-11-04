@@ -93,6 +93,10 @@ func planInstall(ctx context.Context, task *model.Task, firmwareURLPrefix string
 			Status:        string(model.StateQueued),
 			Firmware:      task.FirmwaresPlanned[idx],
 			// Final is set to true when its the last action in the list.
+			//
+			// TODO(joel): this makes the assumption that the action marked final will not be skipped
+			// because the component vendor, model does not match
+			// figure out a fix for this
 			Final: final,
 		})
 	}

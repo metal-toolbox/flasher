@@ -4,10 +4,9 @@ go 1.19
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
-	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104065216-5f597f9ffc2e
+	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104143240-cbd6269cf024
 	github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80
 	github.com/bombsimon/logrusr/v2 v2.0.1
-	github.com/davecgh/go-spew v1.1.1
 	github.com/filanov/stateswitch v1.0.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
@@ -28,6 +27,7 @@ require (
 
 require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.16 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20211103172832-aca2edc11f73 // indirect
 	github.com/friendsofgo/errors v0.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
@@ -85,7 +85,6 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	gocloud.dev v0.26.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect

@@ -124,11 +124,6 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
-			// Action skipped
-			if errors.Is(err, sm.ErrActionSkipped) {
-				continue
-			}
-
 			return errors.Wrap(
 				err,
 				"while running action to install firmware on component "+action.Firmware.ComponentSlug,

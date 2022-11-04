@@ -146,7 +146,7 @@ func transitionRules() []sw.TransitionRule {
 		// This transition is executed when the action completes successfully
 		{
 			TransitionType:   sm.TransitionTypeActionSuccess,
-			SourceStates:     sw.States{statePoweredOffDevice},
+			SourceStates:     sw.States{statePoweredOnDevice, statePoweredOffDevice},
 			DestinationState: sm.StateActionSuccessful,
 			Condition:        nil,
 			Transition:       handler.actionSuccessful,
