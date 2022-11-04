@@ -26,6 +26,7 @@ var (
 	errBMCLogin             = errors.New("bmc login error")
 	errBMCLoginTimeout      = errors.New("bmc login timeout")
 	errBMCLoginUnAuthorized = errors.New("bmc login unauthorized")
+	errBMCSession           = errors.New("bmc session error")
 
 	errBMCInventory = errors.New("bmc inventory error")
 
@@ -39,9 +40,8 @@ var (
 
 // bmc wraps the bmclib client and implements the bmcQueryor interface
 type bmc struct {
-	connectionOpened bool
-	client           *bmclibv2.Client
-	logger           *logrus.Entry
+	client *bmclibv2.Client
+	logger *logrus.Entry
 }
 
 // NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
@@ -70,33 +70,14 @@ func (b *bmc) Open(ctx context.Context) error {
 		return errors.Wrap(errBMCLogin, "bmclibv2 client not initialized")
 	}
 
-	// return if a session is active
-	if b.connectionOpened && b.SessionActive(ctx) {
-		b.logger.Trace("bmc session active, skipped login attempt")
-
-		return nil
-	}
-
 	// login to the bmc with retries
 	if err := b.loginWithRetries(ctx, loginAttempts); err != nil {
 		return err
 	}
 
-	b.logger.Debug("bmc login successful")
-	b.connectionOpened = true
+
 
 	return nil
-}
-
-// SessionActive determines if the connection has an active session.
-func (b *bmc) SessionActive(ctx context.Context) bool {
-	if b.client == nil {
-		return false
-	}
-
-	_, err := b.client.GetPowerState(ctx)
-
-	return err == nil
 }
 
 // Close logs out of the BMC
@@ -118,6 +99,7 @@ func (b *bmc) Close() error {
 	}
 
 	b.logger.Debug("bmc logout successful")
+
 	b.client = nil
 
 	return nil
@@ -144,11 +126,8 @@ func (b *bmc) SetPowerState(ctx context.Context, state string) error {
 	}
 
 	_, err := b.client.SetPowerState(ctx, state)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 // ResetBMC cold resets the BMC
@@ -158,11 +137,8 @@ func (b *bmc) ResetBMC(ctx context.Context) error {
 	}
 
 	_, err := b.client.ResetBMC(ctx, "cold")
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 // Inventory queries the BMC for the device inventory and returns an object with the device inventory.

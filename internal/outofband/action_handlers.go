@@ -145,17 +145,12 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 		return err
 	}
 
-	// force install ignores version comparison
-	if task.Parameters.ForceInstall {
-		tctx.Logger.WithFields(
-			logrus.Fields{
-				"component": action.Firmware.ComponentSlug,
-				"version":   action.Firmware.Version,
-				"bmcTaskID": action.BMCTaskID,
-			}).Info("checkCurrentFirmware() skipped - TaskParameters.Force=true")
-
-		return nil
-	}
+	tctx.Logger.WithFields(
+		logrus.Fields{
+			"component": action.Firmware.ComponentSlug,
+			"vendor":    action.Firmware.Vendor,
+			"model":     action.Firmware.Model,
+		}).Debug("Querying device inventory from BMC for current component firmware")
 
 	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {
@@ -165,18 +160,63 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 	// compare installed firmware versions with the planned versions
 	//
 	// returns an error if a component is unsupported
-	equals, err := h.installedFirmwareVersionEqualsNew(inv, &action.Firmware)
+	equals, installedVersion, err := h.installedFirmwareVersionEqualsPlanned(inv, &action.Firmware)
 	if err != nil {
+		if errors.Is(err, ErrComponentNotFound) {
+			tctx.Logger.WithFields(
+				logrus.Fields{
+					"component":        action.Firmware.ComponentSlug,
+					"vendor":           action.Firmware.Vendor,
+					"model":            action.Firmware.Model,
+					"plannedVersion":   action.Firmware.Version,
+					"installedVersion": installedVersion,
+				}).Info("Firmware install skipped - component not present on device")
+
+			return sm.ErrActionSkipped
+		}
+
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"component":        action.Firmware.ComponentSlug,
+				"vendor":           action.Firmware.Vendor,
+				"model":            action.Firmware.Model,
+				"plannedVersion":   action.Firmware.Version,
+				"installedVersion": installedVersion,
+				"err":              err.Error(),
+			}).Error("Installed firmware version check error")
+
 		return err
 	}
 
+	tctx.Logger.WithFields(
+		logrus.Fields{
+			"component":        action.Firmware.ComponentSlug,
+			"vendor":           action.Firmware.Vendor,
+			"model":            action.Firmware.Model,
+			"plannedVersion":   action.Firmware.Version,
+			"installedVersion": installedVersion,
+		}).Info("Installed firmware version identified")
+
 	if equals {
+		// force install ignores if the installed and newer versions are equal
+		if task.Parameters.ForceInstall {
+			tctx.Logger.WithFields(
+				logrus.Fields{
+					"component": action.Firmware.ComponentSlug,
+					"version":   action.Firmware.Version,
+				}).Info("checkCurrentFirmware() skipped - TaskParameters.Force=true")
+
+			return nil
+		}
+
 		tctx.Logger.WithFields(
 			logrus.Fields{
-				"component": action.Firmware.ComponentSlug,
-				"version":   action.Firmware.Version,
-				"bmcTaskID": action.BMCTaskID,
-			}).Info("Current firmware equals newer, set TaskParameters.Force=true to force install.")
+				"component":        action.Firmware.ComponentSlug,
+				"vendor":           action.Firmware.Vendor,
+				"model":            action.Firmware.Model,
+				"plannedVersion":   action.Firmware.Version,
+				"installedVersion": installedVersion,
+			}).Info("Current installed firmware equals planned version, set TaskParameters.Force=true")
 
 		return errors.Wrap(ErrCurrentFirmwareEqualsNew, "set TaskParameters.Force=true to force install")
 	}

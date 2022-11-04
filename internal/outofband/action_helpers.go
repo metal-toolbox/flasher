@@ -2,7 +2,6 @@ package outofband
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -32,211 +31,267 @@ func sleepWithContext(ctx context.Context, t time.Duration) error {
 	}
 }
 
-func (h *actionHandler) installedFirmwareVersionEqualsNew(device *common.Device, planned *model.Firmware) (bool, error) {
-	switch strings.ToUpper(planned.ComponentSlug) {
-	case common.SlugBIOS:
+func (h *actionHandler) installedFirmwareVersionEqualsPlanned(device *common.Device, planned *model.Firmware) (equals bool, installedVersion string, err error) {
+	// TODO: (joel) fix bmc-toolbox/common slug consts to be lower case
+	switch strings.ToLower(planned.ComponentSlug) {
+	case strings.ToLower(common.SlugBIOS):
 		if device.BIOS == nil || device.BIOS.Firmware == nil || device.BIOS.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
-		fmt.Println(device.BIOS.Firmware.Installed)
-		fmt.Println(planned.Version)
+		return strings.EqualFold(device.BIOS.Firmware.Installed, planned.Version), device.BIOS.Firmware.Installed, nil
 
-		return strings.EqualFold(device.BIOS.Firmware.Installed, planned.Version), nil
-
-	case common.SlugBMC:
+	case strings.ToLower(common.SlugBMC):
 		if device.BMC == nil || device.BMC.Firmware == nil || device.BMC.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
-		return strings.EqualFold(device.BMC.Firmware.Installed, planned.Version), nil
+		return strings.EqualFold(device.BMC.Firmware.Installed, planned.Version), device.BMC.Firmware.Installed, nil
 
-	case common.SlugMainboard:
+	case strings.ToLower(common.SlugMainboard):
 		if device.Mainboard == nil || device.Mainboard.Firmware == nil || device.Mainboard.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
-		return strings.EqualFold(device.Mainboard.Firmware.Installed, planned.Version), nil
+		return strings.EqualFold(device.Mainboard.Firmware.Installed, planned.Version), device.BMC.Firmware.Installed, nil
 
-	case common.SlugNIC:
+	case strings.ToLower(common.SlugNIC):
 		if device.NICs == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return nicsInstalledFirmwareEqualsNew(device.NICs, planned)
 
-	case common.SlugCPLD:
+	case strings.ToLower(common.SlugCPLD):
 		if device.CPLDs == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return cpldsInstalledFirmwareEqualsNew(device.CPLDs, planned)
 
-	case common.SlugDrive:
+	case strings.ToLower(common.SlugDrive):
 		if device.Drives == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return drivesInstalledFirmwareEqualsNew(device.Drives, planned)
 
-	case common.SlugPSU:
+	case strings.ToLower(common.SlugPSU):
 		if device.PSUs == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return psusInstalledFirmwareEqualsNew(device.PSUs, planned)
 
-	case common.SlugTPM:
+	case strings.ToLower(common.SlugTPM):
 		if device.TPMs == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return tpmsInstalledFirmwareEqualsNew(device.TPMs, planned)
-	case common.SlugGPU:
+
+	case strings.ToLower(common.SlugGPU):
 		if device.GPUs == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return gpusInstalledFirmwareEqualsNew(device.GPUs, planned)
 
-	case common.SlugStorageController:
+	case strings.ToLower(common.SlugStorageController):
 		if device.StorageControllers == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return storageControllersInstalledFirmwareEqualsNew(device.StorageControllers, planned)
 
-	case common.SlugEnclosure:
+	case strings.ToLower(common.SlugEnclosure):
 		if device.Enclosures == nil {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			return false, "", errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
 		}
 
 		return enclosuresInstalledFirmwareEqualsNew(device.Enclosures, planned)
 
 	default:
-		return false, errors.Wrap(ErrComponentNotSupported, planned.ComponentSlug)
+		return false, "", errors.Wrap(ErrComponentNotSupported, strings.ToLower(planned.ComponentSlug))
 	}
 }
 
-// TODO(joel): when generics allow struct member access, rewrite methods below
-// https://github.com/golang/go/issues/48522
+func componentMatchesFirmwarePlan(componentVendor, componentModel, planVendor, planModel string) bool {
+	planModels := []string{planModel}
 
-func nicsInstalledFirmwareEqualsNew(components []*common.NIC, planned *model.Firmware) (bool, error) {
-	for _, component := range components {
-		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
-		}
+	if strings.Contains(planModel, ",") {
+		planModels = strings.Split(planModel, ",")
+	}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+	for _, pModel := range planModels {
+		if strings.EqualFold(componentVendor, planVendor) &&
+			strings.EqualFold(componentModel, strings.TrimSpace(pModel)) {
+			return true
 		}
 	}
 
-	// at this point none of the component matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false
 }
 
-func cpldsInstalledFirmwareEqualsNew(components []*common.CPLD, planned *model.Firmware) (bool, error) {
+// TODO(joel): when generics allow struct member access, rewrite methods below https://github.com/golang/go/issues/48522
+// OR: generate the code below
+
+func nicsInstalledFirmwareEqualsNew(components []*common.NIC, planned *model.Firmware) (equals bool, installedVersion string, err error) {
 	for _, component := range components {
 		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			continue
 		}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
 		}
 	}
 
 	// at this point none of the components matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func drivesInstalledFirmwareEqualsNew(components []*common.Drive, planned *model.Firmware) (bool, error) {
+func cpldsInstalledFirmwareEqualsNew(components []*common.CPLD, planned *model.Firmware) (equals bool, installedVersion string, err error) {
 	for _, component := range components {
 		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			continue
 		}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
 		}
 	}
 
 	// at this point none of the components matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func psusInstalledFirmwareEqualsNew(components []*common.PSU, planned *model.Firmware) (bool, error) {
+func drivesInstalledFirmwareEqualsNew(components []*common.Drive, planned *model.Firmware) (equals bool, installedVersion string, err error) {
 	for _, component := range components {
 		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			continue
 		}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
 		}
 	}
 
 	// at this point none of the components matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func tpmsInstalledFirmwareEqualsNew(components []*common.TPM, planned *model.Firmware) (bool, error) {
+func psusInstalledFirmwareEqualsNew(components []*common.PSU, planned *model.Firmware) (equals bool, installedVersion string, err error) {
 	for _, component := range components {
 		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			continue
 		}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
 		}
 	}
 
 	// at this point none of the components matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func gpusInstalledFirmwareEqualsNew(components []*common.GPU, planned *model.Firmware) (bool, error) {
+func tpmsInstalledFirmwareEqualsNew(components []*common.TPM, planned *model.Firmware) (equals bool, installedVersion string, err error) {
 	for _, component := range components {
 		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			continue
 		}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
 		}
 	}
 
 	// at this point none of the components matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func storageControllersInstalledFirmwareEqualsNew(components []*common.StorageController, planned *model.Firmware) (bool, error) {
+func gpusInstalledFirmwareEqualsNew(components []*common.GPU, planned *model.Firmware) (equals bool, installedVersion string, err error) {
 	for _, component := range components {
 		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			continue
 		}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
 		}
 	}
 
 	// at this point none of the components matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }
 
-func enclosuresInstalledFirmwareEqualsNew(components []*common.Enclosure, planned *model.Firmware) (bool, error) {
+func storageControllersInstalledFirmwareEqualsNew(components []*common.StorageController, planned *model.Firmware) (equals bool, installedVersion string, err error) {
 	for _, component := range components {
 		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
-			return false, errors.Wrap(ErrInstalledVersionUnknown, planned.ComponentSlug)
+			continue
 		}
 
-		if strings.EqualFold(component.Model, planned.Model) && strings.EqualFold(component.Vendor, planned.Vendor) {
-			return strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version), nil
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
 		}
 	}
 
 	// at this point none of the components matched the planned firmware attributes
-	return false, errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
+}
+
+func enclosuresInstalledFirmwareEqualsNew(components []*common.Enclosure, planned *model.Firmware) (equals bool, installedVersion string, err error) {
+	for _, component := range components {
+		if component == nil || component.Firmware == nil || component.Firmware.Installed == "" {
+			continue
+		}
+
+		// component matches firmware plan component vendor, model
+		if componentMatchesFirmwarePlan(component.Vendor, component.Model, planned.Vendor, planned.Model) {
+			if strings.EqualFold(strings.TrimSpace(component.Firmware.Installed), planned.Version) {
+				return true, strings.TrimSpace(component.Firmware.Installed), nil
+			}
+
+			return false, strings.TrimSpace(component.Firmware.Installed), nil
+		}
+	}
+
+	// at this point none of the components matched the planned firmware attributes
+	return false, "", errors.Wrap(ErrComponentNotFound, planned.ComponentSlug)
 }

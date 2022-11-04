@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
-	github.com/bmc-toolbox/bmclib/v2 v2.0.0
+	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104065216-5f597f9ffc2e
 	github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/davecgh/go-spew v1.1.1

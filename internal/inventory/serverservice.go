@@ -288,11 +288,7 @@ func (s *Serverservice) DeleteFlasherAttributes(ctx context.Context, deviceID st
 	}
 
 	_, err = s.client.DeleteAttributes(ctx, deviceUUID, serverAttributeNSFlasherTask)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // FirmwareInstalled returns the component installed firmware versions

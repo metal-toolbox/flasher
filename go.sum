@@ -164,6 +164,10 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/bketelsen/crypt v0.0.4/go.mod h1:aI6NrJ0pMGgvZKL1iVgXLnfIFJtfV+bKCoqOes/6LfM=
 github.com/bmc-toolbox/bmclib/v2 v2.0.0 h1:4iYc/TMErQ2a7geubO1W/pJZk/MhORLieQvk9m3AWLg=
 github.com/bmc-toolbox/bmclib/v2 v2.0.0/go.mod h1:J8VqwJ83ciXbN4IimBYS/voa6+8GjJhzKFOXK4mLJdw=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104062848-cbffb49e3667 h1:p5Cs1FLwie/vu1hn02Hsmn+yUTWTzJo/pkm8Pvi99qo=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104062848-cbffb49e3667/go.mod h1:J8VqwJ83ciXbN4IimBYS/voa6+8GjJhzKFOXK4mLJdw=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104065216-5f597f9ffc2e h1:50UoTnDmWO7VbTTTwG+RpjIO+l5/O+hDUV/uuxWuY7w=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104065216-5f597f9ffc2e/go.mod h1:J8VqwJ83ciXbN4IimBYS/voa6+8GjJhzKFOXK4mLJdw=
 github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80 h1:uWeyfMV1/Ux/UzC7eID6uJAPlOa0X/7PmeRDcLz6AKg=
 github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=

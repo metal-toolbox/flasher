@@ -57,11 +57,7 @@ func download(ctx context.Context, fileURL, dst string) error {
 	}
 
 	_, err = io.Copy(fileHandle, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func checksumValidateSHA256(filename, checksum string) error {

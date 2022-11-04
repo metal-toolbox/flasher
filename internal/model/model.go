@@ -131,9 +131,6 @@ type DeviceQueryor interface {
 	// Close closes the connection to the device.
 	Close() error
 
-	// SessionActive returns true if a connection is currently active for the device.
-	SessionActive(ctx context.Context) bool
-
 	PowerStatus(ctx context.Context) (status string, err error)
 
 	SetPowerState(ctx context.Context, state string) error

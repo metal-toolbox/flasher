@@ -29,6 +29,9 @@ var (
 	ErrActionTypeAssertion = errors.New("error asserting the Action type")
 
 	ErrConditionFailed = errors.New("transition condition failed")
+
+	// ErrActionSkipped is returned, when an action handler determines that no further steps are to be carried out in an action.
+	ErrActionSkipped = errors.New("action skipped")
 )
 
 type ErrAction struct {

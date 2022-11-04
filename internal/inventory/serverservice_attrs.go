@@ -146,11 +146,8 @@ func (s *Serverservice) createFlasherAttributes(ctx context.Context, deviceUUID 
 	data := sservice.Attributes{Namespace: serverAttributeNSFlasherTask, Data: payload}
 
 	_, err = s.client.CreateAttributes(ctx, deviceUUID, data)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 // deviceWithFwInstallAttributes returns a device, firmware install parameters object with its fields populated with data from server service.

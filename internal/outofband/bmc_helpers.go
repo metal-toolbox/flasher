@@ -102,6 +102,32 @@ func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Entr
 	return bmcClient
 }
 
+func (b *bmc) sessionActive(ctx context.Context) error {
+	if b.client == nil {
+		return errors.Wrap(errBMCSession, "bmclibv2 client not initialized")
+	}
+
+	// check if we're able to query the power state
+	powerStatus, err := b.client.GetPowerState(ctx)
+	if err != nil {
+		b.logger.WithFields(
+			logrus.Fields{
+				"err": err.Error(),
+			},
+		).Trace("session not active, checked with GetPowerState()")
+
+		return errors.Wrap(errBMCSession, err.Error())
+	}
+
+	b.logger.WithFields(
+		logrus.Fields{
+			"powerStatus": powerStatus,
+		},
+	).Trace("session currently active, checked with GetPowerState()")
+
+	return nil
+}
+
 // login to the BMC, re-trying tries times with exponential backoff
 //
 // if a session is found to be active,  a bmc query is made to validate the session
@@ -122,7 +148,6 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 	// loop returns when a session was established or after retries attempts
 	for {
 		attemptstr := fmt.Sprintf("%d/%d", attempts, tries)
-		b.logger.WithField("attempt", attemptstr).Trace("bmc login attempt")
 
 		// set login timeout
 		//	timeout, err := time.ParseDuration(loginTimeout)
@@ -132,6 +157,11 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 
 		// ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
 		// defer cancel()
+
+		// if a session is active, skip login attempt
+		if err := b.sessionActive(ctx); err == nil {
+			return nil
+		}
 
 		// attempt login
 		err := b.client.Open(ctx)
@@ -162,7 +192,8 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 			continue
 		}
 
-		b.logger.WithField("attempt", attemptstr).Trace("new bmc session active")
+		b.logger.WithField("attempt", attemptstr).Debug("bmc login successful")
+
 		return nil
 	}
 }
