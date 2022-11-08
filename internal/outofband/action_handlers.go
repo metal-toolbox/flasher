@@ -584,6 +584,11 @@ func (h *actionHandler) PersistState(a sw.StateSwitch, args sw.TransitionArgs) e
 		return errors.Wrap(ErrSaveAction, ErrActionTypeAssertion.Error())
 	}
 
+	switch action.Status {
+	case string(statePoweredOnDevice):
+		
+	}
+
 	if err := tctx.Store.UpdateTaskAction(tctx.Ctx, tctx.TaskID, *action); err != nil {
 		return errors.Wrap(ErrSaveAction, err.Error())
 	}
@@ -620,6 +625,29 @@ func (h *actionHandler) actionSuccessful(a sw.StateSwitch, c sw.TransitionArgs) 
 		return nil
 	}
 
+	if err := tctx.DeviceQueryor.Close(); err != nil {
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"err": err.Error(),
+			},
+		).Warn("bmc logout error")
+	}
+
+	return nil
+}
+
+func (h *actionHandler) actionSkipped(a sw.StateSwitch, c sw.TransitionArgs) error {
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	if err != nil {
+		return err
+	}
+
+	// proceed to log off the bmc if this is the final action
+	if !action.Final {
+		return nil
+	}
+
+	// log off the bmc if the action failed
 	if err := tctx.DeviceQueryor.Close(); err != nil {
 		tctx.Logger.WithFields(
 			logrus.Fields{

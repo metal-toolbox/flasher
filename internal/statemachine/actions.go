@@ -18,11 +18,15 @@ const (
 	StateActionSuccessful sw.State = "success"
 	// state for failed actions
 	StateActionFailed sw.State = "failed"
+	// state for skipped actions
+	StateActionSkipped sw.State = "skipped"
 
 	// transition for completed actions
 	TransitionTypeActionSuccess sw.TransitionType = "success"
 	// transition for failed actions
 	TransitionTypeActionFailed sw.TransitionType = "failed"
+	// transition for skipped actions
+	TransitionTypeActionSkipped sw.TransitionType = "skipped"
 )
 
 var (

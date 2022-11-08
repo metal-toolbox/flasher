@@ -26,11 +26,11 @@ func NewYamlInventory(yamlFile string) (Inventory, error) {
 }
 
 // DeviceByID returns device attributes by its identifier
-func (c *Yaml) DeviceByID(ctx context.Context, id string) (*InventoryDevice, error) {
+func (c *Yaml) DeviceByID(ctx context.Context, id string) (*DeviceInventory, error) {
 	return nil, nil
 }
 
-func (c *Yaml) DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
+func (c *Yaml) DevicesForFwInstall(ctx context.Context, limit int) ([]DeviceInventory, error) {
 	return nil, nil
 }
 
@@ -38,8 +38,8 @@ func (c *Yaml) DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryD
 //
 // - The implementation is to check if the device is a eligible based its status or other non-firmware inventory attributes.
 // - The locking mechnism is left to the implementation.
-func (c *Yaml) AquireDevice(ctx context.Context, deviceID, workerID string) (InventoryDevice, error) {
-	return InventoryDevice{}, nil
+func (c *Yaml) AquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
+	return DeviceInventory{}, nil
 }
 
 // ReleaseDevice looks up a device by its identifier and releases any locks held on the device.

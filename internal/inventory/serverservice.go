@@ -93,8 +93,8 @@ func NewServerserviceInventory(ctx context.Context, config *model.Config, logger
 }
 
 // DeviceByID returns device attributes by its identifier
-func (s *Serverservice) DeviceByID(ctx context.Context, id string) (*InventoryDevice, error) {
-	_, err := uuid.Parse(id)
+func (s *Serverservice) DeviceByID(ctx context.Context, id string) (*DeviceInventory, error) {
+	deviceUUID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, errors.Wrap(ErrDeviceID, err.Error()+id)
 	}
@@ -108,7 +108,15 @@ func (s *Serverservice) DeviceByID(ctx context.Context, id string) (*InventoryDe
 		return nil, errors.Wrap(ErrServerserviceQuery, "got nil device object")
 	}
 
-	inventoryDevice := &InventoryDevice{Device: *device}
+	components, _, err := s.client.GetComponents(ctx, deviceUUID, nil)
+	if err != nil {
+		return nil, errors.Wrap(ErrServerserviceQuery, "device component query error: "+err.Error())
+	}
+
+	inventoryDevice := &DeviceInventory{
+		Device:     *device,
+		Components: s.fromServerserviceComponents(components),
+	}
 
 	if installAttributes != nil {
 		inventoryDevice.FwInstallAttributes = *installAttributes
@@ -117,7 +125,7 @@ func (s *Serverservice) DeviceByID(ctx context.Context, id string) (*InventoryDe
 	return inventoryDevice, nil
 }
 
-func (s *Serverservice) DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error) {
+func (s *Serverservice) DevicesForFwInstall(ctx context.Context, limit int) ([]DeviceInventory, error) {
 	params := &sservice.ServerListParams{
 		FacilityCode: s.config.FacilityCode,
 		AttributeListParams: []sservice.AttributeListParams{
@@ -142,8 +150,8 @@ func (s *Serverservice) DevicesForFwInstall(ctx context.Context, limit int) ([]I
 	return s.convertServersToInventoryDeviceObjs(ctx, found)
 }
 
-func (s *Serverservice) convertServersToInventoryDeviceObjs(ctx context.Context, servers []sservice.Server) ([]InventoryDevice, error) {
-	devices := make([]InventoryDevice, 0, len(servers))
+func (s *Serverservice) convertServersToInventoryDeviceObjs(ctx context.Context, servers []sservice.Server) ([]DeviceInventory, error) {
+	devices := make([]DeviceInventory, 0, len(servers))
 
 	for _, server := range servers {
 		device, fwInstallAttributes, err := s.deviceWithFwInstallAttributes(ctx, server.UUID.String())
@@ -175,30 +183,30 @@ func (s *Serverservice) convertServersToInventoryDeviceObjs(ctx context.Context,
 
 		devices = append(
 			devices,
-			InventoryDevice{Device: *device, FwInstallAttributes: *fwInstallAttributes},
+			DeviceInventory{Device: *device, FwInstallAttributes: *fwInstallAttributes},
 		)
 	}
 
 	return devices, nil
 }
 
-func (s *Serverservice) AquireDevice(ctx context.Context, deviceID, workerID string) (InventoryDevice, error) {
+func (s *Serverservice) AquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
 	// updates the server service attribute
 	// - the device should not have any active flasher tasks
 	// - the device state should be maintenance
 	device, fwInstallAttributes, err := s.deviceWithFwInstallAttributes(ctx, deviceID)
 	if err != nil {
-		return InventoryDevice{}, errors.Wrap(ErrAttributeList, err.Error())
+		return DeviceInventory{}, errors.Wrap(ErrAttributeList, err.Error())
 	}
 
 	fwInstallAttributes.Status = string(model.StateQueued)
 	fwInstallAttributes.WorkerID = workerID
 
 	if err := s.SetFlasherAttributes(ctx, deviceID, fwInstallAttributes); err != nil {
-		return InventoryDevice{}, errors.Wrap(ErrAttributeUpdate, err.Error())
+		return DeviceInventory{}, errors.Wrap(ErrAttributeUpdate, err.Error())
 	}
 
-	return InventoryDevice{Device: *device, FwInstallAttributes: *fwInstallAttributes}, nil
+	return DeviceInventory{Device: *device, FwInstallAttributes: *fwInstallAttributes}, nil
 }
 
 // ReleaseDevice looks up a device by its identifier and releases any locks held on the device.

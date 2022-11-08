@@ -48,6 +48,9 @@ type Device struct {
 	Vendor string
 	Model  string
 	Serial string
+
+	// Device components
+	Components Components
 }
 
 // Firmware includes a firmware version attributes and is part of FirmwareConfig
@@ -102,6 +105,38 @@ type Component struct {
 }
 
 type Components []Component
+
+
+// BySlug returns a component that matches the slug value.
+func (c Components) BySlugVendorModel(cSlug, cVendor, cModel string) *Component {
+	cModels := []string{cModel}
+
+	// split if model is a list
+	if strings.Contains(cModel, ",") {
+		cModels = strings.Split(cModel, ",")
+	}
+
+	for _, component := range c {
+		// skip non matching component slug
+		if !strings.EqualFold(cSlug, component.Slug) {
+			continue
+		}
+
+		// skip non matching component vendor
+		if !strings.EqualFold(component.Vendor, cVendor) {
+			continue
+		}
+
+		// match component model with contains
+		for _, findModel := range cModels {
+			if strings.Contains(strings.ToLower(component.Model), strings.TrimSpace(findModel)) {
+				return &component
+			}
+		}
+	}
+
+	return nil
+}
 
 // ComponentFirmwareInstallStatus is the device specific firmware install status returned by the FirmwareInstallStatus method
 // in the DeviceQueryor interface.

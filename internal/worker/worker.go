@@ -135,7 +135,7 @@ func (o *Worker) queue(ctx context.Context) {
 	}
 }
 
-func (o *Worker) enqueueTask(ctx context.Context, inventoryDevice *inventory.InventoryDevice) (taskID string, err error) {
+func (o *Worker) enqueueTask(ctx context.Context, inventoryDevice *inventory.DeviceInventory) (taskID string, err error) {
 	task, err := model.NewTask("", nil)
 	if err != nil {
 		return taskID, err
@@ -144,6 +144,7 @@ func (o *Worker) enqueueTask(ctx context.Context, inventoryDevice *inventory.Inv
 	// set task parameters based on inventory device flasher fw install attributes
 	task.Status = string(model.StateQueued)
 	task.Parameters.Device = inventoryDevice.Device
+	task.Parameters.LookupInventoryFirmware = inventoryDevice.FwInstallAttributes.LookupInventoryFirmware
 	task.Parameters.ForceInstall = inventoryDevice.FwInstallAttributes.ForceInstall
 	task.Parameters.ResetBMCBeforeInstall = inventoryDevice.FwInstallAttributes.ResetBMCBeforeInstall
 	task.Parameters.Priority = inventoryDevice.FwInstallAttributes.Priority

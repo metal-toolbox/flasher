@@ -8,16 +8,16 @@ import (
 
 type Inventory interface {
 	// DevicesForFwInstall returns a list of devices eligible for firmware installation.
-	DevicesForFwInstall(ctx context.Context, limit int) ([]InventoryDevice, error)
+	DevicesForFwInstall(ctx context.Context, limit int) ([]DeviceInventory, error)
 
 	// DeviceByID returns device attributes by its identifier
-	DeviceByID(ctx context.Context, id string) (*InventoryDevice, error)
+	DeviceByID(ctx context.Context, id string) (*DeviceInventory, error)
 
 	// AcquireDevice looks up a device by its identifier and flags or locks it for an update.
 	//
 	// - The implementation is to check if the device is a eligible based its status or other non-firmware inventory attributes.
 	// - The locking mechnism is left to the implementation.
-	AquireDevice(ctx context.Context, deviceID, workerID string) (InventoryDevice, error)
+	AquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error)
 
 	// ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
 	// The lock release mechnism is left to the implementation.
@@ -50,9 +50,10 @@ type FwInstallAttributes struct {
 	WorkerID      string `json:"worker_id,omitempty"`
 }
 
-// InventoryDevice objects are returned by the inventory package
-type InventoryDevice struct {
+// DeviceInventory objects are returned by the inventory package
+type DeviceInventory struct {
 	Device              model.Device        `json:"device"`
+	Components          model.Components    `json:"components"`
 	FwInstallAttributes FwInstallAttributes `json:"fw_install_attributes,omitempty"`
 	Firmware            []model.Firmware    `json:"firmware,omitempty"`
 }

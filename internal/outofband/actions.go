@@ -61,7 +61,7 @@ func transitionOrder() []sw.TransitionType {
 	}
 }
 
-func NewOutofbandActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
+func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
 	return sm.NewActionStateMachine(ctx, actionID, transitionOrder(), transitionRules())
 }
 
@@ -106,7 +106,7 @@ func transitionRules() []sw.TransitionRule {
 		{
 			TransitionType:   transitionTypeInitiatingInstallFirmware,
 			SourceStates:     sw.States{stateDownloadedFirmware},
-			DestinationState: stateInitiatedInstallFirmware, // poll is missing
+			DestinationState: stateInitiatedInstallFirmware,
 			Condition:        nil,
 			Transition:       handler.initiateInstallFirmware,
 			PostTransition:   handler.PersistState,
@@ -135,9 +135,18 @@ func transitionRules() []sw.TransitionRule {
 			Transition:       handler.resetHost,
 			PostTransition:   handler.PersistState,
 		},
+		// This transition is executed when the action is skipped
+		{
+			TransitionType:   sm.TransitionTypeActionSkipped,
+			SourceStates:     sw.States{statePoweredOnDevice},
+			DestinationState: sm.StateActionSkipped,
+			Condition:        nil,
+			Transition:       handler.actionSkipped,
+			PostTransition:   handler.PersistState,
+		},
 		{
 			TransitionType:   transitionTypePowerOffDevice,
-			SourceStates:     sw.States{stateResetHost},
+			SourceStates:     sw.States{stateResetHost, sm.StateActionSkipped},
 			DestinationState: statePoweredOffDevice,
 			Condition:        nil,
 			Transition:       handler.powerOffDevice,
@@ -146,7 +155,7 @@ func transitionRules() []sw.TransitionRule {
 		// This transition is executed when the action completes successfully
 		{
 			TransitionType:   sm.TransitionTypeActionSuccess,
-			SourceStates:     sw.States{statePoweredOnDevice, statePoweredOffDevice},
+			SourceStates:     sw.States{statePoweredOffDevice},
 			DestinationState: sm.StateActionSuccessful,
 			Condition:        nil,
 			Transition:       handler.actionSuccessful,

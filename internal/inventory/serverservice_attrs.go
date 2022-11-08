@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// firmwareVersionedAttribute is the firmware data format
-type firmwareVersionedAttributes struct {
+// versionedAttributeFirmware is the format in which the firmware data is present in serverservice.
+type versionedAttributeFirmware struct {
 	Firmware *common.Firmware `json:"firmware,omitempty"`
 }
 
@@ -33,6 +33,16 @@ func installedFirmwareFromVA(va sservice.VersionedAttributes) (string, error) {
 }
 
 func findAttribute(ns string, attributes []sservice.Attributes) *sservice.Attributes {
+	for _, attribute := range attributes {
+		if attribute.Namespace == ns {
+			return &attribute
+		}
+	}
+
+	return nil
+}
+
+func findVersionedAttribute(ns string, attributes []sservice.VersionedAttributes) *sservice.VersionedAttributes {
 	for _, attribute := range attributes {
 		if attribute.Namespace == ns {
 			return &attribute
@@ -205,4 +215,39 @@ func (s *Serverservice) deviceWithFwInstallAttributes(ctx context.Context, devic
 	}
 
 	return device, installParams, nil
+}
+
+func (s *Serverservice) fromServerserviceComponents(scomponents sservice.ServerComponentSlice) model.Components {
+	components := make(model.Components, 0, len(scomponents))
+
+	for _, sc := range scomponents {
+		components = append(components, model.Component{
+			Slug:              sc.ComponentTypeSlug,
+			Serial:            sc.Serial,
+			Vendor:            sc.Vendor,
+			Model:             sc.Model,
+			FirmwareInstalled: s.firmwareFromVersionedAttributes(sc.VersionedAttributes),
+		})
+	}
+
+	return components
+}
+
+func (s *Serverservice) firmwareFromVersionedAttributes(va []sservice.VersionedAttributes) string {
+	if len(va) == 0 {
+		return ""
+	}
+
+	found := findVersionedAttribute(s.config.OutofbandFirmwareNS, va)
+	if found == nil {
+		return ""
+	}
+
+	data := &versionedAttributeFirmware{}
+	if err := json.Unmarshal(found.Data, data); err != nil {
+		s.logger.Warn("failed to unmarshal firmware data")
+		return ""
+	}
+
+	return data.Firmware.Installed
 }

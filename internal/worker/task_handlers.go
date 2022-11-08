@@ -62,7 +62,7 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 	}
 
 	// plan actions based and update task action list
-	tctx.ActionStateMachines, task.ActionsPlanned, err = planInstall(tctx.Ctx, task, tctx.FirmwareURLPrefix)
+	tctx.ActionStateMachines, task.ActionsPlanned, err = h.planInstall(tctx, task, tctx.FirmwareURLPrefix)
 	if err != nil {
 		return err
 	}

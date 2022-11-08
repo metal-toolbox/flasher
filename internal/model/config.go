@@ -52,6 +52,9 @@ type Serverservice struct {
 	OidcClientScopes   []string `mapstructure:"oidc_client_scopes"`
 	Concurrency        int      `mapstructure:"concurrency"`
 	DisableOAuth       bool     `mapstructure:"disable_oauth"`
+	// OutofbandFirmwareNS is the (versioned attribute) namespace in which
+	// the installed firmware version data present.
+	OutofbandFirmwareNS string `mapstructure:"outofband_firmware_ns"`
 	// DeviceStates are the node (device) states that flasher is allowed to acquire a device
 	// for firmware install.
 	//
@@ -169,6 +172,10 @@ func (c *Config) validateServerServiceParams() error {
 
 	if c.Serverservice.OidcAudience == "" {
 		return errors.Wrap(ErrConfig, "OIDC Audience not defined")
+	}
+
+	if c.Serverservice.OutofbandFirmwareNS == "" {
+		return errors.Wrap(ErrConfig, "OutofbandFirmwareNS not defined")
 	}
 
 	return nil

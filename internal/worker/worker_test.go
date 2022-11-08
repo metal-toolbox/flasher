@@ -27,7 +27,7 @@ func Test_CreateTaskForDevice(t *testing.T) {
 
 	ctx := context.Background()
 
-	taskID, err := worker.enqueueTask(ctx, &inventory.InventoryDevice{Device: fixtures.Devices[fixtures.Device1.String()]})
+	taskID, err := worker.enqueueTask(ctx, &inventory.DeviceInventory{Device: fixtures.Devices[fixtures.Device1.String()]})
 	if err != nil {
 		t.Fatal(err)
 	}
