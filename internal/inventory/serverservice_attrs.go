@@ -108,7 +108,10 @@ func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attribut
 
 	vendorAttribute := findAttribute(serverAttributeNSVendor, attributes)
 	if vendorAttribute == nil {
-		return
+		return deviceVendor,
+			deviceModel,
+			deviceSerial,
+			ErrVendorModelAttributesNotFound
 	}
 
 	if err := json.Unmarshal(vendorAttribute.Data, &vendorAttrs); err != nil {
@@ -221,7 +224,7 @@ func (s *Serverservice) fromServerserviceComponents(scomponents sservice.ServerC
 	components := make(model.Components, 0, len(scomponents))
 
 	for _, sc := range scomponents {
-		components = append(components, model.Component{
+		components = append(components, &model.Component{
 			Slug:              sc.ComponentTypeSlug,
 			Serial:            sc.Serial,
 			Vendor:            sc.Vendor,

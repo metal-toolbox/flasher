@@ -144,7 +144,6 @@ func (o *Worker) enqueueTask(ctx context.Context, inventoryDevice *inventory.Dev
 	// set task parameters based on inventory device flasher fw install attributes
 	task.Status = string(model.StateQueued)
 	task.Parameters.Device = inventoryDevice.Device
-	task.Parameters.LookupInventoryFirmware = inventoryDevice.FwInstallAttributes.LookupInventoryFirmware
 	task.Parameters.ForceInstall = inventoryDevice.FwInstallAttributes.ForceInstall
 	task.Parameters.ResetBMCBeforeInstall = inventoryDevice.FwInstallAttributes.ResetBMCBeforeInstall
 	task.Parameters.Priority = inventoryDevice.FwInstallAttributes.Priority

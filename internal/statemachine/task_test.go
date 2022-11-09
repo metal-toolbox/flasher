@@ -147,6 +147,10 @@ func Test_Transitions(t *testing.T) {
 // mockTaskHandler implements the TaskTransitioner interface
 type mockTaskHandler struct{}
 
+func (h *mockTaskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
+	return nil
+}
+
 func (h *mockTaskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
 }
@@ -156,7 +160,7 @@ func (h *mockTaskHandler) planFromFirmwareSet(tctx *HandlerContext, task *model.
 	return nil
 }
 
-func (h *mockTaskHandler) Validate(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
+func (h *mockTaskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
 	return true, nil
 }
 

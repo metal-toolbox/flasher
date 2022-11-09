@@ -7,7 +7,7 @@ import (
 )
 
 func Test_SortByInstallOrder(t *testing.T) {
-	have := FirmwarePlanned{
+	have := Firmwares{
 		{
 			Version:       "DL6R",
 			URL:           "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
@@ -34,7 +34,7 @@ func Test_SortByInstallOrder(t *testing.T) {
 		},
 	}
 
-	expected := FirmwarePlanned{
+	expected := Firmwares{
 		{
 			Version:       "2.6.6",
 			URL:           "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",

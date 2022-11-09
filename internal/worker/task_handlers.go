@@ -8,14 +8,58 @@ import (
 )
 
 var (
-	ErrSaveTask          = errors.New("error in saveTask transition handler")
-	ErrTaskTypeAssertion = errors.New("error asserting Task type")
-	errTaskPlanActions   = errors.New("error in task action planning")
-	errTaskPlanValidate  = errors.New("error in task plan validation")
+	ErrSaveTask           = errors.New("error in saveTask transition handler")
+	ErrTaskTypeAssertion  = errors.New("error asserting Task type")
+	errTaskQueryInventory = errors.New("error in task query inventory for installed firmware")
+	errTaskPlanActions    = errors.New("error in task action planning")
+	errTaskPlanValidate   = errors.New("error in task plan validation")
 )
 
 // taskHandler implements the taskTransitionHandler methods
 type taskHandler struct{}
+
+// Query looks up the device component inventory and sets it in the task handler context.
+func (h *taskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
+	tctx, ok := args.(*sm.HandlerContext)
+	if !ok {
+		return sm.ErrInvalidtaskHandlerContext
+	}
+
+	task, ok := t.(*model.Task)
+	if !ok {
+		return errors.Wrap(errTaskQueryInventory, ErrTaskTypeAssertion.Error())
+	}
+
+	deviceID := task.Parameters.Device.ID.String()
+
+	// first attempt to fetch component inventory from inventory source
+	//
+	// error ignored on purpose
+	components, _ := h.queryFromInventorySource(tctx, deviceID)
+
+	// component inventory was identified
+	if len(components) > 0 {
+		tctx.Components = components
+
+		return nil
+	}
+
+	var err error
+
+	// second attempt to fetch component inventory from the device
+	if components, err = h.queryFromDevice(tctx); err != nil {
+		return errors.Wrap(errTaskQueryInventory, err.Error())
+	}
+
+	// component inventory was identified
+	if len(components) > 0 {
+		tctx.Components = components
+
+		return nil
+	}
+
+	return errors.Wrap(errTaskQueryInventory, "failed to query device component inventory")
+}
 
 func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
@@ -38,46 +82,7 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 	}
 }
 
-// planFromFirmwareSet
-func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task, device model.Device) error {
-	var err error
-
-	// When theres no firmware set ID, lookup firmware by the device vendor, model.
-	if task.Parameters.FirmwareSetID == "" {
-		if device.Vendor == "" {
-			return errors.Wrap(errTaskPlanActions, "device vendor attribute not defined")
-		}
-
-		if device.Model == "" {
-			return errors.Wrap(errTaskPlanActions, "device model attribute not defined")
-		}
-
-		task.FirmwaresPlanned, err = tctx.Inv.FirmwareByDeviceVendorModel(tctx.Ctx, device.Vendor, device.Model)
-		if err != nil {
-			return errors.Wrap(errTaskPlanActions, err.Error())
-		}
-	} else {
-		// TODO: implement inventory methods for firmware by set id
-		return errors.Wrap(errTaskPlanActions, "firmware set by ID not implemented")
-	}
-
-	// plan actions based and update task action list
-	tctx.ActionStateMachines, task.ActionsPlanned, err = h.planInstall(tctx, task, tctx.FirmwareURLPrefix)
-	if err != nil {
-		return err
-	}
-
-	// 	update task in cache
-
-	// THIS can go
-	if err := tctx.Store.UpdateTask(tctx.Ctx, *task); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (h *taskHandler) Validate(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
+func (h *taskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return false, sm.ErrInvalidtaskHandlerContext

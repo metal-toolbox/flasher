@@ -111,7 +111,7 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	firmware[0].FileName = "dummy.bin"
 
 	// set firmware planned for install
-	task.FirmwaresPlanned = model.FirmwarePlanned{firmware[0]}
+	task.FirmwaresPlanned = model.Firmwares{firmware[0]}
 
 	// set action planned
 	task.ActionsPlanned = model.Actions{
@@ -189,7 +189,7 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 	firmware[0].FileName = "dummy.bin"
 
 	// set firmware planned for install
-	task.FirmwaresPlanned = model.FirmwarePlanned{firmware[0]}
+	task.FirmwaresPlanned = model.Firmwares{firmware[0]}
 
 	// set action planned
 	task.ActionsPlanned = model.Actions{

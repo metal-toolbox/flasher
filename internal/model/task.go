@@ -16,9 +16,6 @@ type InstallMethod string
 // the firmware to applied is planned.
 type FirmwarePlanMethod string
 
-// CurrentFirmwareSource type defines the source for the firmware currently installed on the device.
-type CurrentFirmwareSource string
-
 const (
 	// InstallMethodOutofband indicates the out of band firmware install method.
 	InstallMethodOutofband InstallMethod = "outofband"
@@ -37,12 +34,6 @@ const (
 	// the firmware versions to be installed have to be planned
 	// based on the firmware currently installed on the device.
 	//PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
-
-	// CurrentFirmwareQueryDevice indicates the currently installed firmware versions should be queried from the device itself.
-	CurrentFirmwareQueryDevice CurrentFirmwareSource = "fromDevice"
-
-	// CurrentFirmwareQueryInventory indicates the currently installed firmware versions should be queried from an inventory source.
-	CurrentFirmwareQueryInventory CurrentFirmwareSource = "fromInventory"
 
 	// task states
 	//
@@ -144,7 +135,7 @@ type Task struct {
 	ActionsPlanned Actions
 
 	// FirmwaresPlanned is the list of firmware planned for install.
-	FirmwaresPlanned FirmwarePlanned
+	FirmwaresPlanned Firmwares
 
 	// Parameters for this task
 	Parameters TaskParameters
@@ -199,10 +190,6 @@ func NewTask(firmwareSetID string, firmware []Firmware) (Task, error) {
 type TaskParameters struct {
 	// Reset device BMC before firmware install
 	ResetBMCBeforeInstall bool `json:"resetBMCBeforeInstall,omitempty"`
-
-	// LookupInventoryFirmware looks up the inventory to plan firmwares for install
-	// when set to false, this will result in all firmwares in the set being attempted for install.
-	CurrentFirmwareSource CurrentFirmwareSource `json:"currentFirmwareQuerySource,omitempty"`
 
 	// Force install given firmware regardless of current firmware version.
 	ForceInstall bool `json:"forceInstall,omitempty"`

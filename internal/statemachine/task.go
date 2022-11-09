@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	TransitionTypePlan sw.TransitionType = "plan"
-	TransitionTypeRun  sw.TransitionType = "run"
+	TransitionTypeQuery sw.TransitionType = "query"
+	TransitionTypePlan  sw.TransitionType = "plan"
+	TransitionTypeRun   sw.TransitionType = "run"
 
 	// transition for successful tasks
 	TransitionTypeTaskSuccess sw.TransitionType = "success"
@@ -94,6 +95,11 @@ type HandlerContext struct {
 	// so as to record, read handler specific values.
 	Data map[string]string
 
+	// Components is a slice of device components identified
+	// as part of Query(), one or more of these components
+	// are eligible for firmware install based on tasks.FirmwaresPlanned.
+	Components model.Components
+
 	TaskEventCh chan TaskEvent
 	Store       store.Storage
 	Inv         inventory.Inventory
@@ -102,12 +108,26 @@ type HandlerContext struct {
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.
 type TaskTransitioner interface {
+	// Query queries information for planning task actions.
+	Query(task sw.StateSwitch, args sw.TransitionArgs) error
+
+	// Plan creates a set of task actions to be executed.
 	Plan(task sw.StateSwitch, args sw.TransitionArgs) error
+
+	// ValidatePlan is called before invoking Run.
+	ValidatePlan(task sw.StateSwitch, args sw.TransitionArgs) (bool, error)
+
+	// Run executes the task actions.
 	Run(task sw.StateSwitch, args sw.TransitionArgs) error
+
+	// PersistState persists the task status
 	PersistState(task sw.StateSwitch, args sw.TransitionArgs) error
+
+	// TaskFailed is called when the task fails.
 	TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error
+
+	// TaskSuccessful is called when th task succeeds.
 	TaskSuccessful(task sw.StateSwitch, args sw.TransitionArgs) error
-	Validate(task sw.StateSwitch, args sw.TransitionArgs) (bool, error)
 }
 
 // TaskStateMachine drives the task
@@ -120,6 +140,7 @@ type TaskStateMachine struct {
 func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
 	transitionOrder := []sw.TransitionType{
+		TransitionTypeQuery,
 		TransitionTypePlan,
 		TransitionTypeRun,
 	}
@@ -130,7 +151,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	// each transitionHandler method is passed as values to the transition rule.
 
 	m.sm.AddTransition(sw.TransitionRule{
-		TransitionType:   TransitionTypePlan,
+		TransitionType:   TransitionTypeQuery,
 		SourceStates:     sw.States{model.StateQueued},
 		DestinationState: model.StateActive,
 
@@ -140,17 +161,26 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 		// Transition is users business logic, should not set the state or return next state
 		// If condition returns true this function will be executed
-		Transition: handler.Plan,
+		Transition: handler.Query,
 
 		// PostTransition will be called if condition and transition are successful.
 		PostTransition: handler.PersistState,
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
+		TransitionType:   TransitionTypePlan,
+		SourceStates:     sw.States{model.StateActive},
+		DestinationState: model.StateActive,
+		Condition:        nil,
+		Transition:       handler.Plan,
+		PostTransition:   handler.PersistState,
+	})
+
+	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeRun,
 		SourceStates:     sw.States{model.StateActive},
 		DestinationState: model.StateSuccess,
-		Condition:        handler.Validate,
+		Condition:        handler.ValidatePlan,
 		Transition:       handler.Run,
 		PostTransition:   handler.PersistState,
 	})

@@ -65,11 +65,11 @@ type Firmware struct {
 	Checksum      string `yaml:"checksum"`
 }
 
-// FirmwarePlanned is the list of firmware planned for install
-type FirmwarePlanned []Firmware
+// Firmwares is a list of firmwares with a SortByInstallOrder method.
+type Firmwares []Firmware
 
 // SortByInstallOrder sorts the firmwares planned in the order they should be installed
-func (p FirmwarePlanned) SortByInstallOrder() {
+func (p Firmwares) SortByInstallOrder() {
 	sort.Slice(p, func(i, j int) bool {
 		slugi := strings.ToLower(p[i].ComponentSlug)
 		slugj := strings.ToLower(p[j].ComponentSlug)
@@ -94,66 +94,6 @@ var (
 		strings.ToLower(common.SlugGPU):               9,
 		strings.ToLower(common.SlugCPU):               10,
 	}
-)
-
-type Component struct {
-	Slug              string
-	Serial            string
-	Vendor            string
-	Model             string
-	FirmwareInstalled string
-}
-
-type Components []Component
-
-
-// BySlug returns a component that matches the slug value.
-func (c Components) BySlugVendorModel(cSlug, cVendor, cModel string) *Component {
-	cModels := []string{cModel}
-
-	// split if model is a list
-	if strings.Contains(cModel, ",") {
-		cModels = strings.Split(cModel, ",")
-	}
-
-	for _, component := range c {
-		// skip non matching component slug
-		if !strings.EqualFold(cSlug, component.Slug) {
-			continue
-		}
-
-		// skip non matching component vendor
-		if !strings.EqualFold(component.Vendor, cVendor) {
-			continue
-		}
-
-		// match component model with contains
-		for _, findModel := range cModels {
-			if strings.Contains(strings.ToLower(component.Model), strings.TrimSpace(findModel)) {
-				return &component
-			}
-		}
-	}
-
-	return nil
-}
-
-// ComponentFirmwareInstallStatus is the device specific firmware install status returned by the FirmwareInstallStatus method
-// in the DeviceQueryor interface.
-//
-// As an example, the BMCs return various firmware install statuses based on the vendor implementation
-// and so these statuses defined reduce all of those differences into a few generic status values
-//
-// Note: this is not related to the Flasher task status.
-type ComponentFirmwareInstallStatus string
-
-var (
-	StatusInstallRunning                ComponentFirmwareInstallStatus = "running"
-	StatusInstallComplete               ComponentFirmwareInstallStatus = "complete"
-	StatusInstallUnknown                ComponentFirmwareInstallStatus = "unknown"
-	StatusInstallFailed                 ComponentFirmwareInstallStatus = "failed"
-	StatusInstallPowerCycleHostRequired ComponentFirmwareInstallStatus = "powerCycleHostRequired"
-	StatusInstallPowerCycleBMCRequired  ComponentFirmwareInstallStatus = "powerCycleBMCRequired"
 )
 
 // DeviceQueryor interface defines methods to query a device.

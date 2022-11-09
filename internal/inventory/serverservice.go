@@ -33,10 +33,11 @@ const (
 )
 
 var (
-	ErrNoAttributes    = errors.New("no flasher attribute found")
-	ErrAttributeList   = errors.New("error in serverservice flasher attribute list")
-	ErrAttributeCreate = errors.New("error in serverservice flasher attribute create")
-	ErrAttributeUpdate = errors.New("error in serverservice flasher attribute update")
+	ErrNoAttributes                  = errors.New("no flasher attribute found")
+	ErrAttributeList                 = errors.New("error in serverservice flasher attribute list")
+	ErrAttributeCreate               = errors.New("error in serverservice flasher attribute create")
+	ErrAttributeUpdate               = errors.New("error in serverservice flasher attribute update")
+	ErrVendorModelAttributesNotFound = errors.New("vendor, model attributes not found in serverservice")
 
 	ErrDeviceID = errors.New("device UUID error")
 
@@ -332,7 +333,7 @@ func (s *Serverservice) FirmwareInstalled(ctx context.Context, deviceID string) 
 			}).Trace("component skipped - versioned attribute error")
 		}
 
-		c := model.Component{
+		c := &model.Component{
 			Slug:              component.ComponentTypeSlug,
 			Vendor:            component.Vendor,
 			Model:             component.Model,
