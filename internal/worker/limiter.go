@@ -118,10 +118,16 @@ func (l *Limiter) ActiveCount() int {
 	return int(l.dispatched)
 }
 
-// StopWait prevents any further routines from being added
+// StopWait prevents any further routines from being dispatched
 // and waits until all the routines complete.
 func (l *Limiter) StopWait() {
 	l.mu.Lock()
+
+	// if its in drain mode, return
+	if l.drain {
+		l.mu.Unlock()
+		return
+	}
 
 	l.drain = true
 	l.mu.Unlock()

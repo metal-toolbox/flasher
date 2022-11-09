@@ -33,11 +33,12 @@ const (
 )
 
 var (
-	ErrNoAttributes                  = errors.New("no flasher attribute found")
-	ErrAttributeList                 = errors.New("error in serverservice flasher attribute list")
-	ErrAttributeCreate               = errors.New("error in serverservice flasher attribute create")
-	ErrAttributeUpdate               = errors.New("error in serverservice flasher attribute update")
-	ErrVendorModelAttributesNotFound = errors.New("vendor, model attributes not found in serverservice")
+	ErrNoAttributes          = errors.New("no flasher attribute found")
+	ErrAttributeList         = errors.New("error in serverservice flasher attribute list")
+	ErrAttributeCreate       = errors.New("error in serverservice flasher attribute create")
+	ErrAttributeUpdate       = errors.New("error in serverservice flasher attribute update")
+	ErrVendorModelAttributes = errors.New("device vendor, model attributes not found in serverservice")
+	ErrDeviceStatus          = errors.New("error serverservice device status")
 
 	ErrDeviceID = errors.New("device UUID error")
 
@@ -101,7 +102,7 @@ func (s *Serverservice) DeviceByID(ctx context.Context, id string) (*DeviceInven
 	}
 
 	device, installAttributes, err := s.deviceWithFwInstallAttributes(ctx, id)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrVendorModelAttributes) {
 		return nil, err
 	}
 
@@ -116,7 +117,7 @@ func (s *Serverservice) DeviceByID(ctx context.Context, id string) (*DeviceInven
 
 	inventoryDevice := &DeviceInventory{
 		Device:     *device,
-		Components: s.fromServerserviceComponents(components),
+		Components: s.fromServerserviceComponents(device.Vendor, device.Model, components),
 	}
 
 	if installAttributes != nil {
@@ -156,7 +157,7 @@ func (s *Serverservice) convertServersToInventoryDeviceObjs(ctx context.Context,
 
 	for _, server := range servers {
 		device, fwInstallAttributes, err := s.deviceWithFwInstallAttributes(ctx, server.UUID.String())
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrVendorModelAttributes) {
 			s.logger.WithFields(
 				logrus.Fields{
 					"component": component,
@@ -191,12 +192,12 @@ func (s *Serverservice) convertServersToInventoryDeviceObjs(ctx context.Context,
 	return devices, nil
 }
 
-func (s *Serverservice) AquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
+func (s *Serverservice) AcquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
 	// updates the server service attribute
 	// - the device should not have any active flasher tasks
 	// - the device state should be maintenance
 	device, fwInstallAttributes, err := s.deviceWithFwInstallAttributes(ctx, deviceID)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrVendorModelAttributes) {
 		return DeviceInventory{}, errors.Wrap(ErrAttributeList, err.Error())
 	}
 
@@ -383,7 +384,7 @@ func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceV
 		return nil, errors.Wrap(
 			ErrFirmwareSetLookup,
 			fmt.Sprintf(
-				"lookup by device vendor: %s, model: %s return no firmware set",
+				"lookup by device vendor: %s, model: %s returned no firmware set",
 				deviceVendor,
 				deviceModel,
 			),

@@ -74,6 +74,8 @@ func (o *Worker) Run(ctx context.Context) {
 		},
 	).Info("flasher worker running")
 
+	var drain bool
+
 Loop:
 	for {
 		select {
@@ -88,8 +90,18 @@ Loop:
 			o.persistTaskStatus(e.TaskID, e.Info)
 
 		case <-ctx.Done():
-			o.limiter.StopWait()
-			break Loop
+			// StopWait is called in a go routine since StopWait blocks
+			// and we don't want to hold up the select by blocking.
+			//
+			// the next conditional checks the active count is zero before returning.
+			if !drain {
+				go o.limiter.StopWait()
+				drain = true
+			}
+
+			if o.limiter.ActiveCount() == 0 {
+				break Loop
+			}
 		}
 	}
 }
@@ -114,7 +126,7 @@ func (o *Worker) queue(ctx context.Context) {
 			}).Trace("skipped queuing task for device, reached concurrency limit")
 		}
 
-		acquired, err := o.inv.AquireDevice(ctx, idevice.Device.ID.String(), o.id)
+		acquired, err := o.inv.AcquireDevice(ctx, idevice.Device.ID.String(), o.id)
 		if err != nil {
 			o.logger.Warn(err)
 
@@ -190,21 +202,6 @@ func (o *Worker) run(ctx context.Context) {
 // initializeWork initializes a statemachine to execute a task and returns a func.
 func (o *Worker) initializeWork(ctx context.Context, task *model.Task) func() {
 	return func() {
-		o.logger.WithFields(logrus.Fields{
-			"deviceID": task.Parameters.Device.ID.String(),
-			"taskID":   task.ID,
-			"dry-run":  o.dryrun,
-		}).Info("running task for device")
-
-		sm.SendEvent(
-			ctx,
-			o.taskEventCh,
-			sm.TaskEvent{
-				TaskID: task.ID.String(),
-				Info:   "running task for device",
-			},
-		)
-
 		// define state machine task handler
 		handler := &taskHandler{}
 
@@ -216,19 +213,65 @@ func (o *Worker) initializeWork(ctx context.Context, task *model.Task) func() {
 			task.Parameters.ForceInstall,
 		)
 
+		startTS := time.Now()
+
+		// set task status to active
+		//
+		// The task has to be set to active as soon as possible
+		// so that the for select loop above does not pick it up again.
+		task.Status = string(model.StateActive)
+		if err := taskHandlerCtx.Store.UpdateTask(ctx, *task); err != nil {
+			sm.SendEvent(
+				ctx,
+				o.taskEventCh,
+				sm.TaskEvent{
+					TaskID: task.ID.String(),
+					Info: fmt.Sprintf(
+						"task failed, elapsed: %s, cause: %s ",
+						time.Since(startTS).String(),
+						err.Error()),
+				},
+			)
+
+			o.logger.WithFields(
+				logrus.Fields{
+					"deviceID": task.Parameters.Device.ID,
+					"taskID":   task.ID.String(),
+					"err":      err.Error(),
+				},
+			).Warn("task for device failed")
+
+			return
+		}
+
+		sm.SendEvent(
+			ctx,
+			o.taskEventCh,
+			sm.TaskEvent{
+				TaskID: task.ID.String(),
+				Info:   "running task for device",
+			},
+		)
+
+		o.logger.WithFields(logrus.Fields{
+			"deviceID": task.Parameters.Device.ID.String(),
+			"taskID":   task.ID,
+			"dry-run":  o.dryrun,
+		}).Info("running task for device")
+
 		// init state machine for task
 		machine, err := sm.NewTaskStateMachine(ctx, task, handler)
 		if err != nil {
 			o.logger.Error(err)
+
+			return
 		}
 
-		// add to task machines list
+		// add to task machine list
 		o.taskMachines.Store(task.ID.String(), *machine)
 
 		// purge task state machine when this method returns
 		defer o.taskMachines.Delete(task.ID.String())
-
-		startTS := time.Now()
 
 		// run task state machine
 		if err := machine.Run(ctx, task, handler, taskHandlerCtx); err != nil {
@@ -249,6 +292,7 @@ func (o *Worker) initializeWork(ctx context.Context, task *model.Task) func() {
 				logrus.Fields{
 					"deviceID": task.Parameters.Device.ID,
 					"taskID":   task.ID.String(),
+					"err":      err.Error(),
 				},
 			).Warn("task for device failed")
 

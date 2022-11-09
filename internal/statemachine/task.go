@@ -44,8 +44,8 @@ func SendEvent(ctx context.Context, ch chan<- TaskEvent, e TaskEvent) {
 	}
 
 	select {
-	case <-ctx.Done():
-		return
+	// case <-ctx.Done():
+	//	return
 	case ch <- e:
 	case <-time.After(1 * time.Second):
 		fmt.Println("dropped event with info: " + e.Info)
@@ -95,10 +95,8 @@ type HandlerContext struct {
 	// so as to record, read handler specific values.
 	Data map[string]string
 
-	// Components is a slice of device components identified
-	// as part of Query(), one or more of these components
-	// are eligible for firmware install based on tasks.FirmwaresPlanned.
-	Components model.Components
+	// Device is the device this task is executing on.
+	Device *model.Device
 
 	TaskEventCh chan TaskEvent
 	Store       store.Storage
@@ -152,7 +150,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeQuery,
-		SourceStates:     sw.States{model.StateQueued},
+		SourceStates:     sw.States{model.StateActive},
 		DestinationState: model.StateActive,
 
 		// Condition for the transition, transition will be executed only if this function return true

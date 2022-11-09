@@ -8,6 +8,7 @@ import (
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	sservice "go.hollow.sh/serverservice/pkg/api/v1"
 
 	"github.com/google/uuid"
@@ -81,6 +82,10 @@ func (s *Serverservice) deviceStateAttribute(attributes []sservice.Attributes) (
 		return deviceState, errors.Wrap(ErrDeviceState, err.Error())
 	}
 
+	if data[s.config.DeviceStateAttributeKey] == "" {
+		return deviceState, errors.Wrap(ErrDeviceState, "device state attribute is not set")
+	}
+
 	return data[s.config.DeviceStateAttributeKey], nil
 }
 
@@ -111,19 +116,33 @@ func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attribut
 		return deviceVendor,
 			deviceModel,
 			deviceSerial,
-			ErrVendorModelAttributesNotFound
+			ErrVendorModelAttributes
 	}
 
 	if err := json.Unmarshal(vendorAttribute.Data, &vendorAttrs); err != nil {
 		return deviceVendor,
 			deviceModel,
 			deviceSerial,
-			errors.Wrap(ErrServerserviceAttrObj, "server vendor attribute: "+err.Error())
+			errors.Wrap(ErrVendorModelAttributes, "server vendor attribute: "+err.Error())
 	}
 
 	deviceVendor = common.FormatVendorName(vendorAttrs["vendor"])
 	deviceModel = common.FormatProductName(vendorAttrs["model"])
 	deviceSerial = vendorAttrs["serial"]
+
+	if deviceVendor == "" {
+		return deviceVendor,
+			deviceModel,
+			deviceSerial,
+			errors.Wrap(ErrVendorModelAttributes, "device vendor unknown")
+	}
+
+	if deviceModel == "" {
+		return deviceVendor,
+			deviceModel,
+			deviceSerial,
+			errors.Wrap(ErrVendorModelAttributes, "device model unknown")
+	}
 
 	return
 }
@@ -200,12 +219,6 @@ func (s *Serverservice) deviceWithFwInstallAttributes(ctx context.Context, devic
 	device.BmcUsername = credential.Username
 	device.BmcPassword = credential.Password
 
-	// vendor attributes
-	device.Vendor, device.Model, device.Serial, err = s.vendorModelFromAttributes(attributes)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	// device state attribute
 	device.State, err = s.deviceStateAttribute(attributes)
 	if err != nil {
@@ -217,13 +230,37 @@ func (s *Serverservice) deviceWithFwInstallAttributes(ctx context.Context, devic
 		return nil, nil, err
 	}
 
+	// vendor attributes
+	device.Vendor, device.Model, device.Serial, err = s.vendorModelFromAttributes(attributes)
+	if err != nil {
+		if errors.Is(err, ErrVendorModelAttributes) {
+			s.logger.WithFields(
+				logrus.Fields{
+					"component": component,
+					"deviceID":  deviceID,
+					"err":       err.Error(),
+				},
+			).Debug("device vendor/model is unknown")
+		}
+
+		return device, installParams, err
+	}
+
 	return device, installParams, nil
 }
 
-func (s *Serverservice) fromServerserviceComponents(scomponents sservice.ServerComponentSlice) model.Components {
+func (s *Serverservice) fromServerserviceComponents(deviceVendor, deviceModel string, scomponents sservice.ServerComponentSlice) model.Components {
 	components := make(model.Components, 0, len(scomponents))
 
 	for _, sc := range scomponents {
+		if sc.Vendor == "" {
+			sc.Vendor = deviceVendor
+		}
+
+		if sc.Model == "" {
+			sc.Model = deviceModel
+		}
+
 		components = append(components, &model.Component{
 			Slug:              sc.ComponentTypeSlug,
 			Serial:            sc.Serial,
@@ -246,11 +283,15 @@ func (s *Serverservice) firmwareFromVersionedAttributes(va []sservice.VersionedA
 		return ""
 	}
 
-	data := &versionedAttributeFirmware{}
-	if err := json.Unmarshal(found.Data, data); err != nil {
+	vaData := &versionedAttributeFirmware{}
+	if err := json.Unmarshal(found.Data, vaData); err != nil {
 		s.logger.Warn("failed to unmarshal firmware data")
 		return ""
 	}
 
-	return data.Firmware.Installed
+	if vaData.Firmware == nil {
+		return ""
+	}
+
+	return vaData.Firmware.Installed
 }

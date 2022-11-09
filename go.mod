@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
-	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104143240-cbd6269cf024
+	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221109143958-7a336cbbc3da
 	github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/davecgh/go-spew v1.1.1
@@ -73,7 +73,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stmcginnis/gofish v0.13.0 // indirect
+	github.com/stmcginnis/gofish v0.13.1-0.20221107140645-5cc43fad050f // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/volatiletech/inflect v0.0.1 // indirect

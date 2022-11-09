@@ -5,6 +5,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -39,7 +40,7 @@ func (h *taskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 	// component inventory was identified
 	if len(components) > 0 {
-		tctx.Components = components
+		tctx.Device.Components = components
 
 		return nil
 	}
@@ -53,7 +54,7 @@ func (h *taskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 	// component inventory was identified
 	if len(components) > 0 {
-		tctx.Components = components
+		tctx.Device.Components = components
 
 		return nil
 	}
@@ -140,10 +141,32 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 }
 
 func (h *taskHandler) TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error {
+	tctx, ok := args.(*sm.HandlerContext)
+	if !ok {
+		return sm.ErrInvalidTransitionHandler
+	}
+
+	if tctx.DeviceQueryor != nil {
+		if err := tctx.DeviceQueryor.Close(); err != nil {
+			tctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+		}
+	}
+
 	return nil
 }
 
 func (h *taskHandler) TaskSuccessful(task sw.StateSwitch, args sw.TransitionArgs) error {
+	tctx, ok := args.(*sm.HandlerContext)
+	if !ok {
+		return sm.ErrInvalidTransitionHandler
+	}
+
+	if tctx.DeviceQueryor != nil {
+		if err := tctx.DeviceQueryor.Close(); err != nil {
+			tctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+		}
+	}
+
 	return nil
 }
 

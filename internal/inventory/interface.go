@@ -17,7 +17,7 @@ type Inventory interface {
 	//
 	// - The implementation is to check if the device is a eligible based its status or other non-firmware inventory attributes.
 	// - The locking mechnism is left to the implementation.
-	AquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error)
+	AcquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error)
 
 	// ReleaseDevice looks up a device by its identifier and releases any locks held on the device.
 	// The lock release mechnism is left to the implementation.

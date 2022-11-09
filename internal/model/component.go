@@ -81,7 +81,10 @@ var (
 )
 
 // ComponentConvertor provides methods to convert a common.Device to its Component equivalents.
-type ComponentConverter struct{}
+type ComponentConverter struct {
+	deviceVendor string
+	deviceModel  string
+}
 
 var (
 	// ErrComponentConverter is returned when an error occurs in the component data conversion.
@@ -100,6 +103,9 @@ func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (C
 	if device == nil {
 		return nil, errors.Wrap(ErrComponentConverter, "device object is nil")
 	}
+
+	cc.deviceModel = common.FormatProductName(device.Model)
+	cc.deviceVendor = device.Vendor
 
 	componentsTmp := []*Component{}
 	componentsTmp = append(componentsTmp,
@@ -134,6 +140,14 @@ func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (C
 
 func (cc *ComponentConverter) newComponent(slug, cvendor, cmodel, cserial string) (*Component, error) {
 	slug = strings.ToLower(slug)
+
+	if cvendor == "" {
+		cvendor = cc.deviceVendor
+	}
+
+	if cmodel == "" {
+		cmodel = cc.deviceModel
+	}
 
 	return &Component{
 		Vendor: common.FormatVendorName(cvendor),

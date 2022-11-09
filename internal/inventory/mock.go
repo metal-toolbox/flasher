@@ -27,7 +27,7 @@ func (s *Mock) DevicesForFwInstall(ctx context.Context, limit int) ([]DeviceInve
 	return devices, nil
 }
 
-func (s *Mock) AquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
+func (s *Mock) AcquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
 	// updates the server service attribute
 	// - the device should not have any active flasher tasks
 	// - the device state should be maintenance

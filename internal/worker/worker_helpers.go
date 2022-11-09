@@ -26,6 +26,7 @@ func (o *Worker) newtaskHandlerContext(ctx context.Context, taskID string, devic
 		TaskEventCh:       o.taskEventCh,
 		FirmwareURLPrefix: o.firmwareURLPrefix,
 		Data:              make(map[string]string),
+		Device:            device,
 		Logger: l.WithFields(
 			logrus.Fields{
 				"workerID": o.id,
@@ -43,12 +44,18 @@ func (o *Worker) persistTaskStatus(taskID, info string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
+	o.logger.WithFields(
+		logrus.Fields{
+			"taskID": taskID,
+			"info":   info,
+		}).Trace("received task status to persist")
+
 	task, err := o.store.TaskByID(ctx, taskID)
 	if err != nil {
 		o.logger.WithFields(
 			logrus.Fields{
-				"deviceID": task.Parameters.Device.ID.String(),
-				"err":      err.Error(),
+				"taskID": taskID,
+				"err":    err.Error(),
 			}).Warn("error retrieving task attributes")
 
 		return

@@ -38,7 +38,7 @@ func (c *Yaml) DevicesForFwInstall(ctx context.Context, limit int) ([]DeviceInve
 //
 // - The implementation is to check if the device is a eligible based its status or other non-firmware inventory attributes.
 // - The locking mechnism is left to the implementation.
-func (c *Yaml) AquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
+func (c *Yaml) AcquireDevice(ctx context.Context, deviceID, workerID string) (DeviceInventory, error) {
 	return DeviceInventory{}, nil
 }
 

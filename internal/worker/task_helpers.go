@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -18,20 +19,44 @@ func (h *taskHandler) queryFromInventorySource(tctx *sm.HandlerContext, deviceID
 		return nil, err
 	}
 
+	// this is a bit
+	if tctx.Device.Vendor == "" {
+		tctx.Device.Vendor = device.Device.Vendor
+	}
+
+	if tctx.Device.Model == "" {
+		tctx.Device.Vendor = device.Device.Model
+	}
+
 	return device.Components, nil
 }
 
 // query device components inventory from the device itself.
 func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components, error) {
+	if tctx.DeviceQueryor == nil {
+		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
+		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
+		// so this DeviceQueryor may have to be extended
+		//
+		// For this to work with both inband and out of band, the firmware must include the install method.
+		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Device, tctx.Logger)
+	}
+
 	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
 		return nil, err
 	}
 
-	defer tctx.DeviceQueryor.Close()
-
 	deviceCommon, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if tctx.Device.Vendor == "" {
+		tctx.Device.Vendor = deviceCommon.Vendor
+	}
+
+	if tctx.Device.Model == "" {
+		tctx.Device.Model = common.FormatProductName(deviceCommon.Model)
 	}
 
 	return model.NewComponentConverter().CommonDeviceToComponents(deviceCommon)
@@ -39,7 +64,7 @@ func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components
 
 // returns a bool value based on if the firmware install (for a component) should be skipped
 func (h *taskHandler) skipFirmwareInstall(tctx *sm.HandlerContext, task *model.Task, firmware *model.Firmware) bool {
-	component := tctx.Components.BySlugVendorModel(firmware.ComponentSlug, firmware.Vendor, firmware.Model)
+	component := tctx.Device.Components.BySlugVendorModel(firmware.ComponentSlug, firmware.Vendor, firmware.Model)
 	if component == nil {
 		tctx.Logger.WithFields(
 			logrus.Fields{
@@ -87,7 +112,7 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 	// each firmware applicable results in an ActionPlan and an Action
 	for idx, firmware := range firmwaresApplicable {
 		// skip firmware install based on a few clauses
-		if h.skipFirmwareInstall(tctx, task, &firmware) {
+		if h.skipFirmwareInstall(tctx, task, &firmwaresApplicable[idx]) {
 			continue
 		}
 
@@ -97,9 +122,6 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 		} else {
 			final = true
 		}
-
-		// include applicable firmware in planned
-		task.FirmwaresPlanned = append(task.FirmwaresPlanned, firmware)
 
 		// generate an action ID
 		actionID := sm.ActionID(task.ID.String(), firmware.ComponentSlug, idx)
@@ -118,7 +140,7 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 
 		// set download url based on device vendor, model attributes
 		// example : https://firmware.hosted/firmware/dell/r640/bmc/iDRAC-with-Lifecycle-Controller_Firmware_P8HC9_WN64_5.10.00.00_A00.EXE
-		task.FirmwaresPlanned[idx].URL = fmt.Sprintf(
+		firmwaresApplicable[idx].URL = fmt.Sprintf(
 			"%s/%s/%s/%s/%s",
 			tctx.FirmwareURLPrefix,
 			task.Parameters.Device.Vendor,
@@ -126,6 +148,9 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 			strings.ToLower(firmware.ComponentSlug),
 			firmware.FileName,
 		)
+
+		// include applicable firmware in planned
+		task.FirmwaresPlanned = append(task.FirmwaresPlanned, firmwaresApplicable[idx])
 
 		// create action thats added to the task
 		actions = append(actions, model.Action{
@@ -138,7 +163,7 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 			// For now this is hardcoded to outofband.
 			InstallMethod: model.InstallMethodOutofband,
 			Status:        string(model.StateQueued),
-			Firmware:      task.FirmwaresPlanned[idx],
+			Firmware:      firmwaresApplicable[idx],
 
 			// VerifyCurrentFirmware is disabled when ForceInstall is true.
 			VerifyCurrentFirmware: !task.Parameters.ForceInstall,
@@ -160,11 +185,11 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 	// When theres no firmware set ID, lookup firmware by the device vendor, model.
 	if task.Parameters.FirmwareSetID == "" {
 		if device.Vendor == "" {
-			return errors.Wrap(errTaskPlanActions, "device vendor attribute not defined")
+			return errors.Wrap(errTaskPlanActions, "device vendor attribute was not identified")
 		}
 
 		if device.Model == "" {
-			return errors.Wrap(errTaskPlanActions, "device model attribute not defined")
+			return errors.Wrap(errTaskPlanActions, "device model attribute was not identified")
 		}
 
 		firmwaresApplicable, err = tctx.Inv.FirmwareByDeviceVendorModel(tctx.Ctx, device.Vendor, device.Model)

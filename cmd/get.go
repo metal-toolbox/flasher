@@ -23,7 +23,9 @@ var cmdGet = &cobra.Command{
 
 // command get task
 type getTaskFlags struct {
-	deviceID string
+	deviceID   string
+	components bool
+	firmware   bool
 }
 
 var (
@@ -91,17 +93,21 @@ func getDevice(ctx context.Context) {
 		flasher.Logger.Fatal(err)
 	}
 
-	if device.Device.Vendor != "" && device.Device.Model != "" {
-		var firmware []model.Firmware
+	// unset components if it was not requested
+	if !getTaskFlagSet.components {
+		device.Components = nil
+	}
 
-		firmware, err = inv.FirmwareByDeviceVendorModel(ctx, device.Device.Vendor, device.Device.Model)
-		if err != nil {
-			flasher.Logger.WithField("err", err.Error()).Error("Error in firmware set lookup for device")
+	// query appliable firmware if requested
+	if getTaskFlagSet.firmware {
+		if device.Device.Vendor == "" || device.Device.Model == "" {
+			flasher.Logger.Warn("device vendor/model attributes not available, unable to determine applicable firmware")
+		} else {
+			device.Firmware, err = inv.FirmwareByDeviceVendorModel(ctx, device.Device.Vendor, device.Device.Model)
+			if err != nil {
+				flasher.Logger.WithField("err", err.Error()).Error("Error in firmware set lookup for device")
+			}
 		}
-
-		device.Firmware = firmware
-	} else {
-		flasher.Logger.Error("device vendor/model attributes not available, unable to determine applicable firmware")
 	}
 
 	b, err := json.MarshalIndent(device, "", "  ")
@@ -126,6 +132,9 @@ func init() {
 	if err := cmdGetDevice.MarkPersistentFlagRequired("device-id"); err != nil {
 		log.Fatal(err)
 	}
+
+	cmdGetDevice.PersistentFlags().BoolVarP(&getTaskFlagSet.components, "components", "", false, "fetch device component data")
+	cmdGetDevice.PersistentFlags().BoolVarP(&getTaskFlagSet.firmware, "firmware", "", false, "fetch device applicable firmware")
 
 	cmdGet.AddCommand(cmdGetTask)
 	cmdGet.AddCommand(cmdGetDevice)
