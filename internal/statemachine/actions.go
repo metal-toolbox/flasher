@@ -18,15 +18,11 @@ const (
 	StateActionSuccessful sw.State = "success"
 	// state for failed actions
 	StateActionFailed sw.State = "failed"
-	// state for skipped actions
-	StateActionSkipped sw.State = "skipped"
 
 	// transition for completed actions
 	TransitionTypeActionSuccess sw.TransitionType = "success"
 	// transition for failed actions
 	TransitionTypeActionFailed sw.TransitionType = "failed"
-	// transition for skipped actions
-	TransitionTypeActionSkipped sw.TransitionType = "skipped"
 )
 
 var (
@@ -104,6 +100,22 @@ func NewActionStateMachine(ctx context.Context, actionID string, transitions []s
 	}
 
 	return m, nil
+}
+
+// AddStateTransitionDocumentation adds the given state, transition documentation to the action state machine
+func (a *ActionStateMachine) AddStateTransitionDocumentation(stateDocumentation []sw.StateDoc, transitionDocumentation []sw.TransitionTypeDoc) {
+	for _, stateDoc := range stateDocumentation {
+		a.sm.DescribeState(sw.State(stateDoc.Name), stateDoc)
+	}
+
+	for _, transitionDoc := range transitionDocumentation {
+		a.sm.DescribeTransitionType(sw.TransitionType(transitionDoc.Name), transitionDoc)
+	}
+}
+
+// DescribeAsJSON returns a JSON output describing the action statemachine.
+func (a *ActionStateMachine) DescribeAsJSON() ([]byte, error) {
+	return a.sm.AsJSON()
 }
 
 func (a *ActionStateMachine) TransitionFailed(ctx context.Context, action *model.Action, hctx *HandlerContext) error {

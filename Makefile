@@ -56,6 +56,11 @@ push-image:
 	docker push ${DOCKER_IMAGE}:latest
 
 
+docs: build-osx
+	./flasher export statemachine --task  > ./docs/statemachine/task-statemachine.json
+	./flasher export statemachine --action  > ./docs/statemachine/action-statemachine.json
+
+
 # https://gist.github.com/prwhite/8168133
 # COLORS
 GREEN  := $(shell tput -Txterm setaf 2)

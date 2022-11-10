@@ -72,7 +72,7 @@ A sample server service flasher install task payload looks like the following,
                "version": "1.1",
                // these are optional
                "preActions": ["resetBMC"],
-               "postActions": ["resetHost"],
+               "postActions": ["resetDevice"],
                //
                // currenly installed version is not checked - forces downgrades or reinstall of the same firmware
                "force": true

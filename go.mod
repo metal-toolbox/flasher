@@ -20,7 +20,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.1
-	go.hollow.sh/serverservice v0.14.4
+	go.hollow.sh/serverservice v0.14.6-0.20221110082358-c207851c31f2
 	go.uber.org/goleak v1.1.11
 	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95
 	golang.org/x/net v0.1.0
@@ -99,6 +99,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
+// TODO(joel): remove replace once docs PR is merged https://github.com/filanov/stateswitch/pull/9
 replace github.com/filanov/stateswitch => ../../omertuc/stateswitch
-
-replace go.hollow.sh/serverservice => ../../joelrebel/hollow-serverservice

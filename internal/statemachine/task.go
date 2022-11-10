@@ -98,10 +98,15 @@ type HandlerContext struct {
 	// Device is the device this task is executing on.
 	Device *model.Device
 
+	// TaskEventCh is where a Task or an Action will emit an event
+	// which includes task information.
 	TaskEventCh chan TaskEvent
-	Store       store.Storage
-	Inv         inventory.Inventory
-	Logger      *logrus.Entry
+
+	// TODO(joel): move Inv, Store into the Task, Action handler context
+	// so this package does not depend on those package.
+	Store  store.Storage
+	Inv    inventory.Inventory
+	Logger *logrus.Entry
 }
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.
@@ -144,6 +149,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	}
 
 	m := &TaskStateMachine{sm: sw.NewStateMachine(), transitions: transitionOrder}
+	m.addDocumentation()
 
 	// The SM has transition rules define the transitionHandler methods
 	// each transitionHandler method is passed as values to the transition rule.
@@ -163,6 +169,10 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 		// PostTransition will be called if condition and transition are successful.
 		PostTransition: handler.PersistState,
+		Documentation: sw.TransitionRuleDoc{
+			Name:        "Query device inventory",
+			Description: "Query device inventory for component firmware verisons - from the configured inventory source, fall back to querying inventory from the device.",
+		},
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
@@ -172,6 +182,10 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		Condition:        nil,
 		Transition:       handler.Plan,
 		PostTransition:   handler.PersistState,
+		Documentation: sw.TransitionRuleDoc{
+			Name:        "Plan install actions",
+			Description: "Prepare a plan - Action (sub) state machines for each firmware to be installed. Firmwares applicable is decided based on task parameters and by comparing the versions currently installed.",
+		},
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
@@ -181,6 +195,10 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		Condition:        handler.ValidatePlan,
 		Transition:       handler.Run,
 		PostTransition:   handler.PersistState,
+		Documentation: sw.TransitionRuleDoc{
+			Name:        "Run install actions",
+			Description: "Run executes the planned Action (sub) state machines prepared in the Plan stage.",
+		},
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
@@ -190,6 +208,10 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		Condition:        nil,
 		Transition:       handler.TaskFailed,
 		PostTransition:   handler.PersistState,
+		Documentation: sw.TransitionRuleDoc{
+			Name:        "Task failed",
+			Description: "Task execution has failed because of a failed task action or task handler.",
+		},
 	})
 
 	m.sm.AddTransition(sw.TransitionRule{
@@ -199,9 +221,70 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		Condition:        nil,
 		Transition:       handler.TaskSuccessful,
 		PostTransition:   handler.PersistState,
+		Documentation: sw.TransitionRuleDoc{
+			Name:        "Task successful",
+			Description: "Task execution completed successfully.",
+		},
 	})
 
 	return m, nil
+}
+
+func (m *TaskStateMachine) addDocumentation() {
+	m.sm.DescribeState(model.StateRequested, sw.StateDoc{
+		Name:        "Requested",
+		Description: "In this state the task has been requested (this is done outside of the state machine).",
+	})
+
+	m.sm.DescribeState(model.StateQueued, sw.StateDoc{
+		Name:        "Queued",
+		Description: "In this state the task is being initialized (this is done outside of the state machine).",
+	})
+
+	m.sm.DescribeState(model.StateActive, sw.StateDoc{
+		Name:        "Active",
+		Description: "In this state the task has been initialized and begun execution in the statemachine.",
+	})
+
+	m.sm.DescribeState(model.StateFailed, sw.StateDoc{
+		Name:        "Failed",
+		Description: "In this state the task execution has failed.",
+	})
+
+	m.sm.DescribeState(model.StateSuccess, sw.StateDoc{
+		Name:        "Success",
+		Description: "In this state the task execution has completed successfully.",
+	})
+
+	m.sm.DescribeTransitionType(TransitionTypeQuery, sw.TransitionTypeDoc{
+		Name:        "Query",
+		Description: "In this transition the device component firmware information is being queried.",
+	})
+
+	m.sm.DescribeTransitionType(TransitionTypePlan, sw.TransitionTypeDoc{
+		Name:        "Plan",
+		Description: "In this transition the actions (sub state machines) for the firmware install is being planned for execution.",
+	})
+
+	m.sm.DescribeTransitionType(TransitionTypeRun, sw.TransitionTypeDoc{
+		Name:        "Run",
+		Description: "In this transition the actions (sub state machines) for the firmware install are being executed.",
+	})
+
+	m.sm.DescribeTransitionType(TransitionTypeTaskFail, sw.TransitionTypeDoc{
+		Name:        string(TransitionTypeTaskFail),
+		Description: "In this transition the task has failed and any post failure steps are being executed.",
+	})
+
+	m.sm.DescribeTransitionType(TransitionTypeTaskSuccess, sw.TransitionTypeDoc{
+		Name:        string(TransitionTypeTaskSuccess),
+		Description: "In this transition the task has completed successfully and any post failure steps are being executed.",
+	})
+}
+
+// DescribeAsJSON returns a JSON output describing the task statemachine.
+func (m *TaskStateMachine) DescribeAsJSON() ([]byte, error) {
+	return m.sm.AsJSON()
 }
 
 func (m *TaskStateMachine) SetTransitionOrder(transitions []sw.TransitionType) {

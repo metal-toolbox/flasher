@@ -30,7 +30,7 @@ const (
 	stateInitiatedInstallFirmware    sw.State = "initiatedInstallFirmware"
 	statePolledFirmwareInstallStatus sw.State = "polledFirmwareInstallStatus"
 	stateResetBMC                    sw.State = "resetBMC"
-	stateResetHost                   sw.State = "resetHost"
+	stateResetDevice                 sw.State = "resetDevice"
 	statePoweredOffDevice            sw.State = "poweredOffDevice"
 
 	// transition types
@@ -43,7 +43,7 @@ const (
 	transitionTypeInitiatingInstallFirmware sw.TransitionType = "initiatingInstallFirmware"
 	transitionTypePollInstallStatus         sw.TransitionType = "pollingInstallStatus"
 	transitionTypeResetBMC                  sw.TransitionType = "resettingBMC"
-	transitionTypeResetHost                 sw.TransitionType = "resettingHost"
+	transitionTypeResetDevice               sw.TransitionType = "resettingHost"
 	transitionTypePowerOffDevice            sw.TransitionType = "poweringOffDevice"
 )
 
@@ -56,13 +56,91 @@ func transitionOrder() []sw.TransitionType {
 		transitionTypeInitiatingInstallFirmware,
 		transitionTypePollInstallStatus,
 		transitionTypeResetBMC,
-		transitionTypeResetHost,
+		transitionTypeResetDevice,
 		transitionTypePowerOffDevice,
 	}
 }
 
 func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
-	return sm.NewActionStateMachine(ctx, actionID, transitionOrder(), transitionRules())
+	machine, err := sm.NewActionStateMachine(ctx, actionID, transitionOrder(), transitionRules())
+	if err != nil {
+		return nil, err
+	}
+
+	machine.AddStateTransitionDocumentation(actionDocumentation())
+
+	return machine, nil
+}
+
+func actionDocumentation() ([]sw.StateDoc, []sw.TransitionTypeDoc) {
+	return []sw.StateDoc{
+			{
+				Name:        string(statePoweredOnDevice),
+				Description: "This action state indicates the device has been (conditionally) powered on for a component firmware install.",
+			},
+			{
+				Name:        string(stateCheckedCurrentFirmware),
+				Description: "This action state indicates the installed firmware on the component has been checked.",
+			},
+			{
+				Name:        string(stateDownloadedFirmware),
+				Description: "This action state indicates the component firmware to be installed has been downloaded and verified.",
+			},
+			{
+				Name:        string(stateInitiatedInstallFirmware),
+				Description: "This action state indicates the component firmware has been uploaded to the target device for install, and the firmware install on the device has been initiated.",
+			},
+			{
+				Name:        string(statePolledFirmwareInstallStatus),
+				Description: "This action state indicates the component firmware install status is in a finalized state (powerCycleDevice, powerCycleBMC, successful, failed).",
+			},
+			{
+				Name:        string(stateResetBMC),
+				Description: "This action state indicates the BMC has been (conditionally) power cycled to complete a component firmware install.",
+			},
+			{
+				Name:        string(stateResetDevice),
+				Description: "This action state indicates the Device has been (conditionally) power cycled to complete a component firmware install.",
+			},
+			{
+				Name:        string(statePoweredOffDevice),
+				Description: "This action state indicates the Device has been (conditionally) power off to complete a component firmware install.",
+			},
+		},
+		[]sw.TransitionTypeDoc{
+			{
+				Name:        string(transitionTypePowerOnDevice),
+				Description: "In this action transition the device is being powered on for a component firmware install - if it was powered-off.",
+			},
+			{
+				Name:        string(transitionTypeCheckInstalledFirmware),
+				Description: "In this action transition the installed component firmware is being checked.",
+			},
+			{
+				Name:        string(transitionTypeDownloadFirmware),
+				Description: "In this action transition the component firmware to be installed is being downloaded and verified.",
+			},
+			{
+				Name:        string(transitionTypeInitiatingInstallFirmware),
+				Description: "In this action transition the component firmware to be installed is being uploaded to the device and the component firmware install is being initated.",
+			},
+			{
+				Name:        string(transitionTypePollInstallStatus),
+				Description: "In this action transition the component firmware install status is being polled until its in a finalized state (powerCycleDevice, powerCycleBMC, successful, failed).",
+			},
+			{
+				Name:        string(transitionTypeResetBMC),
+				Description: "In this action transition the BMC is being power-cycled - if the component firmware install status requires a BMC reset to proceed/complete.",
+			},
+			{
+				Name:        string(transitionTypeResetDevice),
+				Description: "In this action transition the Device will be power-cycled if the component firmware install status requires a Device reset to proceed/complete.",
+			},
+			{
+				Name:        string(transitionTypePowerOffDevice),
+				Description: "In this action transition the Device will be powered-off if the device was powered off when task started.",
+			},
+		}
 }
 
 func transitionRules() []sw.TransitionRule {
@@ -86,6 +164,10 @@ func transitionRules() []sw.TransitionRule {
 
 			// PostTransition will be called if condition and transition are successful.
 			PostTransition: handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Power on device",
+				Description: "Power on device - if its currently powered off.",
+			},
 		},
 		{
 			TransitionType:   transitionTypeCheckInstalledFirmware,
@@ -94,6 +176,10 @@ func transitionRules() []sw.TransitionRule {
 			Condition:        nil,
 			Transition:       handler.checkCurrentFirmware,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Check installed firmware",
+				Description: "Check firmware installed on component - if its equal - returns error, unless Task.Parameters.Force=true.",
+			},
 		},
 		{
 			TransitionType:   transitionTypeDownloadFirmware,
@@ -102,6 +188,10 @@ func transitionRules() []sw.TransitionRule {
 			Condition:        nil,
 			Transition:       handler.downloadFirmware,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Download and verify firmware",
+				Description: "Download and verify firmware file checksum.",
+			},
 		},
 		{
 			TransitionType:   transitionTypeInitiatingInstallFirmware,
@@ -110,6 +200,10 @@ func transitionRules() []sw.TransitionRule {
 			Condition:        nil,
 			Transition:       handler.initiateInstallFirmware,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Initiate firmware install",
+				Description: "Initiate firmware install for component.",
+			},
 		},
 		{
 			TransitionType:   transitionTypePollInstallStatus,
@@ -118,6 +212,10 @@ func transitionRules() []sw.TransitionRule {
 			Condition:        nil,
 			Transition:       handler.pollFirmwareInstallStatus,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Poll firmware install status",
+				Description: "Poll BMC with exponential backoff for firmware install status until firmware install status is in a finalized state (completed/powercyclehost/powercyclebmc/failed).",
+			},
 		},
 		{
 			TransitionType:   transitionTypeResetBMC,
@@ -126,31 +224,34 @@ func transitionRules() []sw.TransitionRule {
 			Condition:        nil,
 			Transition:       handler.resetBMC,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Powercycle BMC",
+				Description: "Powercycle BMC - only when pollFirmwareInstallStatus() identifies a BMC reset is required.",
+			},
 		},
 		{
-			TransitionType:   transitionTypeResetHost,
+			TransitionType:   transitionTypeResetDevice,
 			SourceStates:     sw.States{stateResetBMC},
-			DestinationState: stateResetHost,
+			DestinationState: stateResetDevice,
 			Condition:        nil,
-			Transition:       handler.resetHost,
+			Transition:       handler.resetDevice,
 			PostTransition:   handler.PersistState,
-		},
-		// This transition is executed when the action is skipped
-		{
-			TransitionType:   sm.TransitionTypeActionSkipped,
-			SourceStates:     sw.States{statePoweredOnDevice},
-			DestinationState: sm.StateActionSkipped,
-			Condition:        nil,
-			Transition:       handler.actionSkipped,
-			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Powercycle Device",
+				Description: "Powercycle Device - only when pollFirmwareInstallStatus() identifies a Device power cycle is required.",
+			},
 		},
 		{
 			TransitionType:   transitionTypePowerOffDevice,
-			SourceStates:     sw.States{stateResetHost, sm.StateActionSkipped},
+			SourceStates:     sw.States{stateResetDevice},
 			DestinationState: statePoweredOffDevice,
 			Condition:        nil,
 			Transition:       handler.powerOffDevice,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Power off Device",
+				Description: "Powercycle Device - only if this is the final firmware (action statemachine) to be installed and the device was powered off earlier.",
+			},
 		},
 		// This transition is executed when the action completes successfully
 		{
@@ -160,6 +261,10 @@ func transitionRules() []sw.TransitionRule {
 			Condition:        nil,
 			Transition:       handler.actionSuccessful,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Success",
+				Description: "Firmware install on component completed successfully.",
+			},
 		},
 
 		// This transition is executed when the transition fails.
@@ -174,13 +279,17 @@ func transitionRules() []sw.TransitionRule {
 				stateInitiatedInstallFirmware,
 				statePolledFirmwareInstallStatus,
 				stateResetBMC,
-				stateResetHost,
+				stateResetDevice,
 				statePoweredOffDevice,
 			},
 			DestinationState: sm.StateActionFailed,
 			Condition:        nil,
 			Transition:       handler.actionFailed,
 			PostTransition:   handler.PersistState,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Failed",
+				Description: "Firmware install on component failed.",
+			},
 		},
 	}
 }

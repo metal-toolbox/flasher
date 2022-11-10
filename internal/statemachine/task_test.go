@@ -1,20 +1,67 @@
 package statemachine
 
+// this package gets its own fixtures to prevent import cycles.
+
 import (
 	"context"
+	"net"
 	"testing"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/fixtures"
+	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/stretchr/testify/assert"
+)
+
+var (
+	firmware = []model.Firmware{
+		{
+			Version:       "2.6.6",
+			URL:           "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",
+			FileName:      "BIOS_C4FT0_WN64_2.6.6.EXE",
+			Model:         "r6515",
+			Checksum:      "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4",
+			ComponentSlug: "bios",
+		},
+		{
+			Version:       "DL6R",
+			URL:           "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			FileName:      "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			Model:         "r6515",
+			Checksum:      "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
+			ComponentSlug: "drive",
+		},
+	}
+
+	device1 = uuid.New()
+	device2 = uuid.New()
+
+	devices = map[string]model.Device{
+		device1.String(): {
+			ID:          device1,
+			Vendor:      "dell",
+			Model:       "r6515",
+			BmcAddress:  net.ParseIP("127.0.0.1"),
+			BmcUsername: "root",
+			BmcPassword: "hunter2",
+		},
+
+		device2.String(): {
+			ID:          device2,
+			Vendor:      "dell",
+			Model:       "r6515",
+			BmcAddress:  net.ParseIP("127.0.0.2"),
+			BmcUsername: "root",
+			BmcPassword: "hunter2",
+		},
+	}
 )
 
 func newTaskFixture(status string) *model.Task {
 	task, _ := model.NewTask("", nil)
 	task.Status = string(status)
-	task.FirmwaresPlanned = fixtures.Firmware
-	task.Parameters.Device = fixtures.Devices[fixtures.Device1.String()]
+	task.FirmwaresPlanned = firmware
+	task.Parameters.Device = devices[device1.String()]
 
 	return &task
 }

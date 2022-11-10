@@ -1,0 +1,98 @@
+{
+  "transition_rules": [
+    {
+      "transition_type": "failed",
+      "source_states": [
+        "queued",
+        "active"
+      ],
+      "destination_state": "failed",
+      "name": "Task failed",
+      "description": "Task execution has failed because of a failed task action or task handler."
+    },
+    {
+      "transition_type": "plan",
+      "source_states": [
+        "active"
+      ],
+      "destination_state": "active",
+      "name": "Plan install actions",
+      "description": "Prepare a plan - Action (sub) state machines for each firmware to be installed. Firmwares applicable is decided based on task parameters and by comparing the versions currently installed."
+    },
+    {
+      "transition_type": "query",
+      "source_states": [
+        "active"
+      ],
+      "destination_state": "active",
+      "name": "Query device inventory",
+      "description": "Query device inventory for component firmware verisons - from the configured inventory source, fall back to querying inventory from the device."
+    },
+    {
+      "transition_type": "run",
+      "source_states": [
+        "active"
+      ],
+      "destination_state": "success",
+      "name": "Run install actions",
+      "description": "Run executes the planned Action (sub) state machines prepared in the Plan stage."
+    },
+    {
+      "transition_type": "success",
+      "source_states": [
+        "active"
+      ],
+      "destination_state": "success",
+      "name": "Task successful",
+      "description": "Task execution completed successfully."
+    }
+  ],
+  "states": {
+    "active": {
+      "name": "Active",
+      "description": "In this state the task has been initialized and begun execution in the statemachine."
+    },
+    "failed": {
+      "name": "Failed",
+      "description": "In this state the task execution has failed."
+    },
+    "initial": {
+      "name": "Initial",
+      "description": "The initial state of the state machine. This is a synthetic state that is not actually part of the state machine. It appears in documentation when transition rules hold a single source state that is an empty string"
+    },
+    "queued": {
+      "name": "Queued",
+      "description": "In this state the task is being initialized (this is done outside of the state machine)."
+    },
+    "requested": {
+      "name": "Requested",
+      "description": "In this state the task has been requested (this is done outside of the state machine)."
+    },
+    "success": {
+      "name": "Success",
+      "description": "In this state the task execution has completed successfully."
+    }
+  },
+  "transition_types": {
+    "failed": {
+      "name": "failed",
+      "description": "In this transition the task has failed and any post failure steps are being executed."
+    },
+    "plan": {
+      "name": "Plan",
+      "description": "In this transition the actions (sub state machines) for the firmware install is being planned for execution."
+    },
+    "query": {
+      "name": "Query",
+      "description": "In this transition the device component firmware information is being queried."
+    },
+    "run": {
+      "name": "Run",
+      "description": "In this transition the actions (sub state machines) for the firmware install are being executed."
+    },
+    "success": {
+      "name": "success",
+      "description": "In this transition the task has completed successfully and any post failure steps are being executed."
+    }
+  }
+}

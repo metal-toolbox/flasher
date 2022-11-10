@@ -474,7 +474,7 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 	return h.pollFirmwareInstallStatus(a, c)
 }
 
-func (h *actionHandler) resetHost(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) resetDevice(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err

@@ -162,10 +162,6 @@ github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZx
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
 github.com/bketelsen/crypt v0.0.4/go.mod h1:aI6NrJ0pMGgvZKL1iVgXLnfIFJtfV+bKCoqOes/6LfM=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104143240-cbd6269cf024 h1:HzeZXQtrjrsE6DSCCuDfFi/fFTA0pJ+TScae/FuPP44=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221104143240-cbd6269cf024/go.mod h1:J8VqwJ83ciXbN4IimBYS/voa6+8GjJhzKFOXK4mLJdw=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221108105727-4475cb70579d h1:xF5SWA9z5yJ0Q6iGZfh6ZHdZclbSXrn9p6EurQugSm4=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221108105727-4475cb70579d/go.mod h1:sioI5nQh92Hl+WCcWeG+PQNBxkBfF+AvV1j1Jjpp2dQ=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221109143958-7a336cbbc3da h1:zB++jmvppoXwCXEDQ2pekNAGyp9TX8ji0n3Q/LMKzlk=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221109143958-7a336cbbc3da/go.mod h1:sioI5nQh92Hl+WCcWeG+PQNBxkBfF+AvV1j1Jjpp2dQ=
 github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80 h1:uWeyfMV1/Ux/UzC7eID6uJAPlOa0X/7PmeRDcLz6AKg=
@@ -707,8 +703,6 @@ github.com/spf13/viper v1.8.1/go.mod h1:o0Pch8wJ9BVSWGQMbra6iw0oQ5oktSIBaujf1rJH
 github.com/spf13/viper v1.9.0/go.mod h1:+i6ajR7OX2XaiBkrcZJFK21htRk7eDeLg7+O6bhUPP4=
 github.com/spf13/viper v1.13.0 h1:BWSJ/M+f+3nmdz9bxB+bWX28kkALN2ok11D0rSo8EJU=
 github.com/spf13/viper v1.13.0/go.mod h1:Icm2xNL3/8uyh/wFuB1jI7TiTNKp8632Nwegu+zgdYw=
-github.com/stmcginnis/gofish v0.13.0 h1:qq6q3yNt9vw7ZuJxiw87hq9+BdPLsuRQBwl+XoZSz60=
-github.com/stmcginnis/gofish v0.13.0/go.mod h1:BLDSFTp8pDlf/xDbLZa+F7f7eW0E/CHCboggsu8CznI=
 github.com/stmcginnis/gofish v0.13.1-0.20221107140645-5cc43fad050f h1:/nAm+3jDIM9pMfSlY2Lr0wCh4WFEhgbACuX9FpYAJ4k=
 github.com/stmcginnis/gofish v0.13.1-0.20221107140645-5cc43fad050f/go.mod h1:BLDSFTp8pDlf/xDbLZa+F7f7eW0E/CHCboggsu8CznI=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
@@ -755,6 +749,8 @@ github.com/zsais/go-gin-prometheus v0.1.0 h1:bkLv1XCdzqVgQ36ScgRi09MA2UC1t3tAB6n
 go.etcd.io/etcd/api/v3 v3.5.0/go.mod h1:cbVKeC6lCfl7j/8jBhAK6aIYO9XOjdptoxU/nLQcPvs=
 go.etcd.io/etcd/client/pkg/v3 v3.5.0/go.mod h1:IJHfcCEKxYu1Os13ZdwCwIUTUVGYTSAM3YSwc9/Ac1g=
 go.etcd.io/etcd/client/v2 v2.305.0/go.mod h1:h9puh54ZTgAKtEbut2oe9P4L/oqKCVB6xsXlzd7alYQ=
+go.hollow.sh/serverservice v0.14.6-0.20221110082358-c207851c31f2 h1:CqOURqFFZ5jfTGYgPvxg4z95jUpmEha7mwA3CPM+jbo=
+go.hollow.sh/serverservice v0.14.6-0.20221110082358-c207851c31f2/go.mod h1:TAvd59KU5PlX1/CVFavCixgVYxo4uMLZ0oXhTU3c5lM=
 go.hollow.sh/toolbox v0.4.1 h1:4ANXNRybTyLd0T/3+ePXp9PAnr+j7HXQDTeiEAaup3k=
 go.hollow.sh/toolbox v0.4.1/go.mod h1:kroiA62wlwnxLixA+aWV9Oc26piRaAYMn+uqHYRRfdc=
 go.opencensus.io v0.15.0/go.mod h1:UffZAU+4sDEINUGP/B7UfBBkq4fqLu9zXAX7ke6CHW0=
