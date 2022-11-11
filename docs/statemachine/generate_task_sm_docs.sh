@@ -38,49 +38,49 @@ function getSourceStateTransitionTypes() {
 	jq --arg state "$1" '[.transition_rules[]
         | select(
             .source_states | index($state)
-        ).transition_type] | sort | unique | .[]' -r "${JSON}"
+        ).transition_type] | unique | .[]' -r "${JSON}"
 }
 
 function getSourceStateTransitionRules() {
 	jq --arg state "$1" '[.transition_rules[]
         | select(
             .source_states | index($state)
-        ).name] | sort | unique | .[]' -r "${JSON}"
+        ).name] | unique | .[]' -r "${JSON}"
 }
 
 function getDestinationStateTransitionTypes() {
 	jq --arg state "$1" '[.transition_rules[]
         | select(
             .destination_state == $state
-        ).transition_type] | sort | unique | .[]' -r "${JSON}"
+        ).transition_type] | unique | .[]' -r "${JSON}"
 }
 
 function getDestinationStateTransitionRules() {
 	jq --arg state "$1" '[.transition_rules[]
         | select(
             .destination_state == $state
-        ).name] | sort | unique | .[]' -r "${JSON}"
+        ).name] | unique | .[]' -r "${JSON}"
 }
 
 function getTransitionTypeSourceStates() {
 	jq --arg transition_type "$1" '[.transition_rules[]
         | select(
             .transition_type == $transition_type
-        ).source_states[]] | sort | unique | .[]' -r "${JSON}"
+        ).source_states[]] | unique | .[]' -r "${JSON}"
 }
 
 function getTransitionTypeDestinationStates() {
 	jq --arg transition_type "$1" '[.transition_rules[]
         | select(
             .transition_type == $transition_type
-        ).destination_state] | sort | unique | .[]' -r "${JSON}"
+        ).destination_state] | unique | .[]' -r "${JSON}"
 }
 
 function getTransitionTypeTransitionRules() {
 	jq --arg transition_type "$1" '[.transition_rules[]
         | select(
             .transition_type == $transition_type
-        ).name] | sort | unique | .[]' -r "${JSON}"
+        ).name] | unique | .[]' -r "${JSON}"
 }
 
 function github_markdown_linkify() {
@@ -165,7 +165,6 @@ for state in $(jq '.states | keys[]' -r "${JSON}"); do
                 $relevant_rules[]
                 | .destination_state
             ] + [$state]
-            | sort
             | unique[]
             | {
                 "name": .,
@@ -187,7 +186,7 @@ for state in $(jq '.states | keys[]' -r "${JSON}"); do
 			--output-type svg \
 			--direction left-right \
 			--engine dot \
-            --dot-graph-attrs "bgcolor=transparent splines=line" \
+			--dot-graph-attrs "bgcolor=transparent splines=line" \
 			--output-to "${MEDIA}"/source_"${state}".svg
 
 	echo "![source_${state}](./$(basename "${MEDIA}")/source_${state}.svg)" >>"${OUT_FILE}"
@@ -217,7 +216,6 @@ for state in $(jq '.states | keys[]' -r "${JSON}"); do
                 $relevant_rules[]
                 | .source_states[]
             ] + [$state]
-            | sort
             | unique[]
             | {
                 "name": .,
@@ -240,7 +238,7 @@ for state in $(jq '.states | keys[]' -r "${JSON}"); do
 			--output-type svg \
 			--direction left-right \
 			--engine dot \
-            --dot-graph-attrs "bgcolor=transparent splines=line" \
+			--dot-graph-attrs "bgcolor=transparent splines=line" \
 			--output-to "${MEDIA}"/destination_"${state}".svg
 	echo "![destination_${state}](./$(basename ${MEDIA})/destination_${state}.svg)" >>"${OUT_FILE}"
 
@@ -298,7 +296,6 @@ for transition_type in $(jq '.transition_types | keys[]' -r "${JSON}"); do
                 $relevant_rules[]
                 | (.source_states + [.destination_state])[]
             ]
-            | sort
             | unique[]
             | {
                 "name": .,
@@ -321,7 +318,7 @@ for transition_type in $(jq '.transition_types | keys[]' -r "${JSON}"); do
 			--output-type svg \
 			--direction left-right \
 			--engine dot \
-            --dot-graph-attrs "bgcolor=transparent splines=line" \
+			--dot-graph-attrs "bgcolor=transparent splines=line" \
 			--output-to "${MEDIA}"/transition_type_"${transition_type}".svg
 	echo "![transition_type_${transition_type}](./$(basename "${MEDIA}")/transition_type_${transition_type}.svg)" >>"${OUT_FILE}"
 

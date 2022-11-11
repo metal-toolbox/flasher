@@ -118,6 +118,11 @@ func (a *ActionStateMachine) DescribeAsJSON() ([]byte, error) {
 	return a.sm.AsJSON()
 }
 
+// Describe returns a JSON output describing the action statemachine.
+func (a *ActionStateMachine) Describe() sw.StateMachineJSON {
+	return a.sm.Export()
+}
+
 func (a *ActionStateMachine) TransitionFailed(ctx context.Context, action *model.Action, hctx *HandlerContext) error {
 	return a.sm.Run(TransitionTypeActionFailed, action, hctx)
 }

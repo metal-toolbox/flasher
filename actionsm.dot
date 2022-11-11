@@ -1,0 +1,101 @@
+digraph G {
+rankdir=LR
+"resetDevice"
+[
+shape=record
+label="{ resetDevice }"
+]
+
+""
+[
+shape=record
+label="{  | {initiatedInstallFirmware\l | This action state indicates the component firmware has been uploaded to the target device for install, and the firmware install on the device has been initiated.\r} }"
+]
+
+"poweredOnDevice"
+[
+shape=record
+label="{ poweredOnDevice }"
+]
+
+"active"
+[
+shape=record
+label="{ active }"
+]
+
+"initiatedInstallFirmware"
+[
+shape=record
+label="{ initiatedInstallFirmware }"
+]
+
+"polledFirmwareInstallStatus"
+[
+shape=record
+label="{ polledFirmwareInstallStatus }"
+]
+
+"resetBMC"
+[
+shape=record
+label="{ resetBMC }"
+]
+
+"checkedCurrentFirmware"
+[
+shape=record
+label="{ checkedCurrentFirmware }"
+]
+
+"downloadedFirmware"
+[
+shape=record
+label="{ downloadedFirmware }"
+]
+
+"queued"
+[
+shape=record
+label="{ queued }"
+]
+
+"failed"
+[
+shape=record
+label="{ failed }"
+]
+
+"poweredOffDevice"
+[
+shape=record
+label="{ poweredOffDevice }"
+]
+
+"success"
+[
+shape=record
+label="{ success }"
+]
+
+"checkedCurrentFirmware" -> "downloadedFirmware" [label=downloadingFirmware]
+"poweredOnDevice" -> "failed" [label=failed]
+"poweredOffDevice" -> "failed" [label=failed]
+"downloadedFirmware" -> "initiatedInstallFirmware" [label=initiatingInstallFirmware]
+"queued" -> "poweredOnDevice" [label=poweringOnDevice]
+"checkedCurrentFirmware" -> "failed" [label=failed]
+"downloadedFirmware" -> "failed" [label=failed]
+"polledFirmwareInstallStatus" -> "failed" [label=failed]
+"resetBMC" -> "failed" [label=failed]
+"resetDevice" -> "failed" [label=failed]
+"initiatedInstallFirmware" -> "polledFirmwareInstallStatus" [label=pollingInstallStatus]
+"poweredOnDevice" -> "checkedCurrentFirmware" [label=checkingInstalledFirmware]
+"active" -> "failed" [label=failed]
+"resetDevice" -> "poweredOffDevice" [label=poweringOffDevice]
+"polledFirmwareInstallStatus" -> "resetBMC" [label=resettingBMC]
+"poweredOffDevice" -> "success" [label=success]
+"queued" -> "failed" [label=failed]
+"initiatedInstallFirmware" -> "failed" [label=failed]
+"resetBMC" -> "resetDevice" [label=resettingHost]
+}
+

@@ -10,7 +10,10 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/nikolaydubina/jsonl-graph/dot"
+	"github.com/nikolaydubina/jsonl-graph/graph"
 	"github.com/spf13/cobra"
+	// "github.com/nikolaydubina/jsonl-graph/graph"
 )
 
 var cmdExport = &cobra.Command{
@@ -75,12 +78,33 @@ func exportOutofbandActionStatemachine(ctx context.Context) {
 		log.Fatal(err)
 	}
 
-	json, err := m.DescribeAsJSON()
-	if err != nil {
-		log.Fatal(err)
+	sm := m.Describe()
+
+	g := graph.NewGraph()
+	for _, tnode := range sm.TransitionRuleNodes {
+
+		//NodeData: NodeData(map[string]interface{}{"id": 123}),
+		g.AddNode(graph.NodeData{tnode.ID: tnode.Description})
 	}
 
-	fmt.Println(string(json))
+	for _, tedge := range sm.TransitionRuleEdges {
+		g.AddEdge(graph.EdgeData{"from": tedge.From, "to": tedge.To, "label": tedge.Name})
+	}
+
+	dotg := dot.NewBasicGraph(g, dot.TB)
+
+	// TODO: add this graph as a subgraph to the task statemachine
+	// Requires:
+	// https://github.com/nikolaydubina/jsonl-graph/pull/16
+	// https://github.com/nikolaydubina/jsonl-graph/issues/17
+
+	fmt.Println(dotg.Render())
+	//g, err := graph.NewGraphFromJSONL(bytes.NewReader(want))
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+
+	//fmt.Println(g.String())
 }
 
 func init() {

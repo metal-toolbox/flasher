@@ -1,0 +1,42 @@
+{
+  "states": [
+    {
+      "name": "checkedCurrentFirmware",
+      "type": "regular"
+    },
+    {
+      "name": "downloadedFirmware",
+      "type": "regular"
+    },
+    {
+      "name": "initiatedInstallFirmware",
+      "type": "regular"
+    },
+    {
+      "name": "failed",
+      "type": "regular"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "checkedCurrentFirmware",
+      "to": "downloadedFirmware",
+      "label": "downloadingFirmware - Download and verify firmware"
+    },
+    {
+      "from": "checkedCurrentFirmware",
+      "to": "failed",
+      "label": "null - Failed"
+    },
+    {
+      "from": "downloadedFirmware",
+      "to": "initiatedInstallFirmware",
+      "label": "downloadingFirmware - Download and verify firmware"
+    },
+    {
+      "from": "initiatedInstallFirmware",
+      "to": "pollFirmwareInstallStatus",
+      "label": "Initiating..."
+    }
+  ]
+}
