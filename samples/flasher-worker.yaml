@@ -1,0 +1,17 @@
+---
+app_kind: worker
+inventory_source: serverservice
+firmware_url_prefix: http://localhost:8001/firmware
+concurrency: 5
+serverservice:
+  facility_code: dc13
+  endpoint: "http://localhost:8000"
+  disable_oauth: true
+  outofband_firmware_ns: "sh.hollow.alloy.outofband.status"
+  # device_state_attribute_ns is the serverservice attribute
+  # which indicates the inventory state for the device
+  device_state_attribute_ns: "com.inventory.api.data"
+   # devices in these device_states will be ignored by flasher.
+  device_states: ["maintenance"]
+  #  device_state_attribute_key is the key name for the node state value in the device_state_attribute_ns->data field
+  device_state_attribute_key: "node_state"
