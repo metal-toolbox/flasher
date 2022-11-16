@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/emicklei/dot"
 	sw "github.com/filanov/stateswitch"
 	"github.com/hashicorp/go-multierror"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -114,13 +115,8 @@ func (a *ActionStateMachine) AddStateTransitionDocumentation(stateDocumentation 
 }
 
 // DescribeAsJSON returns a JSON output describing the action statemachine.
-func (a *ActionStateMachine) DescribeAsJSON() ([]byte, error) {
-	return a.sm.AsJSON()
-}
-
-// Describe returns a JSON output describing the action statemachine.
-func (a *ActionStateMachine) Describe() sw.StateMachineJSON {
-	return a.sm.Export()
+func (a *ActionStateMachine) Describe() *dot.Graph {
+	return a.sm.AsDotGraph()
 }
 
 func (a *ActionStateMachine) TransitionFailed(ctx context.Context, action *model.Action, hctx *HandlerContext) error {

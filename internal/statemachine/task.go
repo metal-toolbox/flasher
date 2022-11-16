@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/emicklei/dot"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -228,6 +229,11 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	})
 
 	return m, nil
+}
+
+// Describe returns a JSON output describing the action statemachine.
+func (m *TaskStateMachine) Describe() *dot.Graph {
+	return m.sm.AsDotGraph()
 }
 
 func (m *TaskStateMachine) addDocumentation() {
