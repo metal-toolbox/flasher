@@ -231,7 +231,7 @@ Prepare a plan - Action (sub) state machines for each firmware to be installed. 
 [Active](#active)
 
 ### Query device inventory
-Query device inventory for component firmware verisons - from the configured inventory source, fall back to querying inventory from the device.
+Query device inventory for component firmware versions - from the configured inventory source, fall back to querying inventory from the device.
 
 #### Source states
 * [Active](#active)

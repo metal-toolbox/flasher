@@ -57,8 +57,7 @@
     {
       "transition_type": "poweringOffDevice",
       "source_states": [
-        "resetDevice",
-        "skipped"
+        "resetDevice"
       ],
       "destination_state": "poweredOffDevice",
       "name": "Power off Device",
