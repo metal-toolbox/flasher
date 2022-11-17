@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/spf13/cobra"
+
+	"github.com/emicklei/dot"
 )
 
 var cmdExport = &cobra.Command{
@@ -24,6 +27,7 @@ var cmdExport = &cobra.Command{
 type exportFlags struct {
 	action bool
 	task   bool
+	json   bool
 }
 
 var (
@@ -38,8 +42,36 @@ var cmdExportStatemachine = &cobra.Command{
 	},
 }
 
-func exportStatemachine(ctx context.Context) {
+func exportAsDot(data []byte) (string, error) {
+	smJSON := &sw.StateMachineJSON{}
 
+	if err := json.Unmarshal(data, smJSON); err != nil {
+		return "", err
+	}
+
+	g := dot.NewGraph(dot.Directed)
+	nodes := map[string]dot.Node{}
+
+	for _, transition := range smJSON.TransitionRules {
+		_, exists := nodes[transition.DestinationState]
+		if !exists {
+			nodes[transition.DestinationState] = g.Node(transition.DestinationState)
+		}
+
+		for _, sourceState := range transition.SourceStates {
+			_, exists := nodes[sourceState]
+			if !exists {
+				nodes[sourceState] = g.Node(sourceState)
+			}
+
+			g.Edge(nodes[sourceState], nodes[transition.DestinationState], transition.Name)
+		}
+	}
+
+	return g.String(), nil
+}
+
+func exportStatemachine(ctx context.Context) {
 	if exportFlagSet.task {
 		exportTaskStatemachine(ctx)
 		os.Exit(0)
@@ -61,12 +93,22 @@ func exportTaskStatemachine(ctx context.Context) {
 		log.Fatal(err)
 	}
 
-	json, err := m.DescribeAsJSON()
+	data, err := m.DescribeAsJSON()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(string(json))
+	if exportFlagSet.json {
+		fmt.Println(string(data))
+		os.Exit(0)
+	}
+
+	val, err := exportAsDot(data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(val)
 }
 
 func exportOutofbandActionStatemachine(ctx context.Context) {
@@ -75,17 +117,28 @@ func exportOutofbandActionStatemachine(ctx context.Context) {
 		log.Fatal(err)
 	}
 
-	json, err := m.DescribeAsJSON()
+	data, err := m.DescribeAsJSON()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(string(json))
+	if exportFlagSet.json {
+		fmt.Println(string(data))
+		os.Exit(0)
+	}
+
+	val, err := exportAsDot(data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(val)
 }
 
 func init() {
-	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.action, "action", "", false, "export action statemachine as JSON")
-	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.task, "task", "", false, "export task statemachine as JSON")
+	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.action, "action", "", false, "export action statemachine in the Graphviz Dot format")
+	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.task, "task", "", false, "export task statemachine in the Graphviz Dot format")
+	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.json, "json", "", false, "export task statemachine in the JSON format")
 
 	cmdExport.AddCommand(cmdExportStatemachine)
 	rootCmd.AddCommand(cmdExport)

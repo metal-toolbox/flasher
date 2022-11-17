@@ -28,6 +28,7 @@ require (
 require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.16 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/emicklei/dot v1.1.0 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20211103172832-aca2edc11f73 // indirect
 	github.com/friendsofgo/errors v0.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
