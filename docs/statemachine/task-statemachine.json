@@ -26,7 +26,7 @@
       ],
       "destination_state": "active",
       "name": "Query device inventory",
-      "description": "Query device inventory for component firmware verisons - from the configured inventory source, fall back to querying inventory from the device."
+      "description": "Query device inventory for component firmware versions - from the configured inventory source, fall back to querying inventory from the device."
     },
     {
       "transition_type": "run",

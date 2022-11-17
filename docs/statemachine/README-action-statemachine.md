@@ -281,7 +281,6 @@ In this action transition the Device will be powered-off if the device was power
 
 #### Source states where this transition type applies
 * [resetDevice](#resetdevice)
-* [null](#null)
 
 #### Destination states where this transition type applies
 * [poweredOffDevice](#poweredoffdevice)
@@ -388,7 +387,6 @@ Powercycle Device - only if this is the final firmware (action statemachine) to 
 
 #### Source states
 * [resetDevice](#resetdevice)
-* [null](#null)
 
 #### Destination state
 [poweredOffDevice](#poweredoffdevice)
