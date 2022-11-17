@@ -5,7 +5,7 @@
 #
 set -euxo pipefail
 
-SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+SCRIPT_DIR="./docs/statemachine"
 
 JSON="${SCRIPT_DIR}"/task-statemachine.json
 OUT_FILE="${SCRIPT_DIR}"/README-task-statemachine.md

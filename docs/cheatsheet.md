@@ -26,14 +26,14 @@ flasher run worker --inventory-source=serverservice \
                    --trace
 ```
 
-# export flasher Task action sub-statemachine JSON representation doc
+# export flasher Task action sub-statemachine [JSON|dot] representation doc
 ```
-flasher export statemachine --action  > ./docs/statemachine/action-statemachine.json
+flasher export statemachine --action [--json]  > ./docs/statemachine/action-statemachine.json
 ```
 
-# export flasher Task statemachine JSON representation doc
+# export flasher Task statemachine [JSON|dot] representation doc
 ```
-flasher export statemachine --task  > ./docs/statemachine/task-statemachine.json
+flasher export statemachine --task [--json] > ./docs/statemachine/task-statemachine.json
 ```
 
 
