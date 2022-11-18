@@ -58,8 +58,8 @@ push-image:
 
 ## generate statemachine graphs and docs
 docs: build-osx
-	./flasher export statemachine --action > ./docs/statemachine/action_sm.svg
-	./flasher export statemachine --task > ./docs/statemachine/task_sm.svg
+	./flasher export statemachine --action | dot -Tsvg  > ./docs/statemachine/action_sm.svg
+	./flasher export statemachine --task | dot -Tsvg  > ./docs/statemachine/task_sm.svg
 	./flasher export statemachine --task --json > ./docs/statemachine/task-statemachine.json
 	./flasher export statemachine --action --json > ./docs/statemachine/action-statemachine.json
 	./docs/statemachine/generate_action_sm_docs.sh
