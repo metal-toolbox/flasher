@@ -7,6 +7,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221109143958-7a336cbbc3da
 	github.com/bmc-toolbox/common v0.0.0-20221017123427-905662490f80
 	github.com/bombsimon/logrusr/v2 v2.0.1
+	github.com/emicklei/dot v1.1.0
 	github.com/filanov/stateswitch v1.0.1-0.20221115122927-775ae5822fad
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
@@ -22,13 +23,12 @@ require (
 	go.hollow.sh/serverservice v0.14.6-0.20221110082358-c207851c31f2
 	go.uber.org/goleak v1.1.11
 	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95
-	golang.org/x/net v0.1.0
+	golang.org/x/net v0.7.0
 )
 
 require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.16 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/emicklei/dot v1.1.0 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20211103172832-aca2edc11f73 // indirect
 	github.com/friendsofgo/errors v0.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -86,8 +86,8 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	gocloud.dev v0.26.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/api v0.92.0 // indirect
