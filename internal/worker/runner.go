@@ -10,5 +10,5 @@ import (
 
 type Runner interface {
 	NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error)
-	NewDeviceQueryor(ctx context.Context, device *model.Device, logger *logrus.Entry) model.DeviceQueryor
+	NewDeviceQueryor(ctx context.Context, asset *model.Asset, logger *logrus.Entry) model.DeviceQueryor
 }

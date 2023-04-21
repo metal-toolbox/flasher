@@ -5,7 +5,10 @@ import (
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
+	"go.hollow.sh/toolbox/events"
+	"go.infratographer.com/x/pubsubx"
+	"go.infratographer.com/x/urnx"
 )
 
 // InstallMethod is one of 'outofband' OR 'inband'
@@ -20,33 +23,22 @@ const (
 	// InstallMethodOutofband indicates the out of band firmware install method.
 	InstallMethodOutofband InstallMethod = "outofband"
 
-	// PlanPredefinedFirmaware is a TaskParameter attribute that indicates the
-	// firmware to be installed was provided at task initialization (through a CLI parameter or inventory device attribute)
-	// and so no further firmware planning is required.
-	PlanRequestedFirmware FirmwarePlanMethod = "predefined"
-
-	// PlanFromFirmwareSet is a TaskParameter attribute that indicates a
-	// firmware set ID was provided at task initialization (through a CLI parameter or inventory device attribute)
+	// FromFirmwareSet is a TaskParameter attribute that declares the
 	// the firmware versions to be installed are to be planned from the given firmware set ID.
-	PlanFromFirmwareSet FirmwarePlanMethod = "fromFirmwareSet"
+	FromFirmwareSet FirmwarePlanMethod = "fromFirmwareSet"
 
-	// PlanFromInstalledFirmware is a TaskParameter attribute that indicates
-	// the firmware versions to be installed have to be planned
-	// based on the firmware currently installed on the device.
-	//PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
+	// FromRequestedFirmware is a TaskParameter attribute that declares the
+	// firmware versions to be installed have been defined as part of the request,
+	// and so no further firmware planning is required.
+	FromRequestedFirmware FirmwarePlanMethod = "fromRequestedFirmware"
 
 	// task states
 	//
-	// states the task transitions through
-	StateRequested sw.State = "requested"
-	StateQueued    sw.State = "queued"
-	StateActive    sw.State = "active"
-	StateSuccess   sw.State = "success"
-	StateFailed    sw.State = "failed"
-)
-
-var (
-	ErrTaskFirmwareParam = errors.New("error in task firmware parameters")
+	// states the task state machine transitions through
+	StatePending   sw.State = sw.State(cptypes.Pending)
+	StateActive    sw.State = sw.State(cptypes.Active)
+	StateSucceeded sw.State = sw.State(cptypes.Succeeded)
+	StateFailed    sw.State = sw.State(cptypes.Failed)
 )
 
 // Action is part of a task, it is resolved from the Firmware configuration
@@ -67,8 +59,8 @@ type Action struct {
 	// Method of install
 	InstallMethod InstallMethod
 
-	// Status indicates the action status
-	Status string
+	// status indicates the action state
+	state cptypes.ConditionState
 
 	// Firmware to be installed, this is set in the Task Plan phase.
 	Firmware Firmware
@@ -93,14 +85,13 @@ type Action struct {
 }
 
 func (a *Action) SetState(state sw.State) error {
-
-	a.Status = string(state)
+	a.state = cptypes.ConditionState(state)
 
 	return nil
 }
 
 func (a *Action) State() sw.State {
-	return sw.State(a.Status)
+	return sw.State(a.state)
 }
 
 // Actions is a list of actions
@@ -121,21 +112,24 @@ func (a Actions) ByID(id string) *Action {
 //
 // A task performs one or more actions, each of the action corresponds to a Firmware planned for install.
 type Task struct {
-	// Task unique identifier
+	// Task unique identifier, this is set to the Condition identifier.
 	ID uuid.UUID
 
-	// Status is the install status
+	// state is the state of the install
+	state cptypes.ConditionState
+
+	// status holds informational data on the state
 	Status string
 
-	// Info is informational data and includes errors in task execution if any.
-	Info string
+	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
+	FirmwarePlanMethod FirmwarePlanMethod
 
-	// ActionsPlanned to be executed for task are generated from the FirmwaresPlanned and install parameters
-	// these are generated in the `queued` stage of the task.
+	// ActionsPlanned to be executed for task are generated from the InstallFirmwares and install parameters
+	// these are generated in the `pending` stage of the task.
 	ActionsPlanned Actions
 
-	// FirmwaresPlanned is the list of firmware planned for install.
-	FirmwaresPlanned Firmwares
+	// InstallFirmwares is the list of firmware planned for install.
+	InstallFirmwares []*Firmware
 
 	// Parameters for this task
 	Parameters TaskParameters
@@ -145,49 +139,40 @@ type Task struct {
 	CompletedAt time.Time
 }
 
+// StreamEvent holds properties of a message recieved on the stream.
+type StreamEvent struct {
+	// Msg is the original message that created this task.
+	// This is here so that the events subsystem can be acked/notified as the task makes progress.
+	Msg events.Message
+
+	// Data is the data parsed from Msg for the task runner.
+	Data *pubsubx.Message
+
+	// Condition defines the kind of work to be performed,
+	// its parsed from the message.
+	Condition *cptypes.Condition
+
+	// Urn is the URN parsed from Msg for the task runner.
+	Urn *urnx.URN
+}
+
 // SetState implements the stateswitch statemachine interface
 func (t *Task) SetState(state sw.State) error {
-	t.Status = string(state)
+	t.state = cptypes.ConditionState(state)
 	return nil
 }
 
 // State implements the stateswitch statemachine interface
 func (t *Task) State() sw.State {
-	return sw.State(t.Status)
-}
-
-// NewTask returns a new Task
-//
-// method, device parameters are required.
-// firmwareSetID, firmware are optional and mutually exclusive.
-func NewTask(firmwareSetID string, firmware []Firmware) (Task, error) {
-	task := Task{ID: uuid.New()}
-
-	if firmwareSetID != "" && len(firmware) > 0 {
-		return task, errors.Wrap(ErrTaskFirmwareParam, "expected a firmware setID OR firmware version(s), got both")
-	}
-
-	if len(firmware) > 0 {
-		task.FirmwaresPlanned = firmware
-		task.Parameters.FirmwarePlanMethod = PlanRequestedFirmware
-
-		return task, nil
-	}
-
-	// firmwareSetID when defined sets the plan to PlanFromFirmwareSet,
-	// in the case where the firmwareSetID AND no firmware versions were defined
-	// the firmwareSetID is looked up in the task handlers.
-	if firmwareSetID != "" || (firmwareSetID == "" && len(firmware) == 0) {
-		task.Parameters.FirmwareSetID = firmwareSetID
-		task.Parameters.FirmwarePlanMethod = PlanFromFirmwareSet
-	}
-
-	return task, nil
+	return sw.State(t.state)
 }
 
 // TaskParameters are the parameters set for each task flasher works
 // these are parameters received from an operator which determines the task execution actions.
 type TaskParameters struct {
+	// Inventory identifier for the asset to install firmware on.
+	AssetID uuid.UUID `json:"assetID"`
+
 	// Reset device BMC before firmware install
 	ResetBMCBeforeInstall bool `json:"resetBMCBeforeInstall,omitempty"`
 
@@ -203,13 +188,9 @@ type TaskParameters struct {
 	// the task CreatedAt attribute is considered.
 	Priority int `json:"priority,omitempty"`
 
-	// The firmware set ID is conditionally set at task initialization based on the FirmwareResolveMethod.
-	FirmwareSetID string `json:"firmwareSetID,omitempty"`
+	// Firmwares is the list of firmwares to be installed.
+	Firmwares []Firmware `json:"firmwares,omitempty"`
 
-	// Flasher determines the firmware to be installed for each component based on the firmware plan method,
-	// The method is set at task initialization
-	FirmwarePlanMethod FirmwarePlanMethod `json:"firmwarePlanMethod,omitempty"`
-
-	// Device attributes
-	Device Device `json:"-"`
+	// FirmwareSetID specifies the firmware set to be applied.
+	FirmwareSetID uuid.UUID `json:"firmwareSetID,omitempty"`
 }

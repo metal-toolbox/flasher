@@ -87,18 +87,13 @@ func sleepWithContext(ctx context.Context, t time.Duration) error {
 }
 
 func (h *actionHandler) conditionPowerOnDevice(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
-	task, err := tctx.Store.TaskByID(tctx.Ctx, action.TaskID)
-	if err != nil {
-		return false, err
-	}
-
 	// init out of band device queryor - if one isn't already initialized
 	// this is done conditionally to enable tests to pass in a device queryor
 	if tctx.DeviceQueryor == nil {
-		tctx.DeviceQueryor = NewDeviceQueryor(tctx.Ctx, &task.Parameters.Device, tctx.Logger)
+		tctx.DeviceQueryor = NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
 	}
 
-	if err = tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
+	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
 		return false, err
 	}
 
@@ -132,7 +127,7 @@ func (h *actionHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) err
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.ComponentSlug,
+			"component": action.Firmware.Component,
 			"version":   action.Firmware.Version,
 		}).Info("device is currently powered off, powering on")
 
@@ -160,9 +155,7 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 	if !action.VerifyCurrentFirmware {
 		tctx.Logger.WithFields(
 			logrus.Fields{
-				"component": action.Firmware.ComponentSlug,
-				"vendor":    action.Firmware.Vendor,
-				"model":     action.Firmware.Model,
+				"component": action.Firmware.Component,
 			}).Debug("Skipped installed version lookup - action.VerifyCurrentFirmware was disabled")
 
 		return nil
@@ -170,11 +163,8 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component":      action.Firmware.ComponentSlug,
-			"vendor":         action.Firmware.Vendor,
-			"model":          action.Firmware.Model,
-			"plannedVersion": action.Firmware.Version,
-		}).Debug("Querying device inventory from BMC for current component firmware - ")
+			"component": action.Firmware.Component,
+		}).Debug("Querying device inventory from BMC for current component firmware")
 
 	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {
@@ -186,7 +176,7 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 		return err
 	}
 
-	component := components.BySlugVendorModel(action.Firmware.ComponentSlug, action.Firmware.Vendor, action.Firmware.Model)
+	component := components.BySlugVendorModel(action.Firmware.Component, action.Firmware.Vendor, action.Firmware.Models)
 	if component == nil {
 		return errors.Wrap(ErrComponentNotFound, "no match based on given slug, vendor, model attributes")
 	}
@@ -199,9 +189,9 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 	if equal {
 		tctx.Logger.WithFields(
 			logrus.Fields{
-				"component":        action.Firmware.ComponentSlug,
+				"component":        action.Firmware.Component,
 				"vendor":           action.Firmware.Vendor,
-				"model":            action.Firmware.Model,
+				"models":           action.Firmware.Models,
 				"plannedVersion":   action.Firmware.Version,
 				"installedVersion": component.FirmwareInstalled,
 				"err":              err.Error(),
@@ -246,7 +236,7 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.ComponentSlug,
+			"component": action.Firmware.Component,
 			"version":   action.Firmware.Version,
 			"url":       action.Firmware.URL,
 			"file":      file,
@@ -266,11 +256,6 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 		return errors.Wrap(ErrFirmwareTempFile, "expected FirmwareTempFile to be declared")
 	}
 
-	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
-	if err != nil {
-		return err
-	}
-
 	// open firmware file handle
 	fileHandle, err := os.Open(action.FirmwareTempFile)
 	if err != nil {
@@ -284,8 +269,8 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 		// initiate firmware install
 		bmcTaskID, err := tctx.DeviceQueryor.FirmwareInstall(
 			tctx.Ctx,
-			action.Firmware.ComponentSlug,
-			task.Parameters.ForceInstall,
+			action.Firmware.Component,
+			tctx.Task.Parameters.ForceInstall,
 			fileHandle,
 		)
 		if err != nil {
@@ -303,7 +288,7 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.ComponentSlug,
+			"component": action.Firmware.Component,
 			"update":    action.Firmware.FileName,
 			"version":   action.Firmware.Version,
 			"bmcTaskID": action.BMCTaskID,
@@ -320,11 +305,6 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 
 	if tctx.Dryrun {
 		return nil
-	}
-
-	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
-	if err != nil {
-		return err
 	}
 
 	delay := &backoff.Backoff{
@@ -347,9 +327,9 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.ComponentSlug,
+			"component": action.Firmware.Component,
 			"version":   action.Firmware.Version,
-			"bmc":       task.Parameters.Device.BmcAddress,
+			"bmc":       tctx.Asset.BmcAddress,
 		}).Info("polling BMC for firmware install status")
 
 	for {
@@ -379,16 +359,16 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 		status, err := tctx.DeviceQueryor.FirmwareInstallStatus(
 			tctx.Ctx,
 			action.Firmware.Version,
-			action.Firmware.ComponentSlug,
+			action.Firmware.Component,
 			action.BMCTaskID,
 		)
 
 		tctx.Logger.WithFields(
 			logrus.Fields{
-				"component": action.Firmware.ComponentSlug,
+				"component": action.Firmware.Component,
 				"update":    action.Firmware.FileName,
 				"version":   action.Firmware.Version,
-				"bmc":       task.Parameters.Device.BmcAddress,
+				"bmc":       tctx.Asset.BmcAddress,
 				"elapsed":   time.Since(startTS).String(),
 				"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxAttempts),
 				"taskState": status,
@@ -450,15 +430,10 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 		return nil
 	}
 
-	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
-	if err != nil {
-		return err
-	}
-
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.ComponentSlug,
-			"bmc":       task.Parameters.Device.BmcAddress,
+			"component": action.Firmware.Component,
+			"bmc":       tctx.Asset.BmcAddress,
 		}).Info("resetting BMC for firmware install")
 
 	if !tctx.Dryrun {
@@ -484,15 +459,10 @@ func (h *actionHandler) resetDevice(a sw.StateSwitch, c sw.TransitionArgs) error
 		return nil
 	}
 
-	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
-	if err != nil {
-		return err
-	}
-
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.ComponentSlug,
-			"bmc":       task.Parameters.Device.BmcAddress,
+			"component": action.Firmware.Component,
+			"bmc":       tctx.Asset.BmcAddress,
 		}).Info("resetting host for firmware install")
 
 	if !tctx.Dryrun {
@@ -542,16 +512,11 @@ func (h *actionHandler) powerOffDevice(a sw.StateSwitch, c sw.TransitionArgs) er
 		return nil
 	}
 
-	task, err := tctx.Store.TaskByID(tctx.Ctx, tctx.TaskID)
-	if err != nil {
-		return err
-	}
-
 	if !tctx.Dryrun {
 		tctx.Logger.WithFields(
 			logrus.Fields{
-				"component": action.Firmware.ComponentSlug,
-				"bmc":       task.Parameters.Device.BmcAddress,
+				"component": action.Firmware.Component,
+				"bmc":       tctx.Asset.BmcAddress,
 			}).Debug("powering off device")
 
 		if err := tctx.DeviceQueryor.SetPowerState(tctx.Ctx, "off"); err != nil {
@@ -562,20 +527,13 @@ func (h *actionHandler) powerOffDevice(a sw.StateSwitch, c sw.TransitionArgs) er
 	return nil
 }
 
-func (h *actionHandler) PersistState(a sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *actionHandler) PublishStatus(a sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
 	}
 
-	action, ok := a.(*model.Action)
-	if !ok {
-		return errors.Wrap(ErrSaveAction, ErrActionTypeAssertion.Error())
-	}
-
-	if err := tctx.Store.UpdateTaskAction(tctx.Ctx, tctx.TaskID, *action); err != nil {
-		return errors.Wrap(ErrSaveAction, err.Error())
-	}
+	tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
 
 	return nil
 }

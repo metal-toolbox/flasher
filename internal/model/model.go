@@ -4,36 +4,40 @@ import (
 	"context"
 	"net"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/bmc-toolbox/common"
 	"github.com/google/uuid"
 )
 
-type AppKind string
+type (
+	AppKind   string
+	StoreKind string
+	// LogLevel is the logging level string.
+	LogLevel string
+)
 
 const (
+	AppName               = "flasher"
 	AppKindWorker AppKind = "worker"
-	AppKindClient AppKind = "client"
 
-	InventorySourceYaml          = "yaml"
-	InventorySourceServerservice = "serverservice"
+	InventoryStoreYAML          StoreKind = "yaml"
+	InventoryStoreServerservice StoreKind = "serverservice"
 
-	LogLevelInfo  = 0
-	LogLevelDebug = 1
-	LogLevelTrace = 2
+	LogLevelInfo  LogLevel = "info"
+	LogLevelDebug LogLevel = "debug"
+	LogLevelTrace LogLevel = "trace"
 )
 
 // AppKinds returns the supported flasher app kinds
-func AppKinds() []AppKind { return []AppKind{AppKindWorker, AppKindClient} }
+func AppKinds() []AppKind { return []AppKind{AppKindWorker} }
 
-// InventorySourceKinds returns the supported asset inventory, firmware configuration sources
-func InventorySourceKinds() []string {
-	return []string{InventorySourceYaml, InventorySourceServerservice}
+// StoreKinds returns the supported asset inventory, firmware configuration sources
+func StoreKinds() []StoreKind {
+	return []StoreKind{InventoryStoreYAML, InventoryStoreServerservice}
 }
 
-type Device struct {
+type Asset struct {
 	ID uuid.UUID
 
 	// Device BMC attributes
@@ -55,26 +59,14 @@ type Device struct {
 
 // Firmware includes a firmware version attributes and is part of FirmwareConfig
 type Firmware struct {
-	Version       string `yaml:"version"`
-	URL           string `yaml:"URL"`
-	FileName      string `yaml:"filename"`
-	Utility       string `yaml:"utility"`
-	Model         string `yaml:"model"`
-	Vendor        string `yaml:"vendor"`
-	ComponentSlug string `yaml:"componentslug"`
-	Checksum      string `yaml:"checksum"`
-}
-
-// Firmwares is a list of firmwares with a SortByInstallOrder method.
-type Firmwares []Firmware
-
-// SortByInstallOrder sorts the firmwares planned in the order they should be installed
-func (p Firmwares) SortByInstallOrder() {
-	sort.Slice(p, func(i, j int) bool {
-		slugi := strings.ToLower(p[i].ComponentSlug)
-		slugj := strings.ToLower(p[j].ComponentSlug)
-		return FirmwareInstallOrder[slugi] < FirmwareInstallOrder[slugj]
-	})
+	ID        string   `yaml:"id"`
+	Vendor    string   `yaml:"vendor"`
+	Models    []string `yaml:"models"`
+	FileName  string   `yaml:"filename"`
+	Version   string   `yaml:"version"`
+	URL       string   `yaml:"URL"`
+	Component string   `yaml:"component"`
+	Checksum  string   `yaml:"checksum"`
 }
 
 var (

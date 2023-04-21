@@ -176,6 +176,6 @@ func (h *mockTaskHandler) TaskSuccessful(task sw.StateSwitch, args sw.Transition
 	return nil
 }
 
-func (h *mockTaskHandler) PersistState(t sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *mockTaskHandler) PublishStatus(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
 }

@@ -9,39 +9,58 @@ import (
 
 	runtime "github.com/banzaicloud/logrus-runtime-formatter"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+)
+
+var (
+	ErrAppInit = errors.New("error initializing app")
 )
 
 // Config holds configuration data when running mctl
 // App holds attributes for the mtl application
 type App struct {
+	// Viper loads configuration parameters.
+	v *viper.Viper
+
 	// Sync waitgroup to wait for running go routines on termination.
 	SyncWG *sync.WaitGroup
 	// Flasher configuration.
-	Config *model.Config
+	Config *Configuration
 	// TermCh is the channel to terminate the app based on a signal
 	TermCh chan os.Signal
 	// Logger is the app logger
 	Logger *logrus.Logger
+	// Kind is the type of application - worker
+	Kind model.AppKind
 }
 
 // New returns returns a new instance of the flasher app
-func New(ctx context.Context, appKind model.AppKind, inventorySourceKind, cfgFile string, loglevel int) (*App, error) {
-	// load configuration
-	cfg := &model.Config{
-		AppKind:         appKind,
-		InventorySource: inventorySourceKind,
-	}
-
-	if err := cfg.Load(cfgFile); err != nil {
-		return nil, err
+func New(ctx context.Context, appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string) (*App, error) {
+	if appKind != model.AppKindWorker {
+		return nil, errors.Wrap(ErrAppInit, "invalid app kind: "+string(appKind))
 	}
 
 	app := &App{
-		Config: cfg,
+		v:      viper.New(),
+		Kind:   appKind,
 		SyncWG: &sync.WaitGroup{},
 		Logger: logrus.New(),
 		TermCh: make(chan os.Signal),
+	}
+
+	if err := app.LoadConfiguration(cfgFile, storeKind); err != nil {
+		return nil, err
+	}
+
+	switch model.LogLevel(loglevel) {
+	case model.LogLevelDebug:
+		app.Logger.Level = logrus.DebugLevel
+	case model.LogLevelTrace:
+		app.Logger.Level = logrus.TraceLevel
+	default:
+		app.Logger.Level = logrus.InfoLevel
 	}
 
 	runtimeFormatter := &runtime.Formatter{
@@ -49,27 +68,6 @@ func New(ctx context.Context, appKind model.AppKind, inventorySourceKind, cfgFil
 		File:           true,
 		Line:           true,
 		BaseNameOnly:   true,
-	}
-
-	// set log level, format
-	switch loglevel {
-	case model.LogLevelDebug:
-		app.Logger.Level = logrus.DebugLevel
-
-		// set runtime formatter options
-		runtimeFormatter.BaseNameOnly = true
-		runtimeFormatter.File = true
-		runtimeFormatter.Line = true
-
-	case model.LogLevelTrace:
-		app.Logger.Level = logrus.TraceLevel
-
-		// set runtime formatter options
-		runtimeFormatter.File = true
-		runtimeFormatter.Line = true
-		runtimeFormatter.Package = true
-	default:
-		app.Logger.Level = logrus.InfoLevel
 	}
 
 	app.Logger.SetFormatter(runtimeFormatter)

@@ -19,15 +19,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/spf13/cobra"
 )
 
 var (
-	logLevel int
-	trace    bool
-	debug    bool
-	cfgFile  string
+	logLevel string
+	// storeKind is inventory store name - serverservice
+	storeKind string
+	cfgFile   string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -46,16 +45,10 @@ func Execute() {
 }
 
 func init() {
-	switch {
-	case debug:
-		logLevel = model.LogLevelDebug
-	case trace:
-		logLevel = model.LogLevelTrace
-	default:
-		logLevel = model.LogLevelInfo
-	}
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "configuration file")
+	rootCmd.PersistentFlags().StringVar(&storeKind, "store", "mock", "The inventory store kind (serverservice, csv)")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "set logging level - debug, trace")
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flasher.yml)")
-	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug level logging")
-	rootCmd.PersistentFlags().BoolVar(&trace, "trace", false, "enable trace level logging")
 }

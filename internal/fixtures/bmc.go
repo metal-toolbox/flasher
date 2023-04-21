@@ -23,7 +23,7 @@ type mockBMC struct {
 }
 
 // NewDeviceQueryor returns a mockBMC queryor that implements the DeviceQueryor interface
-func NewDeviceQueryor(ctx context.Context, device *model.Device, logger *logrus.Entry) model.DeviceQueryor {
+func NewDeviceQueryor(ctx context.Context, asset *model.Asset, logger *logrus.Entry) model.DeviceQueryor {
 	return &mockBMC{
 		hostPowerState: "on",
 		logger:         logger,

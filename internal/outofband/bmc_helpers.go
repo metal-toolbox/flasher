@@ -47,7 +47,7 @@ func newHttpClient() *http.Client {
 }
 
 // newBmclibv2Client initializes a bmclibv2 client with the given credentials
-func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Entry) *bmclibv2.Client {
+func newBmclibv2Client(ctx context.Context, asset *model.Asset, l *logrus.Entry) *bmclibv2.Client {
 	logger := logrus.New()
 	logger.Formatter = l.Logger.Formatter
 
@@ -66,10 +66,10 @@ func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Entr
 	logruslogr := logrusrv2.New(logger)
 
 	bmcClient := bmclibv2.NewClient(
-		device.BmcAddress.String(),
+		asset.BmcAddress.String(),
 		"", // port unset
-		device.BmcUsername,
-		device.BmcPassword,
+		asset.BmcUsername,
+		asset.BmcPassword,
 		bmclibv2.WithLogger(logruslogr),
 		bmclibv2.WithHTTPClient(newHttpClient()),
 	)
@@ -78,7 +78,7 @@ func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Entr
 	//
 	// The bmclib drivers here are limited to the HTTPS means of connection,
 	// that is, drivers like ipmi are excluded.
-	switch device.Vendor {
+	switch asset.Vendor {
 	case common.VendorDell, common.VendorHPE:
 		// Set to the bmclib ProviderProtocol value
 		// https://github.com/bmc-toolbox/bmclib/blob/v2/providers/redfish/redfish.go#L26

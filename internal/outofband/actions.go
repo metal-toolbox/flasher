@@ -149,7 +149,7 @@ func transitionRules() []sw.TransitionRule {
 	return []sw.TransitionRule{
 		{
 			TransitionType:   transitionTypePowerOnDevice,
-			SourceStates:     sw.States{model.StateQueued},
+			SourceStates:     sw.States{model.StatePending},
 			DestinationState: statePoweredOnDevice,
 
 			// Condition for the transition, transition will be executed only if this function return true
@@ -163,7 +163,7 @@ func transitionRules() []sw.TransitionRule {
 			Transition: handler.powerOnDevice,
 
 			// PostTransition will be called if condition and transition are successful.
-			PostTransition: handler.PersistState,
+			PostTransition: handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Power on device",
 				Description: "Power on device - if its currently powered off.",
@@ -175,7 +175,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateCheckedCurrentFirmware,
 			Condition:        nil,
 			Transition:       handler.checkCurrentFirmware,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Check installed firmware",
 				Description: "Check firmware installed on component - if its equal - returns error, unless Task.Parameters.Force=true.",
@@ -187,7 +187,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateDownloadedFirmware,
 			Condition:        nil,
 			Transition:       handler.downloadFirmware,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Download and verify firmware",
 				Description: "Download and verify firmware file checksum.",
@@ -199,7 +199,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateInitiatedInstallFirmware,
 			Condition:        nil,
 			Transition:       handler.initiateInstallFirmware,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Initiate firmware install",
 				Description: "Initiate firmware install for component.",
@@ -211,7 +211,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: statePolledFirmwareInstallStatus,
 			Condition:        nil,
 			Transition:       handler.pollFirmwareInstallStatus,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Poll firmware install status",
 				Description: "Poll BMC with exponential backoff for firmware install status until firmware install status is in a finalized state (completed/powercyclehost/powercyclebmc/failed).",
@@ -223,7 +223,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateResetBMC,
 			Condition:        nil,
 			Transition:       handler.resetBMC,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Powercycle BMC",
 				Description: "Powercycle BMC - only when pollFirmwareInstallStatus() identifies a BMC reset is required.",
@@ -235,7 +235,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: stateResetDevice,
 			Condition:        nil,
 			Transition:       handler.resetDevice,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Powercycle Device",
 				Description: "Powercycle Device - only when pollFirmwareInstallStatus() identifies a Device power cycle is required.",
@@ -247,7 +247,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: statePoweredOffDevice,
 			Condition:        nil,
 			Transition:       handler.powerOffDevice,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Power off Device",
 				Description: "Powercycle Device - only if this is the final firmware (action statemachine) to be installed and the device was powered off earlier.",
@@ -260,7 +260,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: sm.StateActionSuccessful,
 			Condition:        nil,
 			Transition:       handler.actionSuccessful,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Success",
 				Description: "Firmware install on component completed successfully.",
@@ -271,7 +271,7 @@ func transitionRules() []sw.TransitionRule {
 		{
 			TransitionType: sm.TransitionTypeActionFailed,
 			SourceStates: sw.States{
-				model.StateQueued,
+				model.StatePending,
 				model.StateActive,
 				statePoweredOnDevice,
 				stateCheckedCurrentFirmware,
@@ -285,7 +285,7 @@ func transitionRules() []sw.TransitionRule {
 			DestinationState: sm.StateActionFailed,
 			Condition:        nil,
 			Transition:       handler.actionFailed,
-			PostTransition:   handler.PersistState,
+			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Failed",
 				Description: "Firmware install on component failed.",

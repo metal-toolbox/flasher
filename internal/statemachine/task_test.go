@@ -14,31 +14,31 @@ import (
 )
 
 var (
-	firmware = []model.Firmware{
+	firmwares = []*model.Firmware{
 		{
-			Version:       "2.6.6",
-			URL:           "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",
-			FileName:      "BIOS_C4FT0_WN64_2.6.6.EXE",
-			Model:         "r6515",
-			Checksum:      "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4",
-			ComponentSlug: "bios",
+			Version:   "2.6.6",
+			URL:       "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",
+			FileName:  "BIOS_C4FT0_WN64_2.6.6.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4",
+			Component: "bios",
 		},
 		{
-			Version:       "DL6R",
-			URL:           "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
-			FileName:      "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
-			Model:         "r6515",
-			Checksum:      "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
-			ComponentSlug: "drive",
+			Version:   "DL6R",
+			URL:       "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			FileName:  "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
+			Component: "drive",
 		},
 	}
 
-	device1 = uuid.New()
-	device2 = uuid.New()
+	asset1 = uuid.New()
+	asset2 = uuid.New()
 
-	devices = map[string]model.Device{
-		device1.String(): {
-			ID:          device1,
+	assets = map[string]model.Asset{
+		asset1.String(): {
+			ID:          asset1,
 			Vendor:      "dell",
 			Model:       "r6515",
 			BmcAddress:  net.ParseIP("127.0.0.1"),
@@ -46,8 +46,8 @@ var (
 			BmcPassword: "hunter2",
 		},
 
-		device2.String(): {
-			ID:          device2,
+		asset2.String(): {
+			ID:          asset2,
 			Vendor:      "dell",
 			Model:       "r6515",
 			BmcAddress:  net.ParseIP("127.0.0.2"),
@@ -57,18 +57,18 @@ var (
 	}
 )
 
-func newTaskFixture(status string) *model.Task {
-	task, _ := model.NewTask("", nil)
-	task.Status = string(status)
-	task.FirmwaresPlanned = firmware
-	task.Parameters.Device = devices[device1.String()]
+func newTaskFixture(state string) *model.Task {
+	task := &model.Task{}
+	task.SetState(sw.State(state))
+	task.InstallFirmwares = firmwares
+	task.Parameters.AssetID = asset1
 
-	return &task
+	return task
 }
 
 func Test_NewTaskStateMachine(t *testing.T) {
-	task, _ := model.NewTask("", nil)
-	task.Status = string(model.StateQueued)
+	task := &model.Task{}
+	task.Status = string(model.StatePending)
 
 	tests := []struct {
 		name string
@@ -76,7 +76,7 @@ func Test_NewTaskStateMachine(t *testing.T) {
 	}{
 		{
 			"new task statemachine is created",
-			newTaskFixture(string(model.StateQueued)),
+			newTaskFixture(string(model.StatePending)),
 		},
 	}
 
@@ -86,7 +86,7 @@ func Test_NewTaskStateMachine(t *testing.T) {
 
 			// transition handler implements the taskTransitioner methods to complete tasks
 			handler := &mockTaskHandler{}
-			m, err := NewTaskStateMachine(ctx, tc.task, handler)
+			m, err := NewTaskStateMachine(ctx, handler)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -106,9 +106,9 @@ func Test_Transitions(t *testing.T) {
 		expectNoTransitionRuleError string
 	}{
 		{
-			"Queued to Active",
-			newTaskFixture(string(model.StateQueued)),
-			[]sw.TransitionType{TransitionTypePlan},
+			"Pending to Active",
+			newTaskFixture(string(model.StatePending)),
+			[]sw.TransitionType{TransitionTypeActive},
 			string(model.StateActive),
 			false,
 			"",
@@ -117,15 +117,15 @@ func Test_Transitions(t *testing.T) {
 			"Active to Success",
 			newTaskFixture(string(model.StateActive)),
 			[]sw.TransitionType{TransitionTypeRun},
-			string(model.StateSuccess),
+			string(model.StateSucceeded),
 			false,
 			"",
 		},
 		{
 			"Queued to Success - run all transitions",
-			newTaskFixture(string(model.StateQueued)),
+			newTaskFixture(string(model.StatePending)),
 			[]sw.TransitionType{}, // with this not defined, the statemachine defaults to the configured transitions.
-			string(model.StateSuccess),
+			string(model.StateSucceeded),
 			false,
 			"",
 		},
@@ -139,7 +139,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Active to Failed",
-			newTaskFixture(string(model.StateQueued)),
+			newTaskFixture(string(model.StatePending)),
 			[]sw.TransitionType{TransitionTypeTaskFail},
 			string(model.StateFailed),
 			true,
@@ -147,7 +147,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Success to Active fails - invalid transition",
-			newTaskFixture(string(model.StateQueued)),
+			newTaskFixture(string(model.StatePending)),
 			[]sw.TransitionType{TransitionTypeTaskSuccess},
 			string(model.StateFailed),
 			true,
@@ -159,11 +159,11 @@ func Test_Transitions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 			// init task handler context
-			tctx := &HandlerContext{TaskID: tc.task.ID.String()}
+			tctx := &HandlerContext{Task: tc.task}
 			handler := &mockTaskHandler{}
 
 			// init new state machine
-			m, err := NewTaskStateMachine(ctx, tc.task, handler)
+			m, err := NewTaskStateMachine(ctx, handler)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -182,10 +182,10 @@ func Test_Transitions(t *testing.T) {
 			}
 
 			if tc.expectNoTransitionRuleError != "" {
-				assert.Equal(t, tc.task.Info, "no transition rule found for transition type 'plan' and state 'success': error in task transition")
+				assert.Equal(t, tc.task.Status, "no transition rule found for transition type 'plan' and state 'success': error in task transition")
 			}
 
-			assert.Equal(t, tc.expectedState, tc.task.Status)
+			assert.Equal(t, tc.expectedState, string(tc.task.State()))
 
 		})
 	}
@@ -193,6 +193,10 @@ func Test_Transitions(t *testing.T) {
 
 // mockTaskHandler implements the TaskTransitioner interface
 type mockTaskHandler struct{}
+
+func (h *mockTaskHandler) Init(t sw.StateSwitch, args sw.TransitionArgs) error {
+	return nil
+}
 
 func (h *mockTaskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
@@ -203,7 +207,7 @@ func (h *mockTaskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 }
 
 // planFromFirmwareSet
-func (h *mockTaskHandler) planFromFirmwareSet(tctx *HandlerContext, task *model.Task, device model.Device) error {
+func (h *mockTaskHandler) planFromFirmwareSet(tctx *HandlerContext, task *model.Task, asset model.Asset) error {
 	return nil
 }
 
@@ -223,6 +227,6 @@ func (h *mockTaskHandler) TaskSuccessful(task sw.StateSwitch, args sw.Transition
 	return nil
 }
 
-func (h *mockTaskHandler) PersistState(t sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *mockTaskHandler) PublishStatus(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
 }

@@ -3,10 +3,8 @@ package statemachine
 import (
 	"context"
 	"fmt"
-	"time"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/pkg/errors"
@@ -14,10 +12,10 @@ import (
 )
 
 const (
-	// TransitionTypeQuery is the the transition
-	TransitionTypeQuery sw.TransitionType = "query"
-	TransitionTypePlan  sw.TransitionType = "plan"
-	TransitionTypeRun   sw.TransitionType = "run"
+	TransitionTypeActive sw.TransitionType = "active"
+	TransitionTypeQuery  sw.TransitionType = "query"
+	TransitionTypePlan   sw.TransitionType = "plan"
+	TransitionTypeRun    sw.TransitionType = "run"
 
 	// TransitionTypeTaskSuccess is transition type for successful tasks
 	TransitionTypeTaskSuccess sw.TransitionType = "success"
@@ -32,25 +30,8 @@ var (
 	ErrTaskTransition            = errors.New("error in task transition")
 )
 
-// TaskEvents are events sent by tasks and actions, they include information
-// on the task, action being executed
-type TaskEvent struct {
-	TaskID string
-	Info   string
-}
-
-// SendEvent sends the TaskEvent on the channel with a timeout.
-func SendEvent(ctx context.Context, ch chan<- TaskEvent, e TaskEvent) {
-	if ch == nil {
-		return
-	}
-
-	select {
-	case ch <- e:
-	case <-time.After(1 * time.Second):
-		logrus.New().Debug("dropped event with info: " + e.Info)
-		return
-	}
+type Publisher interface {
+	Publish(ctx context.Context, task *model.Task)
 }
 
 // HandlerContext holds references to objects it requires to complete task and action transitions.
@@ -60,7 +41,12 @@ type HandlerContext struct {
 	// ctx is the parent cancellation context
 	Ctx context.Context
 
-	// err is set when a transition fails to complete its transittions in run()
+	// Task is the task being executed.
+	Task *model.Task
+
+	Publisher Publisher
+
+	// err is set when a transition fails to complete its transitions in run()
 	// the err value is then passed into the task information
 	// as the state machine transitions into a failed state.
 	Err error
@@ -68,24 +54,14 @@ type HandlerContext struct {
 	// DeviceQueryor is the interface to query target device under firmware install.
 	DeviceQueryor model.DeviceQueryor
 
-	// Store is the task storage
-	//
-	// TODO(joel): move Inv, Store into the Task, Action handler context
-	// so this package does not depend on those package.
-	Store store.Storage
-
-	// Inv is the device inventory backend.
-	Inv inventory.Inventory
+	// Store is the asset inventory store.
+	Store store.Repository
 
 	// Data is an arbitrary key values map available to all task, action handler methods.
 	Data map[string]string
 
-	// Device holds attributes about the device under firmware install.
-	Device *model.Device
-
-	// TaskEventCh is where a Task or an Action may emit an event
-	// which includes information on the status information of a task.
-	TaskEventCh chan TaskEvent
+	// Asset holds attributes about the device under firmware install.
+	Asset *model.Asset
 
 	// Logger is the task, action handler logger.
 	Logger *logrus.Entry
@@ -93,16 +69,8 @@ type HandlerContext struct {
 	// WorkerID is the identifier for the worker executing this task.
 	WorkerID string
 
-	// TaskID is the identifier for this task.
-	TaskID string
-
-	// This value is prefixed to the path generated to download the firmware to install.
-	//
-	// TODO(joel): remove this once the firmware data contains the full URL to the firmware
-	FirmwareURLPrefix string
-
 	// ActionStateMachines are sub-statemachines of this Task
-	// each firmware applicable has a Action statmachine that is
+	// each firmware applicable has a Action statemachine that is
 	// executed as part of this task.
 	ActionStateMachines ActionStateMachines
 
@@ -116,6 +84,9 @@ type HandlerContext struct {
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.
 type TaskTransitioner interface {
+	// Init transitions a pending task to the active state.
+	Init(task sw.StateSwitch, args sw.TransitionArgs) error
+
 	// Query queries information for planning task actions.
 	Query(task sw.StateSwitch, args sw.TransitionArgs) error
 
@@ -128,8 +99,8 @@ type TaskTransitioner interface {
 	// Run executes the task actions.
 	Run(task sw.StateSwitch, args sw.TransitionArgs) error
 
-	// PersistState persists the task status
-	PersistState(task sw.StateSwitch, args sw.TransitionArgs) error
+	// PublishStatus persists the task status
+	PublishStatus(task sw.StateSwitch, args sw.TransitionArgs) error
 
 	// TaskFailed is called when the task fails.
 	TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error
@@ -146,9 +117,10 @@ type TaskStateMachine struct {
 }
 
 // NewTaskStateMachine declares, initializes and returns a TaskStateMachine object to execute flasher tasks.
-func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTransitioner) (*TaskStateMachine, error) {
+func NewTaskStateMachine(ctx context.Context, handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
 	transitionOrder := []sw.TransitionType{
+		TransitionTypeActive,
 		TransitionTypeQuery,
 		TransitionTypePlan,
 		TransitionTypeRun,
@@ -159,6 +131,19 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	// The SM has transition rules define the transitionHandler methods
 	// each transitionHandler method is passed as values to the transition rule.
+
+	m.sm.AddTransition(sw.TransitionRule{
+		TransitionType:   TransitionTypeActive,
+		SourceStates:     sw.States{model.StatePending},
+		DestinationState: model.StateActive,
+		Condition:        nil,
+		Transition:       handler.Init,
+		PostTransition:   handler.PublishStatus,
+		Documentation: sw.TransitionRuleDoc{
+			Name:        "Initialize task",
+			Description: "Performs any task initialization, and transitions the state from pending to active.",
+		},
+	})
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeQuery,
@@ -174,7 +159,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		Transition: handler.Query,
 
 		// PostTransition will be called if condition and transition are successful.
-		PostTransition: handler.PersistState,
+		PostTransition: handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Query device inventory",
 			Description: "Query device inventory for component firmware versions - from the configured inventory source, fall back to querying inventory from the device.",
@@ -187,7 +172,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 		DestinationState: model.StateActive,
 		Condition:        nil,
 		Transition:       handler.Plan,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Plan install actions",
 			Description: "Prepare a plan - Action (sub) state machines for each firmware to be installed. Firmwares applicable is decided based on task parameters and by comparing the versions currently installed.",
@@ -197,10 +182,10 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeRun,
 		SourceStates:     sw.States{model.StateActive},
-		DestinationState: model.StateSuccess,
+		DestinationState: model.StateSucceeded,
 		Condition:        handler.ValidatePlan,
 		Transition:       handler.Run,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Run install actions",
 			Description: "Run executes the planned Action (sub) state machines prepared in the Plan stage.",
@@ -209,11 +194,11 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeTaskFail,
-		SourceStates:     sw.States{model.StateQueued, model.StateActive},
+		SourceStates:     sw.States{model.StatePending, model.StateActive},
 		DestinationState: model.StateFailed,
 		Condition:        nil,
 		Transition:       handler.TaskFailed,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Task failed",
 			Description: "Task execution has failed because of a failed task action or task handler.",
@@ -223,10 +208,10 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeTaskSuccess,
 		SourceStates:     sw.States{model.StateActive},
-		DestinationState: model.StateSuccess,
+		DestinationState: model.StateSucceeded,
 		Condition:        nil,
 		Transition:       handler.TaskSuccessful,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Task successful",
 			Description: "Task execution completed successfully.",
@@ -237,12 +222,12 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 }
 
 func (m *TaskStateMachine) addDocumentation() {
-	m.sm.DescribeState(model.StateRequested, sw.StateDoc{
+	m.sm.DescribeState(model.StatePending, sw.StateDoc{
 		Name:        "Requested",
 		Description: "In this state the task has been requested (this is done outside of the state machine).",
 	})
 
-	m.sm.DescribeState(model.StateQueued, sw.StateDoc{
+	m.sm.DescribeState(model.StatePending, sw.StateDoc{
 		Name:        "Queued",
 		Description: "In this state the task is being initialized (this is done outside of the state machine).",
 	})
@@ -257,7 +242,7 @@ func (m *TaskStateMachine) addDocumentation() {
 		Description: "In this state the task execution has failed.",
 	})
 
-	m.sm.DescribeState(model.StateSuccess, sw.StateDoc{
+	m.sm.DescribeState(model.StateSucceeded, sw.StateDoc{
 		Name:        "Success",
 		Description: "In this state the task execution has completed successfully.",
 	})
@@ -327,7 +312,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 			}
 
 			// include error in task
-			task.Info = err.Error()
+			task.Status = err.Error()
 
 			// run transition failed handler
 			if txErr := m.TransitionFailed(ctx, task, tctx); txErr != nil {

@@ -45,9 +45,9 @@ type bmc struct {
 }
 
 // NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
-func NewDeviceQueryor(ctx context.Context, device *model.Device, logger *logrus.Entry) model.DeviceQueryor {
+func NewDeviceQueryor(ctx context.Context, asset *model.Asset, logger *logrus.Entry) model.DeviceQueryor {
 	return &bmc{
-		client: newBmclibv2Client(ctx, device, logger),
+		client: newBmclibv2Client(ctx, asset, logger),
 		logger: logger,
 	}
 }
@@ -74,8 +74,6 @@ func (b *bmc) Open(ctx context.Context) error {
 	if err := b.loginWithRetries(ctx, loginAttempts); err != nil {
 		return err
 	}
-
-
 
 	return nil
 }

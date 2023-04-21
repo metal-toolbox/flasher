@@ -1,45 +1,68 @@
 package worker
 
 import (
-	"context"
-	"sync"
 	"testing"
 
-	"github.com/metal-toolbox/flasher/internal/fixtures"
-	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
-	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/stretchr/testify/assert"
 )
 
-func initTestWorker() *Worker {
-	inv, _ := inventory.NewMockInventory()
-	return &Worker{
-		concurrency:  1,
-		taskMachines: sync.Map{},
-		store:        store.NewMemStore(),
-		inv:          inv,
+func Test_sortFirmwareByInstallOrde(t *testing.T) {
+	have := []*model.Firmware{
+		{
+			Version:   "DL6R",
+			URL:       "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			FileName:  "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
+			Component: "drive",
+		},
+		{
+			Version:   "2.6.6",
+			URL:       "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",
+			FileName:  "BIOS_C4FT0_WN64_2.6.6.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4",
+			Component: "bios",
+		},
+		{
+			Version:   "20.5.13",
+			URL:       "https://dl.dell.com/FOLDER08105057M/1/Network_Firmware_NVXX9_WN64_20.5.13_A00.EXE",
+			FileName:  "Network_Firmware_NVXX9_WN64_20.5.13_A00.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "b445417d7869bdbdffe7bad69ce32dc19fa29adc61f8e82a324545cabb53f30a",
+			Component: "nic",
+		},
 	}
-}
 
-func Test_CreateTaskForDevice(t *testing.T) {
-	worker := initTestWorker()
-
-	ctx := context.Background()
-
-	taskID, err := worker.enqueueTask(ctx, &inventory.DeviceInventory{Device: fixtures.Devices[fixtures.Device1.String()]})
-	if err != nil {
-		t.Fatal(err)
+	expected := []*model.Firmware{
+		{
+			Version:   "2.6.6",
+			URL:       "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",
+			FileName:  "BIOS_C4FT0_WN64_2.6.6.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4",
+			Component: "bios",
+		},
+		{
+			Version:   "DL6R",
+			URL:       "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			FileName:  "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
+			Component: "drive",
+		},
+		{
+			Version:   "20.5.13",
+			URL:       "https://dl.dell.com/FOLDER08105057M/1/Network_Firmware_NVXX9_WN64_20.5.13_A00.EXE",
+			FileName:  "Network_Firmware_NVXX9_WN64_20.5.13_A00.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "b445417d7869bdbdffe7bad69ce32dc19fa29adc61f8e82a324545cabb53f30a",
+			Component: "nic",
+		},
 	}
 
-	assert.NotNil(t, taskID)
+	sortFirmwareByInstallOrder(have)
 
-	tasks, err := worker.store.TasksByStatus(ctx, string(model.StateQueued))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, 1, len(tasks))
-	assert.Equal(t, fixtures.Devices[fixtures.Device1.String()], tasks[0].Parameters.Device)
-	assert.Equal(t, model.PlanFromFirmwareSet, tasks[0].Parameters.FirmwarePlanMethod)
+	assert.Equal(t, expected, have)
 }

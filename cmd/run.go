@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	"github.com/metal-toolbox/flasher/internal/app"
-	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/worker"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"go.hollow.sh/toolbox/events"
 
 	_ "net/http/pprof"
 )
@@ -27,13 +27,12 @@ var cmdRun = &cobra.Command{
 }
 
 // run worker command
-type workerRunFlags struct {
+var (
 	dryrun          bool
 	inventorySource string
-}
+)
 
 var (
-	workerRunFlagSet            = &workerRunFlags{}
 	ErrInventorySourceUndefined = errors.New("An inventory source was not specified")
 )
 
@@ -46,22 +45,11 @@ var cmdRunWorker = &cobra.Command{
 }
 
 func runWorker(ctx context.Context) {
-	var logLevel int
-
 	go func() {
 		log.Println(http.ListenAndServe("localhost:9091", nil))
 	}()
 
-	switch {
-	case debug:
-		logLevel = model.LogLevelDebug
-	case trace:
-		logLevel = model.LogLevelTrace
-	default:
-		logLevel = model.LogLevelInfo
-	}
-
-	flasher, err := app.New(ctx, model.AppKindWorker, workerRunFlagSet.inventorySource, cfgFile, logLevel)
+	flasher, err := app.New(ctx, model.AppKindWorker, model.StoreKind(inventorySource), cfgFile, logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -82,16 +70,20 @@ func runWorker(ctx context.Context) {
 
 	inv, err := initInventory(ctx, flasher.Config, flasher.Logger)
 	if err != nil {
-		log.Fatal(err)
+		flasher.Logger.Fatal(err)
+	}
+
+	stream, err := events.NewStream(*flasher.Config.NatsOptions)
+	if err != nil {
+		flasher.Logger.Fatal(err)
 	}
 
 	w := worker.New(
 		flasher.Config.FirmwareURLPrefix,
 		flasher.Config.FacilityCode,
-		workerRunFlagSet.dryrun,
+		dryrun,
 		flasher.Config.Concurrency,
-		flasher.SyncWG,
-		store.NewMemStore(),
+		stream,
 		inv,
 		flasher.Logger,
 	)
@@ -108,18 +100,13 @@ func runWorker(ctx context.Context) {
 	flasher.SyncWG.Wait()
 }
 
-func initInventory(ctx context.Context, config *model.Config, logger *logrus.Logger) (inventory.Inventory, error) {
+func initInventory(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
 	switch {
 	// from CLI flags
-	case strings.HasSuffix(workerRunFlagSet.inventorySource, ".yml"), strings.HasSuffix(workerRunFlagSet.inventorySource, ".yaml"):
-		return inventory.NewYamlInventory(workerRunFlagSet.inventorySource)
-	case workerRunFlagSet.inventorySource == model.InventorySourceServerservice:
-		return inventory.NewServerserviceInventory(ctx, config, logger)
-	// from config file
-	case strings.HasSuffix(config.InventorySource, ".yml"), strings.HasSuffix(config.InventorySource, ".yaml"):
-		return inventory.NewYamlInventory(workerRunFlagSet.inventorySource)
-	case config.InventorySource == model.InventorySourceServerservice:
-		return inventory.NewServerserviceInventory(ctx, config, logger)
+	case strings.HasSuffix(inventorySource, ".yml"), strings.HasSuffix(inventorySource, ".yaml"):
+		return store.NewYamlInventory(inventorySource)
+	case inventorySource == string(model.InventoryStoreServerservice):
+		return store.NewServerserviceStore(ctx, config.ServerserviceOptions, logger)
 	default:
 
 	}
@@ -128,8 +115,8 @@ func initInventory(ctx context.Context, config *model.Config, logger *logrus.Log
 }
 
 func init() {
-	cmdRunWorker.PersistentFlags().StringVar(&workerRunFlagSet.inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
-	cmdRunWorker.PersistentFlags().BoolVarP(&workerRunFlagSet.dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
+	cmdRunWorker.PersistentFlags().StringVar(&inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
+	cmdRunWorker.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
 
 	if err := cmdRunWorker.MarkPersistentFlagRequired("inventory-source"); err != nil {
 		log.Fatal(err)
