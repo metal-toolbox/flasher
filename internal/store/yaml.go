@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	InventorySourceYAML = "inventorySourceYAML"
+	InventorySourceYAML = "inventoryStoreYAML"
 )
 
 var (

@@ -129,7 +129,7 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	_ = action.SetState(model.StatePending)
 
 	// set action planned
-	task.ActionsPlanned = model.Actions{}
+	task.ActionsPlanned = model.Actions{action}
 
 	// set test env variables
 	os.Setenv(envTesting, "1")

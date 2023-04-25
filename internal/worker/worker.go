@@ -45,20 +45,18 @@ const (
 )
 
 type Worker struct {
-	id                string
-	dryrun            bool
-	concurrency       int
-	dispatched        int32
-	firmwareURLPrefix string
-	syncWG            *sync.WaitGroup
-	stream            events.Stream
-	store             store.Repository
-	logger            *logrus.Logger
+	id          string
+	dryrun      bool
+	concurrency int
+	dispatched  int32
+	syncWG      *sync.WaitGroup
+	stream      events.Stream
+	store       store.Repository
+	logger      *logrus.Logger
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
 func New(
-	firmwareURLPrefix,
 	facilityCode string,
 	dryrun bool,
 	concurrency int,
@@ -69,14 +67,13 @@ func New(
 	id, _ := os.Hostname()
 
 	return &Worker{
-		id:                id,
-		dryrun:            dryrun,
-		concurrency:       concurrency,
-		firmwareURLPrefix: firmwareURLPrefix,
-		syncWG:            &sync.WaitGroup{},
-		stream:            stream,
-		store:             store,
-		logger:            logger,
+		id:          id,
+		dryrun:      dryrun,
+		concurrency: concurrency,
+		syncWG:      &sync.WaitGroup{},
+		stream:      stream,
+		store:       store,
+		logger:      logger,
 	}
 }
 
@@ -116,7 +113,6 @@ Loop:
 			break Loop
 		}
 	}
-
 }
 
 func (o *Worker) processEvents(ctx context.Context) {
@@ -136,8 +132,10 @@ func (o *Worker) processEvents(ctx context.Context) {
 
 		// spawn msg process handler
 		o.syncWG.Add(1)
+
 		go func(msg events.Message) {
 			defer o.syncWG.Done()
+
 			atomic.AddInt32(&o.dispatched, 1)
 			defer atomic.AddInt32(&o.dispatched, ^int32(0))
 
@@ -170,7 +168,10 @@ func (o *Worker) eventNak(event events.Message) {
 
 func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, error) {
 	task := model.Task{ID: conditionID}
-	task.SetState(model.StatePending)
+
+	if err := task.SetState(model.StatePending); err != nil {
+		return task, err
+	}
 
 	if len(params.Firmwares) > 0 {
 		task.Parameters.Firmwares = params.Firmwares
@@ -276,9 +277,6 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 		ticker := time.NewTicker(taskInprogressTick)
 		defer ticker.Stop()
 
-		for range ticker.C {
-
-		}
 	Loop:
 		for {
 			select {
@@ -291,6 +289,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 	}
 
 	o.syncWG.Add(1)
+
 	go monitor()
 
 	// setup state machine task handler
@@ -328,6 +327,11 @@ func (o *Worker) runTaskStatemachine(ctx context.Context, handler *taskHandler, 
 	defer close(doneCh)
 
 	startTS := time.Now()
+
+	o.logger.WithFields(logrus.Fields{
+		"deviceID": handlerCtx.Task.Parameters.AssetID.String(),
+		"taskID":   handlerCtx.Task.ID,
+	}).Info("running task for device")
 
 	// init state machine for task
 	stateMachine, err := sm.NewTaskStateMachine(ctx, handler)

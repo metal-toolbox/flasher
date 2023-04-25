@@ -20,7 +20,7 @@ import (
 
 var cmdRun = &cobra.Command{
 	Use:   "run",
-	Short: "Run flasher worker",
+	Short: "Run flasher service to listen for events and install firmware",
 	Run: func(cmd *cobra.Command, args []string) {
 		runWorker(cmd.Context())
 	},
@@ -28,43 +28,31 @@ var cmdRun = &cobra.Command{
 
 // run worker command
 var (
-	dryrun          bool
-	inventorySource string
+	dryrun         bool
+	inventoryStore string
 )
 
 var (
-	ErrInventorySourceUndefined = errors.New("An inventory source was not specified")
+	ErrInventoryStore = errors.New("inventory store error")
 )
-
-var cmdRunWorker = &cobra.Command{
-	Use:   "worker",
-	Short: "Run worker to identify and install firmware",
-	Run: func(cmd *cobra.Command, args []string) {
-		runWorker(cmd.Context())
-	},
-}
 
 func runWorker(ctx context.Context) {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:9091", nil))
 	}()
 
-	flasher, err := app.New(ctx, model.AppKindWorker, model.StoreKind(inventorySource), cfgFile, logLevel)
+	flasher, termCh, err := app.New(ctx, model.AppKindWorker, model.StoreKind(inventoryStore), cfgFile, logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Setup cancel context with cancel func.
-	// The context is used to
 	ctx, cancelFunc := context.WithCancel(ctx)
 
 	// routine listens for termination signal and cancels the context
-	flasher.SyncWG.Add(1)
-
 	go func() {
-		defer flasher.SyncWG.Done()
-
-		<-flasher.TermCh
+		<-termCh
+		flasher.Logger.Info("got TERM signal, exiting...")
 		cancelFunc()
 	}()
 
@@ -79,7 +67,6 @@ func runWorker(ctx context.Context) {
 	}
 
 	w := worker.New(
-		flasher.Config.FirmwareURLPrefix,
 		flasher.Config.FacilityCode,
 		dryrun,
 		flasher.Config.Concurrency,
@@ -88,40 +75,28 @@ func runWorker(ctx context.Context) {
 		flasher.Logger,
 	)
 
-	flasher.SyncWG.Add(1)
-
-	go func() {
-		defer flasher.SyncWG.Done()
-
-		w.Run(ctx)
-	}()
-
-	flasher.Logger.Trace("wait for goroutines..")
-	flasher.SyncWG.Wait()
+	w.Run(ctx)
 }
 
 func initInventory(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
 	switch {
 	// from CLI flags
-	case strings.HasSuffix(inventorySource, ".yml"), strings.HasSuffix(inventorySource, ".yaml"):
-		return store.NewYamlInventory(inventorySource)
-	case inventorySource == string(model.InventoryStoreServerservice):
+	case strings.HasSuffix(inventoryStore, ".yml"), strings.HasSuffix(inventoryStore, ".yaml"):
+		return store.NewYamlInventory(inventoryStore)
+	case inventoryStore == string(model.InventoryStoreServerservice):
 		return store.NewServerserviceStore(ctx, config.ServerserviceOptions, logger)
-	default:
-
 	}
 
-	return nil, errors.Wrap(ErrInventorySourceUndefined, "expected a valid parameter through CLI or configuration file")
+	return nil, errors.Wrap(ErrInventoryStore, "expected a valid inventory store parameter")
 }
 
 func init() {
-	cmdRunWorker.PersistentFlags().StringVar(&inventorySource, "inventory-source", "", "inventory source to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
-	cmdRunWorker.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
+	cmdRun.PersistentFlags().StringVar(&inventoryStore, "store", "", "inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
+	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
 
-	if err := cmdRunWorker.MarkPersistentFlagRequired("inventory-source"); err != nil {
+	if err := cmdRun.MarkPersistentFlagRequired("store"); err != nil {
 		log.Fatal(err)
 	}
 
-	cmdRun.AddCommand(cmdRunWorker)
 	rootCmd.AddCommand(cmdRun)
 }

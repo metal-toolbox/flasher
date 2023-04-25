@@ -45,10 +45,6 @@ func Execute() {
 }
 
 func init() {
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "configuration file")
-	rootCmd.PersistentFlags().StringVar(&storeKind, "store", "mock", "The inventory store kind (serverservice, csv)")
-	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "set logging level - debug, trace")
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flasher.yml)")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "set logging level - debug, trace")
 }

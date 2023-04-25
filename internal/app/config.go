@@ -29,9 +29,6 @@ type Configuration struct {
 	// one of - info, debug, trace
 	LogLevel string `mapstructure:"log_level"`
 
-	// FirmwareURLPrefix is prefixed to the firmware download url
-	FirmwareURLPrefix string `mapstructure:"firmware_url_prefix"`
-
 	// AppKind is the application kind - worker / client
 	AppKind model.AppKind `mapstructure:"app_kind"`
 
@@ -43,6 +40,8 @@ type Configuration struct {
 
 	// The inventory source - one of serverservice OR Yaml
 	InventorySource string `mapstructure:"inventory_source"`
+
+	StoreKind model.StoreKind `mapstructure:"store_kind"`
 
 	// ServerserviceOptions defines the serverservice client configuration parameters
 	//

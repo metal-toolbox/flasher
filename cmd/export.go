@@ -83,12 +83,9 @@ func exportStatemachine(ctx context.Context) {
 }
 
 func exportTaskStatemachine(ctx context.Context) {
-	task, err := model.NewTask("", nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	m, err := sm.NewTaskStateMachine(ctx, &task, &mockTaskHandler{})
+	// Task: &model.Task{}
+	handler := &mockTaskHandler{}
+	m, err := sm.NewTaskStateMachine(ctx, handler)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -147,6 +144,10 @@ func init() {
 // mockTaskHandler implements the TaskTransitioner interface
 type mockTaskHandler struct{}
 
+func (h *mockTaskHandler) Init(t sw.StateSwitch, args sw.TransitionArgs) error {
+	return nil
+}
+
 func (h *mockTaskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
 }
@@ -156,7 +157,7 @@ func (h *mockTaskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 }
 
 // planFromFirmwareSet
-func (h *mockTaskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task, device model.Device) error {
+func (h *mockTaskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task, device model.Asset) error {
 	return nil
 }
 

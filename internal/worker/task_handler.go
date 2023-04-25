@@ -24,7 +24,7 @@ var (
 // taskHandler implements the taskTransitionHandler methods
 type taskHandler struct{}
 
-func (h *taskHandler) Init(t sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) Init(_ sw.StateSwitch, _ sw.TransitionArgs) error {
 	return nil
 }
 

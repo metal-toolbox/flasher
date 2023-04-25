@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	runtime "github.com/banzaicloud/logrus-runtime-formatter"
@@ -23,13 +22,8 @@ var (
 type App struct {
 	// Viper loads configuration parameters.
 	v *viper.Viper
-
-	// Sync waitgroup to wait for running go routines on termination.
-	SyncWG *sync.WaitGroup
 	// Flasher configuration.
 	Config *Configuration
-	// TermCh is the channel to terminate the app based on a signal
-	TermCh chan os.Signal
 	// Logger is the app logger
 	Logger *logrus.Logger
 	// Kind is the type of application - worker
@@ -37,21 +31,20 @@ type App struct {
 }
 
 // New returns returns a new instance of the flasher app
-func New(ctx context.Context, appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string) (*App, error) {
+func New(ctx context.Context, appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string) (*App, <-chan os.Signal, error) {
 	if appKind != model.AppKindWorker {
-		return nil, errors.Wrap(ErrAppInit, "invalid app kind: "+string(appKind))
+		return nil, nil, errors.Wrap(ErrAppInit, "invalid app kind: "+string(appKind))
 	}
 
 	app := &App{
 		v:      viper.New(),
 		Kind:   appKind,
-		SyncWG: &sync.WaitGroup{},
+		Config: &Configuration{},
 		Logger: logrus.New(),
-		TermCh: make(chan os.Signal),
 	}
 
 	if err := app.LoadConfiguration(cfgFile, storeKind); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	switch model.LogLevel(loglevel) {
@@ -72,8 +65,10 @@ func New(ctx context.Context, appKind model.AppKind, storeKind model.StoreKind, 
 
 	app.Logger.SetFormatter(runtimeFormatter)
 
-	// register for SIGINT, SIGTERM
-	signal.Notify(app.TermCh, syscall.SIGINT, syscall.SIGTERM)
+	termCh := make(chan os.Signal, 1)
 
-	return app, nil
+	// register for SIGINT, SIGTERM
+	signal.Notify(termCh, syscall.SIGINT, syscall.SIGTERM)
+
+	return app, termCh, nil
 }
