@@ -41,7 +41,13 @@ func runWorker(ctx context.Context) {
 		log.Println(http.ListenAndServe("localhost:9091", nil))
 	}()
 
-	flasher, termCh, err := app.New(ctx, model.AppKindWorker, model.StoreKind(inventoryStore), cfgFile, logLevel)
+	flasher, termCh, err := app.New(
+		model.AppKindWorker,
+		model.StoreKind(inventoryStore),
+		cfgFile,
+		logLevel,
+		enableProfiling,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

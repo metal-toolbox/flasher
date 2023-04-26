@@ -86,7 +86,7 @@ func sleepWithContext(ctx context.Context, t time.Duration) error {
 	}
 }
 
-func (h *actionHandler) conditionPowerOnDevice(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
+func (h *actionHandler) conditionPowerOnDevice(_ *model.Action, tctx *sm.HandlerContext) (bool, error) {
 	// init out of band device queryor - if one isn't already initialized
 	// this is done conditionally to enable tests to pass in a device queryor
 	if tctx.DeviceQueryor == nil {
@@ -527,7 +527,7 @@ func (h *actionHandler) powerOffDevice(a sw.StateSwitch, c sw.TransitionArgs) er
 	return nil
 }
 
-func (h *actionHandler) PublishStatus(a sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *actionHandler) PublishStatus(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
@@ -538,14 +538,14 @@ func (h *actionHandler) PublishStatus(a sw.StateSwitch, args sw.TransitionArgs) 
 	return nil
 }
 
-func (h *actionHandler) actionFailed(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) actionFailed(_ sw.StateSwitch, _ sw.TransitionArgs) error {
 	return nil
 }
 
-func (h *actionHandler) actionSuccessful(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) actionSuccessful(_ sw.StateSwitch, _ sw.TransitionArgs) error {
 	return nil
 }
 
-func (h *actionHandler) actionSkipped(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) actionSkipped(_ sw.StateSwitch, _ sw.TransitionArgs) error {
 	return nil
 }

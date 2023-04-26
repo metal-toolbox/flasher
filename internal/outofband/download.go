@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	downloadRetryDelay = 4 * time.Second
+	downloadRetryDelay    = 4 * time.Second
+	downloadClientTimeout = 60 * time.Second
 
 	ErrDownload = errors.New("error downloading file")
 	ErrChecksum = errors.New("error validating file checksum")
@@ -44,6 +45,7 @@ func download(ctx context.Context, fileURL, dst string) error {
 	client := retryablehttp.NewClient()
 	client.RetryWaitMin = downloadRetryDelay
 	client.Logger = nil
+	client.HTTPClient.Timeout = downloadClientTimeout
 
 	resp, err := client.Do(requestRetryable)
 	if err != nil {
@@ -57,6 +59,7 @@ func download(ctx context.Context, fileURL, dst string) error {
 	}
 
 	_, err = io.Copy(fileHandle, resp.Body)
+
 	return err
 }
 

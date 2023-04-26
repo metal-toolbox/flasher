@@ -18,8 +18,8 @@ import (
 
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
-	logoutTimeout = "1m"
-	//loginTimeout  = "1m"
+	logoutTimeout = 1 * time.Minute
+	loginTimeout  = 1 * time.Minute
 	loginAttempts = 3
 
 	// login errors
@@ -84,12 +84,7 @@ func (b *bmc) Close() error {
 		return nil
 	}
 
-	timeout, err := time.ParseDuration(logoutTimeout)
-	if err != nil {
-		return errors.Wrap(errBMCLogout, err.Error())
-	}
-
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeout))
+	ctx, cancel := context.WithTimeout(context.Background(), logoutTimeout)
 	defer cancel()
 
 	if err := b.client.Close(ctx); err != nil {

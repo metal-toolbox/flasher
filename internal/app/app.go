@@ -1,20 +1,29 @@
 package app
 
 import (
-	"context"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	runtime "github.com/banzaicloud/logrus-runtime-formatter"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	// nolint:gosec // pprof path is only exposed over localhost
+	_ "net/http/pprof"
 )
 
 var (
 	ErrAppInit = errors.New("error initializing app")
+)
+
+const (
+	ProfilingEndpoint = "localhost:9091"
 )
 
 // Config holds configuration data when running mctl
@@ -31,7 +40,7 @@ type App struct {
 }
 
 // New returns returns a new instance of the flasher app
-func New(ctx context.Context, appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string) (*App, <-chan os.Signal, error) {
+func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string, profiling bool) (*App, <-chan os.Signal, error) {
 	if appKind != model.AppKindWorker {
 		return nil, nil, errors.Wrap(ErrAppInit, "invalid app kind: "+string(appKind))
 	}
@@ -70,5 +79,25 @@ func New(ctx context.Context, appKind model.AppKind, storeKind model.StoreKind, 
 	// register for SIGINT, SIGTERM
 	signal.Notify(termCh, syscall.SIGINT, syscall.SIGTERM)
 
+	if profiling {
+		enableProfilingEndpoint()
+	}
+
 	return app, termCh, nil
+}
+
+// enableProfilingEndpoint enables the profiling endpoint
+func enableProfilingEndpoint() {
+	go func() {
+		server := &http.Server{
+			Addr:              "",
+			ReadHeaderTimeout: 2 * time.Second, // nolint:gomnd // time duration value is clear as is.
+		}
+
+		if err := server.ListenAndServe(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	log.Println("profiling enabled: " + ProfilingEndpoint + "/debug/pprof")
 }

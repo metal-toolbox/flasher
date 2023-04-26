@@ -25,8 +25,9 @@ import (
 var (
 	logLevel string
 	// storeKind is inventory store name - serverservice
-	storeKind string
-	cfgFile   string
+	storeKind       string
+	cfgFile         string
+	enableProfiling bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -46,5 +47,6 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flasher.yml)")
+	rootCmd.PersistentFlags().BoolVarP(&enableProfiling, "enable-pprof", "", false, "Enable profiling endpoint at: "+"http://localhost:9091")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "set logging level - debug, trace")
 }

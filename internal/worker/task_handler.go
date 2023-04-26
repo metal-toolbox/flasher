@@ -40,19 +40,12 @@ func (h *taskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
 		return errors.Wrap(errTaskQueryInventory, ErrTaskTypeAssertion.Error())
 	}
 
-	// fetch asset information from inventory store
-	asset, err := tctx.Store.AssetByID(tctx.Ctx, tctx.Asset.ID.String())
-	if err != nil {
-		return errors.Wrap(errTaskQueryInventory, ErrTaskTypeAssertion.Error())
-	}
-
-	tctx.Asset = asset
-
-	if len(asset.Components) > 0 {
+	// asset has component inventory
+	if len(tctx.Asset.Components) > 0 {
 		return nil
 	}
 
-	// attempt to fetch component inventory from the device itself
+	// attempt to fetch component inventory from the device
 	components, err := h.queryFromDevice(tctx)
 	if err != nil {
 		return errors.Wrap(errTaskQueryInventory, err.Error())
@@ -81,7 +74,7 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 	switch task.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
-		return h.planFromFirmwareSet(tctx, task, *tctx.Asset)
+		return h.planFromFirmwareSet(tctx, task)
 	case model.FromRequestedFirmware:
 		return errors.Wrap(errTaskPlanActions, "firmware plan method not implemented"+string(model.FromRequestedFirmware))
 	default:
@@ -151,7 +144,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
 }
 
-func (h *taskHandler) TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) TaskFailed(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
@@ -166,7 +159,7 @@ func (h *taskHandler) TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) er
 	return nil
 }
 
-func (h *taskHandler) TaskSuccessful(task sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) TaskSuccessful(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
@@ -198,7 +191,7 @@ func (h *taskHandler) PublishStatus(t sw.StateSwitch, args sw.TransitionArgs) er
 }
 
 // planFromFirmwareSet
-func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task, asset model.Asset) error {
+func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task) error {
 	applicable, err := tctx.Store.FirmwareSetByID(tctx.Ctx, task.Parameters.FirmwareSetID)
 	if err != nil {
 		return errors.Wrap(errTaskPlanActions, err.Error())
@@ -228,9 +221,15 @@ func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components
 		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
 	}
 
+	tctx.Task.Status = "connecting to device BMC"
+	tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
+
 	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
 		return nil, err
 	}
+
+	tctx.Task.Status = "collecting inventory from device BMC"
+	tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
 
 	deviceCommon, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {
@@ -344,11 +343,12 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 			Final: final,
 		}
 
-		newAction.SetState(model.StatePending)
+		if err := newAction.SetState(model.StatePending); err != nil {
+			return nil, nil, err
+		}
 
 		// create action thats added to the task
 		actions = append(actions, newAction)
-
 	}
 
 	return actionMachines, actions, nil

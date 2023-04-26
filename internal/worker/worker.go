@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -25,7 +26,7 @@ import (
 var (
 	fetchEventsInterval = 10 * time.Second
 
-	// taskTimeout defines the time after which a task will be cancelled.
+	// taskTimeout defines the time after which a task will be canceled.
 	taskTimeout = 180 * time.Minute
 
 	// taskInprogressTicker is the interval at which tasks in progress
@@ -67,9 +68,10 @@ func New(
 	id, _ := os.Hostname()
 
 	return &Worker{
-		id:          id,
-		dryrun:      dryrun,
-		concurrency: concurrency,
+		id:     id,
+		dryrun: dryrun,
+		//concurrency: concurrency,
+		concurrency: 1,
 		syncWG:      &sync.WaitGroup{},
 		stream:      stream,
 		store:       store,
@@ -83,6 +85,13 @@ func (o *Worker) Run(ctx context.Context) {
 
 	if err := o.stream.Open(); err != nil {
 		o.logger.WithError(err).Error("event stream connection error")
+		return
+	}
+
+	// returned channel ignored, since this is a Pull based subscription.
+	_, err := o.stream.Subscribe(ctx)
+	if err != nil {
+		o.logger.WithError(err).Error("event stream subscription error")
 		return
 	}
 
@@ -173,6 +182,10 @@ func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, e
 		return task, err
 	}
 
+	task.Parameters.AssetID = params.AssetID
+	task.Parameters.ForceInstall = params.ForceInstall
+	task.Parameters.ResetBMCBeforeInstall = params.ResetBMCBeforeInstall
+
 	if len(params.Firmwares) > 0 {
 		task.Parameters.Firmwares = params.Firmwares
 		task.FirmwarePlanMethod = model.FromRequestedFirmware
@@ -217,7 +230,7 @@ func (o *Worker) processEvent(ctx context.Context, e events.Message) {
 		return
 	}
 
-	if data.EventType != string(cptypes.FirmwareInstallOutofband) {
+	if data.EventType != string(cptypes.FirmwareInstallOutofband.EventType()) {
 		o.logger.WithError(errEventAttributes).Warn("unsupported eventType: " + data.EventType)
 
 		return
@@ -238,7 +251,7 @@ func (o *Worker) processEvent(ctx context.Context, e events.Message) {
 
 	task, err := newTaskFromCondition(condition)
 	if err != nil {
-		o.logger.WithError(err).Warn("error creating task from msg")
+		o.logger.WithError(err).Warn("error initializing task from condition")
 
 		return
 	}
@@ -248,7 +261,10 @@ func (o *Worker) processEvent(ctx context.Context, e events.Message) {
 	// error ignored on purpose
 	asset, err := o.store.AssetByID(ctx, task.Parameters.AssetID.String())
 	if err != nil {
-		o.logger.WithError(err).Warn("error occurred in asset inventory store lookup")
+		o.logger.WithFields(logrus.Fields{
+			"assetID":     task.Parameters.AssetID.String(),
+			"conditionID": condition.ID,
+		}).Warn("error initializing task from condition")
 
 		return
 	}
@@ -311,10 +327,10 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 		Asset:     asset,
 		Logger: l.WithFields(
 			logrus.Fields{
-				"workerID": o.id,
-				"taskID":   task.ID,
-				"assetID":  asset.ID.String(),
-				"bmc":      asset.BmcAddress.String(),
+				"workerID":    o.id,
+				"conditionID": task.ID,
+				"assetID":     asset.ID.String(),
+				"bmc":         asset.BmcAddress.String(),
 			},
 		),
 	}
@@ -329,8 +345,8 @@ func (o *Worker) runTaskStatemachine(ctx context.Context, handler *taskHandler, 
 	startTS := time.Now()
 
 	o.logger.WithFields(logrus.Fields{
-		"deviceID": handlerCtx.Task.Parameters.AssetID.String(),
-		"taskID":   handlerCtx.Task.ID,
+		"deviceID":    handlerCtx.Task.Parameters.AssetID.String(),
+		"conditionID": handlerCtx.Task.ID,
 	}).Info("running task for device")
 
 	// init state machine for task
@@ -345,9 +361,9 @@ func (o *Worker) runTaskStatemachine(ctx context.Context, handler *taskHandler, 
 	if err := stateMachine.Run(ctx, handlerCtx.Task, handler, handlerCtx); err != nil {
 		o.logger.WithFields(
 			logrus.Fields{
-				"deviceID": handlerCtx.Task.Parameters.AssetID,
-				"taskID":   handlerCtx.Task.ID.String(),
-				"err":      err.Error(),
+				"deviceID":    handlerCtx.Task.Parameters.AssetID,
+				"conditionID": handlerCtx.Task.ID.String(),
+				"err":         err.Error(),
 			},
 		).Warn("task for device failed")
 
@@ -355,9 +371,9 @@ func (o *Worker) runTaskStatemachine(ctx context.Context, handler *taskHandler, 
 	}
 
 	o.logger.WithFields(logrus.Fields{
-		"deviceID": handlerCtx.Task.Parameters.AssetID.String(),
-		"taskID":   handlerCtx.Task.ID,
-		"elapsed":  time.Since(startTS).String(),
+		"deviceID":    handlerCtx.Task.Parameters.AssetID.String(),
+		"conditionID": handlerCtx.Task.ID,
+		"elapsed":     time.Since(startTS).String(),
 	}).Info("task for device completed")
 }
 
@@ -417,12 +433,16 @@ type statusEmitter struct {
 	logger *logrus.Logger
 }
 
+func statusInfoJSON(s string) json.RawMessage {
+	return []byte(fmt.Sprintf("{%q: %q}", "msg", s))
+}
+
 func (e *statusEmitter) Publish(ctx context.Context, task *model.Task) {
 	update := &cpv1types.ConditionUpdateEvent{
 		Kind: cptypes.FirmwareInstallOutofband,
 		ConditionUpdate: cpv1types.ConditionUpdate{
 			State:  cptypes.ConditionState(task.State()),
-			Status: json.RawMessage(task.Status),
+			Status: statusInfoJSON(task.Status),
 		},
 	}
 
@@ -435,4 +455,13 @@ func (e *statusEmitter) Publish(ctx context.Context, task *model.Task) {
 	); err != nil {
 		e.logger.WithError(err).Error("error publishing condition update")
 	}
+
+	e.logger.WithFields(
+		logrus.Fields{
+			"state":       update.ConditionUpdate.State,
+			"status":      update.ConditionUpdate.Status,
+			"assetID":     task.Parameters.AssetID,
+			"conditionID": task.ID,
+		},
+	).Trace("condition update published")
 }

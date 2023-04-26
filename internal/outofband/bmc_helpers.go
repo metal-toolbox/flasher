@@ -47,7 +47,7 @@ func newHttpClient() *http.Client {
 }
 
 // newBmclibv2Client initializes a bmclibv2 client with the given credentials
-func newBmclibv2Client(ctx context.Context, asset *model.Asset, l *logrus.Entry) *bmclibv2.Client {
+func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *bmclibv2.Client {
 	logger := logrus.New()
 	logger.Formatter = l.Logger.Formatter
 
@@ -72,6 +72,7 @@ func newBmclibv2Client(ctx context.Context, asset *model.Asset, l *logrus.Entry)
 		asset.BmcPassword,
 		bmclibv2.WithLogger(logruslogr),
 		bmclibv2.WithHTTPClient(newHttpClient()),
+		bmclibv2.WithPerProviderTimeout(loginTimeout),
 	)
 
 	// set bmclibv2 driver
@@ -149,22 +150,16 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 	for {
 		attemptstr := fmt.Sprintf("%d/%d", attempts, tries)
 
-		// set login timeout
-		//	timeout, err := time.ParseDuration(loginTimeout)
-		//	if err != nil {
-		//		return errors.Wrap(errBMCLogin, err.Error())
-		//	}
-
-		// ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
-		// defer cancel()
+		attemptCtx, cancel := context.WithTimeout(ctx, loginTimeout)
+		defer cancel()
 
 		// if a session is active, skip login attempt
-		if err := b.sessionActive(ctx); err == nil {
+		if err := b.sessionActive(attemptCtx); err == nil {
 			return nil
 		}
 
 		// attempt login
-		err := b.client.Open(ctx)
+		err := b.client.Open(attemptCtx)
 		if err != nil {
 			b.logger.WithFields(
 				logrus.Fields{
