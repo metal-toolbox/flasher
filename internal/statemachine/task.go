@@ -317,7 +317,7 @@ func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 			}
 
 			// include error in task
-			task.Info = err.Error()
+			task.Status = err.Error()
 
 			// run transition failed handler
 			if txErr := m.TransitionFailed(task, tctx); txErr != nil {
