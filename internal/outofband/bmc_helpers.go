@@ -153,23 +153,17 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 	// loop returns when a session was established or after retries attempts
 	for {
 		attemptstr := fmt.Sprintf("%d/%d", attempts, tries)
-
-		// set login timeout
-		//	timeout, err := time.ParseDuration(loginTimeout)
-		//	if err != nil {
-		//		return errors.Wrap(errBMCLogin, err.Error())
-		//	}
-
-		// ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
-		// defer cancel()
+		attemptCtx, cancel := context.WithTimeout(ctx, loginTimeout)
+		// nolint:gocritic // deferInLoop - loop is bounded
+		defer cancel()
 
 		// if a session is active, skip login attempt
-		if err := b.sessionActive(ctx); err == nil {
+		if err := b.sessionActive(attemptCtx); err == nil {
 			return nil
 		}
 
 		// attempt login
-		err := b.client.Open(ctx)
+		err := b.client.Open(attemptCtx)
 		if err != nil {
 			b.logger.WithFields(
 				logrus.Fields{

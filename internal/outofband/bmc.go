@@ -60,10 +60,6 @@ func (e *ErrBmcQuery) Error() string {
 	return e.cause
 }
 
-func newErrBmcQuery(cause string) error {
-	return &ErrBmcQuery{cause: cause}
-}
-
 // Open creates a BMC session
 func (b *bmc) Open(ctx context.Context) error {
 	if b.client == nil {
