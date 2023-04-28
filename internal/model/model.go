@@ -38,7 +38,10 @@ func StoreKinds() []StoreKind {
 	return []StoreKind{InventoryStoreYAML, InventoryStoreServerservice}
 }
 
-type Device struct {
+// Asset holds attributes of a server retrieved from the inventory store.
+//
+// nolint:govet // fieldalignment struct is easier to read in the current format
+type Asset struct {
 	ID uuid.UUID
 
 	// Device BMC attributes
@@ -53,6 +56,9 @@ type Device struct {
 	Vendor string
 	Model  string
 	Serial string
+
+	// Facility this Asset is hosted in.
+	FacilityCode string
 
 	// Device components
 	Components Components
