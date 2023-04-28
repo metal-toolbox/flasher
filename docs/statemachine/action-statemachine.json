@@ -21,7 +21,7 @@
     {
       "transition_type": "failed",
       "source_states": [
-        "queued",
+        "pending",
         "active",
         "poweredOnDevice",
         "checkedCurrentFirmware",
@@ -66,7 +66,7 @@
     {
       "transition_type": "poweringOnDevice",
       "source_states": [
-        "queued"
+        "active"
       ],
       "destination_state": "poweredOnDevice",
       "name": "Power on device",
@@ -91,11 +91,11 @@
       "description": "Powercycle Device - only when pollFirmwareInstallStatus() identifies a Device power cycle is required."
     },
     {
-      "transition_type": "success",
+      "transition_type": "succeeded",
       "source_states": [
         "poweredOffDevice"
       ],
-      "destination_state": "success",
+      "destination_state": "succeeded",
       "name": "Success",
       "description": "Firmware install on component completed successfully."
     }

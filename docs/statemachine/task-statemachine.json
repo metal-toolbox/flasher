@@ -1,9 +1,18 @@
 {
   "transition_rules": [
     {
+      "transition_type": "active",
+      "source_states": [
+        "pending"
+      ],
+      "destination_state": "active",
+      "name": "Initialize task",
+      "description": "Performs any task initialization, and transitions the state from pending to active."
+    },
+    {
       "transition_type": "failed",
       "source_states": [
-        "queued",
+        "pending",
         "active"
       ],
       "destination_state": "failed",
@@ -33,16 +42,16 @@
       "source_states": [
         "active"
       ],
-      "destination_state": "success",
+      "destination_state": "succeeded",
       "name": "Run install actions",
       "description": "Run executes the planned Action (sub) state machines prepared in the Plan stage."
     },
     {
-      "transition_type": "success",
+      "transition_type": "succeeded",
       "source_states": [
         "active"
       ],
-      "destination_state": "success",
+      "destination_state": "succeeded",
       "name": "Task successful",
       "description": "Task execution completed successfully."
     }
@@ -60,15 +69,11 @@
       "name": "Initial",
       "description": "The initial state of the state machine. This is a synthetic state that is not actually part of the state machine. It appears in documentation when transition rules hold a single source state that is an empty string"
     },
-    "queued": {
+    "pending": {
       "name": "Queued",
       "description": "In this state the task is being initialized (this is done outside of the state machine)."
     },
-    "requested": {
-      "name": "Requested",
-      "description": "In this state the task has been requested (this is done outside of the state machine)."
-    },
-    "success": {
+    "succeeded": {
       "name": "Success",
       "description": "In this state the task execution has completed successfully."
     }
@@ -90,8 +95,8 @@
       "name": "Run",
       "description": "In this transition the actions (sub state machines) for the firmware install are being executed."
     },
-    "success": {
-      "name": "success",
+    "succeeded": {
+      "name": "succeeded",
       "description": "In this transition the task has completed successfully and any post failure steps are being executed."
     }
   }
