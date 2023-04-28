@@ -7,11 +7,12 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 )
 
-type Storage interface {
-	TasksByStatus(ctx context.Context, status string) ([]model.Task, error)
-	TaskByID(ctx context.Context, id string) (model.Task, error)
-	AddTask(ctx context.Context, task model.Task) (uuid.UUID, error)
-	UpdateTask(ctx context.Context, task model.Task) error
-	UpdateTaskAction(ctx context.Context, taskID string, action model.Action) error
-	RemoveTask(ctx context.Context, id string) error
+type Repository interface {
+	// AssetByID returns asset.
+	AssetByID(ctx context.Context, id string) (*model.Asset, error)
+
+	FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*model.Firmware, error)
+
+	// FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
+	FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]*model.Firmware, error)
 }
