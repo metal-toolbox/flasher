@@ -8,14 +8,14 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.19'
+        go-version: '1.20'
     - name: Checkout code
       uses: actions/checkout@v3
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
       with:
         args: --config .golangci.yml --timeout 2m
-        version: v1.50.0
+        version: v1.52.2
     - name: Test
       run: go test ./...
   build:
@@ -23,9 +23,9 @@ jobs:
     needs: [lint-test]
     steps:
       - name: Install Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: '1.19'
+          go-version: '1.20'
 
       - name: Checkout code
         uses: actions/checkout@v3
@@ -44,28 +44,11 @@ jobs:
            push: false
            file: Dockerfile
 
-      - name: Build flasher inband Docker image - no push
-        id: dockerbuild-flasher-inband
-        uses: docker/build-push-action@v3
-        with:
-           context: .
-           push: false
-           tags: ghcr.io/metal-toolbox/flasher-inband:latest
-           file: Dockerfile.inband
-
       - name: Scan image - flasher
         id: scan-flasher-image
         uses: anchore/scan-action@v3
         with:
           image: ghcr.io/metal-toolbox/flasher:latest
-          acs-report-enable: true
-          fail-build: false
-
-      - name: Scan image - flasher inband
-        id: scan-flasher-inband-image
-        uses: anchore/scan-action@v3
-        with:
-          image: ghcr.io/metal-toolbox/flasher-inband:latest
           acs-report-enable: true
           fail-build: false
 

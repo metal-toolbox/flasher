@@ -41,12 +41,6 @@ build-image: build-linux
 							 --label org.label-schema.vcs-url=$(REPO)
 
 
-# build docker image, ignoring the cache
-build-image--nocache: build-linux
-	docker build --no-cache --rm=true -f Dockerfile.inband -t ${DOCKER_IMAGE}:latest  . \
-							 --label org.label-schema.schema-version=1.0 \
-							 --label org.label-schema.vcs-ref=$(GIT_COMMIT_FULL) \
-							 --label org.label-schema.vcs-url=$(REPO)
 
 ## build devel docker image
 build-image-devel: build-image
