@@ -101,8 +101,8 @@ type TaskTransitioner interface {
 	// Run executes the task actions.
 	Run(task sw.StateSwitch, args sw.TransitionArgs) error
 
-	// PersistState persists the task status
-	PersistState(task sw.StateSwitch, args sw.TransitionArgs) error
+	// PublishStatus persists the task status
+	PublishStatus(task sw.StateSwitch, args sw.TransitionArgs) error
 
 	// TaskFailed is called when the task fails.
 	TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error
@@ -147,7 +147,7 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 		Transition: handler.Query,
 
 		// PostTransition will be called if condition and transition are successful.
-		PostTransition: handler.PersistState,
+		PostTransition: handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Query device inventory",
 			Description: "Query device inventory for component firmware versions - from the configured inventory source, fall back to querying inventory from the device.",
@@ -160,7 +160,7 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 		DestinationState: model.StateActive,
 		Condition:        nil,
 		Transition:       handler.Plan,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Plan install actions",
 			Description: "Prepare a plan - Action (sub) state machines for each firmware to be installed. Firmwares applicable is decided based on task parameters and by comparing the versions currently installed.",
@@ -173,7 +173,7 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 		DestinationState: model.StateSucceeded,
 		Condition:        handler.ValidatePlan,
 		Transition:       handler.Run,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Run install actions",
 			Description: "Run executes the planned Action (sub) state machines prepared in the Plan stage.",
@@ -186,7 +186,7 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 		DestinationState: model.StateFailed,
 		Condition:        nil,
 		Transition:       handler.TaskFailed,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Task failed",
 			Description: "Task execution has failed because of a failed task action or task handler.",
@@ -199,7 +199,7 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 		DestinationState: model.StateSucceeded,
 		Condition:        nil,
 		Transition:       handler.TaskSuccessful,
-		PostTransition:   handler.PersistState,
+		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
 			Name:        "Task successful",
 			Description: "Task execution completed successfully.",
