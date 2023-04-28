@@ -1,6 +1,46 @@
-# Flasher task action sub-statemachine
-The Action sub-statemachine(s) is executed to install firmware for each component.
+# Flasher task action sub-state machine(s)
+ 
+The task Actions (sub-statemachines) are executed by the Task statemachine.
+ 
+Note: Note each firmware to be installed is one action state machine.
+ 
+```mermaid
+graph TD;
+	n6("active");
+	n1("checkedCurrentFirmware");
+	n3("downloadedFirmware");
+	n4("failed");
+	n7("initiatedInstallFirmware");
+	n5("pending");
+	n8("polledFirmwareInstallStatus");
+	n11("poweredOffDevice");
+	n2("poweredOnDevice");
+	n9("resetBMC");
+	n10("resetDevice");
+	n12("succeeded");
+	n6-->|"Failed"|n4;
+	n6-->|"Power on device"|n2;
+	n1-->|"Download and verify firmware"|n3;
+	n1-->|"Failed"|n4;
+	n3-->|"Failed"|n4;
+	n3-->|"Initiate firmware install"|n7;
+	n7-->|"Failed"|n4;
+	n7-->|"Poll firmware install status"|n8;
+	n5-->|"Failed"|n4;
+	n8-->|"Failed"|n4;
+	n8-->|"Powercycle BMC"|n9;
+	n11-->|"Failed"|n4;
+	n11-->|"Success"|n12;
+	n2-->|"Check installed firmware"|n1;
+	n2-->|"Failed"|n4;
+	n9-->|"Failed"|n4;
+	n9-->|"Powercycle Device"|n10;
+	n10-->|"Failed"|n4;
+	n10-->|"Power off Device"|n11;
 
+```
+## Task Action (sub-statemachine) transitions
+ 
 ## Table of Contents
 
 ### States

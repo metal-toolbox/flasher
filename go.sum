@@ -590,8 +590,6 @@ github.com/bits-and-blooms/bitset v1.2.0/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edY
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
 github.com/blang/semver v3.1.0+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230324092939-d39fb75b6aa9 h1:UNtiASZUNvhF7Dr2qdqQy63VjddnpxS4bH3f+SQc/yQ=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230324092939-d39fb75b6aa9/go.mod h1:iRhgD8P0gvy95wYXA3FDCKbo/aRiKBaodBBgoUG/+Qg=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230426154556-8907c8d39762 h1:JZdt916j47DxoZ/Z+f5lQ/SQltrhDREUcaT9ZfEY9kE=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230426154556-8907c8d39762/go.mod h1:uEhvOjJcKX0zjSL4ExkDBNnYosSA+DFtsqpUPQeWOlQ=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d h1:cQ30Wa8mhLzK1TSOG+g3FlneIsXtFgun61mmPwVPmD0=
@@ -836,8 +834,8 @@ github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFP
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/edsrzf/mmap-go v1.1.0/go.mod h1:19H/e8pUPLicwkyNgOykDXkJ9F0MHE+Z52B8EIth78Q=
 github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153/go.mod h1:/Zj4wYkgs4iZTTu3o/KG3Itv/qCCa8VVMlb3i9OVuzc=
-github.com/emicklei/dot v1.1.0 h1:lv5Fthv7E2bcY2ZqA3nYWl9QFCuY8fzX8OtWCIqiuZo=
-github.com/emicklei/dot v1.1.0/go.mod h1:DeV7GvQtIw4h2u73RKBkkFdvVAz0D9fzeJrgPW6gy/s=
+github.com/emicklei/dot v1.4.2 h1:UbK6gX4yvrpHKlxuUQicwoAis4zl8Dzwit9SnbBAXWw=
+github.com/emicklei/dot v1.4.2/go.mod h1:DeV7GvQtIw4h2u73RKBkkFdvVAz0D9fzeJrgPW6gy/s=
 github.com/emicklei/go-restful v0.0.0-20170410110728-ff4f55a20633/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/emicklei/go-restful v2.9.5+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/emicklei/go-restful/v3 v3.8.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
@@ -1850,8 +1848,6 @@ github.com/spf13/viper v1.13.0/go.mod h1:Icm2xNL3/8uyh/wFuB1jI7TiTNKp8632Nwegu+z
 github.com/spf13/viper v1.15.0 h1:js3yy885G8xwJa6iOISGFwd+qlUo5AvyXb7CiihdtiU=
 github.com/spf13/viper v1.15.0/go.mod h1:fFcTBJxvhhzSJiZy8n+PeW6t8l+KeT/uTARa0jHOQLA=
 github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980/go.mod h1:AO3tvPzVZ/ayst6UlUKUv6rcPQInYe3IknH3jYhAKu8=
-github.com/stmcginnis/gofish v0.13.1-0.20221107140645-5cc43fad050f h1:/nAm+3jDIM9pMfSlY2Lr0wCh4WFEhgbACuX9FpYAJ4k=
-github.com/stmcginnis/gofish v0.13.1-0.20221107140645-5cc43fad050f/go.mod h1:BLDSFTp8pDlf/xDbLZa+F7f7eW0E/CHCboggsu8CznI=
 github.com/stmcginnis/gofish v0.14.0 h1:geECNAiG33JDB2x2xDkerpOOuXFqxp5YP3EFE3vd5iM=
 github.com/stmcginnis/gofish v0.14.0/go.mod h1:BLDSFTp8pDlf/xDbLZa+F7f7eW0E/CHCboggsu8CznI=
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=

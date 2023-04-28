@@ -7,7 +7,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230426154556-8907c8d39762
 	github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d
 	github.com/bombsimon/logrusr/v2 v2.0.1
-	github.com/emicklei/dot v1.1.0
+	github.com/emicklei/dot v1.4.2
 	github.com/filanov/stateswitch v1.0.1-0.20221115122927-775ae5822fad
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
