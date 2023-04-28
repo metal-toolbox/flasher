@@ -65,27 +65,17 @@ type Asset struct {
 }
 
 // Firmware includes a firmware version attributes and is part of FirmwareConfig
+//
+// nolint:govet // fieldalignment struct is easier to read in the current format
 type Firmware struct {
-	Version       string `yaml:"version"`
-	URL           string `yaml:"URL"`
-	FileName      string `yaml:"filename"`
-	Utility       string `yaml:"utility"`
-	Model         string `yaml:"model"`
-	Vendor        string `yaml:"vendor"`
-	ComponentSlug string `yaml:"componentslug"`
-	Checksum      string `yaml:"checksum"`
-}
-
-// Firmwares is a list of firmwares with a SortByInstallOrder method.
-type Firmwares []Firmware
-
-// SortByInstallOrder sorts the firmwares planned in the order they should be installed
-func (p Firmwares) SortByInstallOrder() {
-	sort.Slice(p, func(i, j int) bool {
-		slugi := strings.ToLower(p[i].ComponentSlug)
-		slugj := strings.ToLower(p[j].ComponentSlug)
-		return FirmwareInstallOrder[slugi] < FirmwareInstallOrder[slugj]
-	})
+	ID        string   `yaml:"id"`
+	Vendor    string   `yaml:"vendor"`
+	Models    []string `yaml:"models"`
+	FileName  string   `yaml:"filename"`
+	Version   string   `yaml:"version"`
+	URL       string   `yaml:"URL"`
+	Component string   `yaml:"component"`
+	Checksum  string   `yaml:"checksum"`
 }
 
 var (
