@@ -125,7 +125,7 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 		Firmware: *firmware[0],
 	}
 
-	_ = action.SetState(model.StatePending)
+	_ = action.SetState(model.StateActive)
 
 	// set action planned
 	task.ActionsPlanned = model.Actions{&action}
@@ -189,7 +189,7 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 		Firmware: *firmware[0],
 	}
 
-	_ = action.SetState(model.StatePending)
+	_ = action.SetState(model.StateActive)
 
 	// set action planned
 	task.ActionsPlanned = model.Actions{&action}
