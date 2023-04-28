@@ -1,47 +1,68 @@
 package app
 
 import (
-	"context"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
+	"time"
 
 	runtime "github.com/banzaicloud/logrus-runtime-formatter"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
+	// nolint:gosec // pprof path is only exposed over localhost
+	_ "net/http/pprof"
+)
+
+var (
+	ErrAppInit = errors.New("error initializing app")
+)
+
+const (
+	ProfilingEndpoint = "localhost:9091"
 )
 
 // Config holds configuration data when running mctl
 // App holds attributes for the mtl application
 type App struct {
-	// Sync waitgroup to wait for running go routines on termination.
-	SyncWG *sync.WaitGroup
+	// Viper loads configuration parameters.
+	v *viper.Viper
 	// Flasher configuration.
-	Config *model.Config
-	// TermCh is the channel to terminate the app based on a signal
-	TermCh chan os.Signal
+	Config *Configuration
 	// Logger is the app logger
 	Logger *logrus.Logger
+	// Kind is the type of application - worker
+	Kind model.AppKind
 }
 
 // New returns returns a new instance of the flasher app
-func New(ctx context.Context, appKind model.AppKind, inventorySourceKind, cfgFile string, loglevel int) (*App, error) {
-	// load configuration
-	cfg := &model.Config{
-		AppKind:         appKind,
-		InventorySource: inventorySourceKind,
-	}
-
-	if err := cfg.Load(cfgFile); err != nil {
-		return nil, err
+func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string, profiling bool) (*App, <-chan os.Signal, error) {
+	if appKind != model.AppKindWorker {
+		return nil, nil, errors.Wrap(ErrAppInit, "invalid app kind: "+string(appKind))
 	}
 
 	app := &App{
-		Config: cfg,
-		SyncWG: &sync.WaitGroup{},
+		v:      viper.New(),
+		Kind:   appKind,
+		Config: &Configuration{},
 		Logger: logrus.New(),
-		TermCh: make(chan os.Signal),
+	}
+
+	if err := app.LoadConfiguration(cfgFile, storeKind); err != nil {
+		return nil, nil, err
+	}
+
+	switch model.LogLevel(loglevel) {
+	case model.LogLevelDebug:
+		app.Logger.Level = logrus.DebugLevel
+	case model.LogLevelTrace:
+		app.Logger.Level = logrus.TraceLevel
+	default:
+		app.Logger.Level = logrus.InfoLevel
 	}
 
 	runtimeFormatter := &runtime.Formatter{
@@ -51,31 +72,32 @@ func New(ctx context.Context, appKind model.AppKind, inventorySourceKind, cfgFil
 		BaseNameOnly:   true,
 	}
 
-	// set log level, format
-	switch loglevel {
-	case model.LogLevelDebug:
-		app.Logger.Level = logrus.DebugLevel
-
-		// set runtime formatter options
-		runtimeFormatter.BaseNameOnly = true
-		runtimeFormatter.File = true
-		runtimeFormatter.Line = true
-
-	case model.LogLevelTrace:
-		app.Logger.Level = logrus.TraceLevel
-
-		// set runtime formatter options
-		runtimeFormatter.File = true
-		runtimeFormatter.Line = true
-		runtimeFormatter.Package = true
-	default:
-		app.Logger.Level = logrus.InfoLevel
-	}
-
 	app.Logger.SetFormatter(runtimeFormatter)
 
-	// register for SIGINT, SIGTERM
-	signal.Notify(app.TermCh, syscall.SIGINT, syscall.SIGTERM)
+	termCh := make(chan os.Signal, 1)
 
-	return app, nil
+	// register for SIGINT, SIGTERM
+	signal.Notify(termCh, syscall.SIGINT, syscall.SIGTERM)
+
+	if profiling {
+		enableProfilingEndpoint()
+	}
+
+	return app, termCh, nil
+}
+
+// enableProfilingEndpoint enables the profiling endpoint
+func enableProfilingEndpoint() {
+	go func() {
+		server := &http.Server{
+			Addr:              "",
+			ReadHeaderTimeout: 2 * time.Second, // nolint:gomnd // time duration value is clear as is.
+		}
+
+		if err := server.ListenAndServe(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	log.Println("profiling enabled: " + ProfilingEndpoint + "/debug/pprof")
 }
