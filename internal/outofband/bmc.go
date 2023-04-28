@@ -18,8 +18,8 @@ import (
 
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
-	logoutTimeout = "1m"
-	//loginTimeout  = "1m"
+	logoutTimeout = 1 * time.Minute
+	loginTimeout  = 1 * time.Minute
 	loginAttempts = 3
 
 	// login errors
@@ -71,13 +71,7 @@ func (b *bmc) Open(ctx context.Context) error {
 	}
 
 	// login to the bmc with retries
-	if err := b.loginWithRetries(ctx, loginAttempts); err != nil {
-		return err
-	}
-
-
-
-	return nil
+	return b.loginWithRetries(ctx, loginAttempts)
 }
 
 // Close logs out of the BMC
@@ -86,12 +80,7 @@ func (b *bmc) Close() error {
 		return nil
 	}
 
-	timeout, err := time.ParseDuration(logoutTimeout)
-	if err != nil {
-		return errors.Wrap(errBMCLogout, err.Error())
-	}
-
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeout))
+	ctx, cancel := context.WithTimeout(context.Background(), logoutTimeout)
 	defer cancel()
 
 	if err := b.client.Close(ctx); err != nil {
@@ -190,14 +179,12 @@ func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, compone
 		//	if hostWasReset {
 		//		return false, nil
 		//	}
-
 		return model.StatusInstallPowerCycleHostRequired, nil
 	case bmclibv2consts.FirmwareInstallPowerCycleBMC:
 		// if BMC is under reset return false (this is the final state only for queuing the update)
 		//	if bmcWasReset {
 		//		return false, nil
 		//	}
-
 		return model.StatusInstallPowerCycleBMCRequired, nil
 	case bmclibv2consts.FirmwareInstallComplete:
 		return model.StatusInstallComplete, nil
