@@ -147,7 +147,7 @@ func transitionRules() []sw.TransitionRule {
 	return []sw.TransitionRule{
 		{
 			TransitionType:   transitionTypePowerOnDevice,
-			SourceStates:     sw.States{model.StatePending},
+			SourceStates:     sw.States{model.StateActive},
 			DestinationState: statePoweredOnDevice,
 
 			// Condition for the transition, transition will be executed only if this function return true

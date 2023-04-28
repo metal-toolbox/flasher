@@ -18,7 +18,7 @@ const (
 	TransitionTypeRun    sw.TransitionType = "run"
 
 	// TransitionTypeTaskSuccess is transition type for successful tasks
-	TransitionTypeTaskSuccess sw.TransitionType = "success"
+	TransitionTypeTaskSuccess sw.TransitionType = "succeeded"
 	// TransitionTypeTaskFailed is transition type for failed tasks
 	TransitionTypeTaskFail sw.TransitionType = "failed"
 )
