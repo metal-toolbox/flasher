@@ -62,49 +62,19 @@ type Configuration struct {
 // ServerserviceOptions defines configuration for the Serverservice client.
 // https://github.com/metal-toolbox/hollow-serverservice
 type ServerserviceOptions struct {
-	EndpointURL          *url.URL
-	FacilityCode         string   `mapstructure:"facility_code"`
-	Endpoint             string   `mapstructure:"endpoint"`
-	OidcIssuerEndpoint   string   `mapstructure:"oidc_issuer_endpoint"`
-	OidcAudienceEndpoint string   `mapstructure:"oidc_audience_endpoint"`
-	OidcClientSecret     string   `mapstructure:"oidc_client_secret"`
-	OidcClientID         string   `mapstructure:"oidc_client_id"`
-	OidcClientScopes     []string `mapstructure:"oidc_client_scopes"`
-	DisableOAuth         bool     `mapstructure:"disable_oauth"`
-
-	// OutofbandFirmwareNS defines the (versioned attribute) namespace in which
-	// the installed firmware version data present.
-	//
-	// e.g: sh.hollow.alloy.outofband.status
-	OutofbandFirmwareNS string `mapstructure:"outofband_firmware_ns"`
-
-	// DeviceStates defines the node (device) states that flasher expects a device to be present
-	// in to proceed with a firmware install.
-	DeviceStates []string `mapstructure:"device_states"`
-
-	// AssetStateAttributeNS defines the server attribute namespace to look in
-	// for the node (device) state.
-	//
-	// In the below example, the value for the AssetStateAttributeNS field is "com.hollow.sh.node"
-	// An example of such a server attribute is,
-	//
-	//  {
-	//    "namespace": "com.hollow.sh.node",
-	//    "data": {
-	//      "state": "in_use",
-	//   }
-	AssetStateAttributeNS string `mapstructure:"device_state_attribute_ns"`
-
-	// AssetStateAttributeKey specifies the AssetStateAttributeNS namespace data key name
-	// to look under for the device state value.
-	//
-	// In the below example, the value for the AssetStateAttributeKey field is "state"
-	//  {
-	//    "namespace": "com.hollow.sh.node",
-	//    "data": {
-	//      "state": "in_use",
-	//   },
-	AssetStateAttributeKey string `mapstructure:"device_state_attribute_key"`
+	EndpointURL            *url.URL
+	FacilityCode           string   `mapstructure:"facility_code"`
+	Endpoint               string   `mapstructure:"endpoint"`
+	OidcIssuerEndpoint     string   `mapstructure:"oidc_issuer_endpoint"`
+	OidcAudienceEndpoint   string   `mapstructure:"oidc_audience_endpoint"`
+	OidcClientSecret       string   `mapstructure:"oidc_client_secret"`
+	OidcClientID           string   `mapstructure:"oidc_client_id"`
+	OutofbandFirmwareNS    string   `mapstructure:"outofband_firmware_ns"`
+	AssetStateAttributeNS  string   `mapstructure:"device_state_attribute_ns"`
+	AssetStateAttributeKey string   `mapstructure:"device_state_attribute_key"`
+	OidcClientScopes       []string `mapstructure:"oidc_client_scopes"`
+	DeviceStates           []string `mapstructure:"device_states"`
+	DisableOAuth           bool     `mapstructure:"disable_oauth"`
 }
 
 // LoadConfiguration loads application configuration
@@ -137,7 +107,7 @@ func (a *App) LoadConfiguration(cfgFile string, storeKind model.StoreKind) error
 
 	a.v.SetDefault("log.level", "info")
 
-	if err := a.envBindVars(a.Config); err != nil {
+	if err := a.envBindVars(); err != nil {
 		return errors.Wrap(ErrConfig, "env var bind error:"+err.Error())
 	}
 
@@ -174,7 +144,7 @@ func (a *App) envVarAppOverrides() {
 //
 // This can be replaced by the solution in https://github.com/spf13/viper/pull/1429
 // once that PR is merged.
-func (a *App) envBindVars(cfg *Configuration) error {
+func (a *App) envBindVars() error {
 	envKeysMap := map[string]interface{}{}
 	if err := mapstructure.Decode(a.Config, &envKeysMap); err != nil {
 		return err

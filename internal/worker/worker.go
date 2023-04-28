@@ -45,15 +45,17 @@ const (
 	urnNamespace = "hollow-controllers"
 )
 
+// Worker holds attributes for firmware install routines.
 type Worker struct {
-	id          string
-	dryrun      bool
-	concurrency int
-	dispatched  int32
-	syncWG      *sync.WaitGroup
-	stream      events.Stream
-	store       store.Repository
-	logger      *logrus.Logger
+	stream       events.Stream
+	store        store.Repository
+	syncWG       *sync.WaitGroup
+	logger       *logrus.Logger
+	id           string
+	facilityCode string
+	concurrency  int
+	dispatched   int32
+	dryrun       bool
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
@@ -62,20 +64,20 @@ func New(
 	dryrun bool,
 	concurrency int,
 	stream events.Stream,
-	store store.Repository,
+	repository store.Repository,
 	logger *logrus.Logger,
 ) *Worker {
 	id, _ := os.Hostname()
 
 	return &Worker{
-		id:     id,
-		dryrun: dryrun,
-		//concurrency: concurrency,
-		concurrency: 1,
-		syncWG:      &sync.WaitGroup{},
-		stream:      stream,
-		store:       store,
-		logger:      logger,
+		id:           id,
+		facilityCode: facilityCode,
+		dryrun:       dryrun,
+		concurrency:  concurrency,
+		syncWG:       &sync.WaitGroup{},
+		stream:       stream,
+		store:        repository,
+		logger:       logger,
 	}
 }
 
@@ -317,14 +319,15 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 	l.Level = o.logger.Level
 
 	handlerCtx := &sm.HandlerContext{
-		WorkerID:  o.id,
-		Dryrun:    o.dryrun,
-		Task:      task,
-		Publisher: &statusEmitter{o.stream, o.logger},
-		Ctx:       ctx,
-		Store:     o.store,
-		Data:      make(map[string]string),
-		Asset:     asset,
+		WorkerID:     o.id,
+		Dryrun:       o.dryrun,
+		Task:         task,
+		Publisher:    &statusEmitter{o.stream, o.logger},
+		Ctx:          ctx,
+		Store:        o.store,
+		Data:         make(map[string]string),
+		Asset:        asset,
+		FacilityCode: o.facilityCode,
 		Logger: l.WithFields(
 			logrus.Fields{
 				"workerID":    o.id,
@@ -335,11 +338,11 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 		),
 	}
 
-	o.runTaskStatemachine(ctx, handler, handlerCtx, doneCh)
+	o.runTaskStatemachine(handler, handlerCtx, doneCh)
 	<-doneCh
 }
 
-func (o *Worker) runTaskStatemachine(ctx context.Context, handler *taskHandler, handlerCtx *sm.HandlerContext, doneCh chan bool) {
+func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.HandlerContext, doneCh chan bool) {
 	defer close(doneCh)
 
 	startTS := time.Now()
@@ -350,7 +353,7 @@ func (o *Worker) runTaskStatemachine(ctx context.Context, handler *taskHandler, 
 	}).Info("running task for device")
 
 	// init state machine for task
-	stateMachine, err := sm.NewTaskStateMachine(ctx, handler)
+	stateMachine, err := sm.NewTaskStateMachine(handler)
 	if err != nil {
 		o.logger.Error(err)
 
@@ -358,7 +361,7 @@ func (o *Worker) runTaskStatemachine(ctx context.Context, handler *taskHandler, 
 	}
 
 	// run task state machine
-	if err := stateMachine.Run(ctx, handlerCtx.Task, handler, handlerCtx); err != nil {
+	if err := stateMachine.Run(handlerCtx.Task, handlerCtx); err != nil {
 		o.logger.WithFields(
 			logrus.Fields{
 				"deviceID":    handlerCtx.Task.Parameters.AssetID,

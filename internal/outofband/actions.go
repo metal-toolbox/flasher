@@ -1,8 +1,6 @@
 package outofband
 
 import (
-	"context"
-
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -61,8 +59,8 @@ func transitionOrder() []sw.TransitionType {
 	}
 }
 
-func NewActionStateMachine(ctx context.Context, actionID string) (*sm.ActionStateMachine, error) {
-	machine, err := sm.NewActionStateMachine(ctx, actionID, transitionOrder(), transitionRules())
+func NewActionStateMachine(actionID string) (*sm.ActionStateMachine, error) {
+	machine, err := sm.NewActionStateMachine(actionID, transitionOrder(), transitionRules())
 	if err != nil {
 		return nil, err
 	}

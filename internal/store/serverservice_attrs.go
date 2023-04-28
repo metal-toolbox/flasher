@@ -15,20 +15,6 @@ type versionedAttributeFirmware struct {
 	Firmware *common.Firmware `json:"firmware,omitempty"`
 }
 
-func installedFirmwareFromVA(va sservice.VersionedAttributes) (string, error) {
-	data := &common.Firmware{}
-
-	if err := json.Unmarshal(va.Data, data); err != nil {
-		return "", errors.Wrap(ErrServerserviceVersionedAttrObj, "failed to unpack Firmware data: "+err.Error())
-	}
-
-	if data.Installed == "" {
-		return "", errors.Wrap(ErrServerserviceVersionedAttrObj, "installed firmware version unknown")
-	}
-
-	return data.Installed, nil
-}
-
 func findAttribute(ns string, attributes []sservice.Attributes) *sservice.Attributes {
 	for _, attribute := range attributes {
 		if attribute.Namespace == ns {
@@ -131,6 +117,7 @@ func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attribut
 func (s *Serverservice) fromServerserviceComponents(scomponents sservice.ServerComponentSlice) model.Components {
 	components := make(model.Components, 0, len(scomponents))
 
+	// nolint:gocritic // rangeValCopy - this type is returned in the current form by serverservice.
 	for _, sc := range scomponents {
 		components = append(components, &model.Component{
 			Slug:              sc.ComponentTypeSlug,

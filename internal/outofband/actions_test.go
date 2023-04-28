@@ -29,7 +29,7 @@ func newTaskFixture(status string) *model.Task {
 // eventEmitter implements the statemachine.Publisher interface
 type eventEmitter struct{}
 
-func (e *eventEmitter) Publish(ctx context.Context, task *model.Task) {}
+func (e *eventEmitter) Publish(_ context.Context, _ *model.Task) {}
 
 func newtaskHandlerContextFixture(task *model.Task, asset *model.Asset) *sm.HandlerContext {
 	repository, _ := store.NewMockInventory()
@@ -49,17 +49,16 @@ func newtaskHandlerContextFixture(task *model.Task, asset *model.Asset) *sm.Hand
 }
 
 func Test_NewActionStateMachine(t *testing.T) {
-	ctx := context.Background()
 	// init new state machine
-	m, err := NewActionStateMachine(ctx, "testing")
+	m, err := NewActionStateMachine("testing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, transitionOrder(), m.TransitionOrder())
-	assert.Len(t, transitionRules(), 10)
 	// TODO(joel): at some point we'd want to test if the nodes and edges
 	// in the transition rules match whats expected
+	assert.Equal(t, transitionOrder(), m.TransitionOrder())
+	assert.Len(t, transitionRules(), 10)
 }
 
 func serverMux(t *testing.T, serveblob []byte) *http.ServeMux {
@@ -129,7 +128,7 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	_ = action.SetState(model.StatePending)
 
 	// set action planned
-	task.ActionsPlanned = model.Actions{action}
+	task.ActionsPlanned = model.Actions{&action}
 
 	// set test env variables
 	os.Setenv(envTesting, "1")
@@ -137,13 +136,13 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	os.Setenv(fixtures.EnvMockBMCFirmwareInstallStatus, string(model.StatusInstallComplete))
 
 	// init new state machine to run actions
-	m, err := NewActionStateMachine(ctx, "testing")
+	m, err := NewActionStateMachine("testing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// run action state machine
-	err = m.Run(ctx, &task.ActionsPlanned[0], tctx)
+	err = m.Run(ctx, task.ActionsPlanned[0], tctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +192,7 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 	_ = action.SetState(model.StatePending)
 
 	// set action planned
-	task.ActionsPlanned = model.Actions{action}
+	task.ActionsPlanned = model.Actions{&action}
 
 	// set test env variables
 	os.Setenv(envTesting, "1")
@@ -201,13 +200,13 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 	os.Setenv(fixtures.EnvMockBMCFirmwareInstallStatus, string(model.StatusInstallUnknown))
 
 	// init new state machine to run actions
-	m, err := NewActionStateMachine(ctx, "testing")
+	m, err := NewActionStateMachine("testing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// run action state machine
-	err = m.Run(ctx, &task.ActionsPlanned[0], tctx)
+	err = m.Run(ctx, task.ActionsPlanned[0], tctx)
 	assert.NotNil(t, err)
 
 	server.Close()

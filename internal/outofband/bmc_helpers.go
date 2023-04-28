@@ -23,16 +23,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func newHttpClient() *http.Client {
+func newHTTPClient() *http.Client {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		panic(err)
 	}
 
+	// nolint:gomnd // time duration declarations are clear as is.
 	return &http.Client{
 		Timeout: time.Second * 600,
 		Jar:     jar,
 		Transport: &http.Transport{
+			// nolint:gosec // BMCs don't have valid certs.
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 			DisableKeepAlives: true,
 			Dial: (&net.Dialer{
@@ -71,7 +73,7 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 		asset.BmcUsername,
 		asset.BmcPassword,
 		bmclibv2.WithLogger(logruslogr),
-		bmclibv2.WithHTTPClient(newHttpClient()),
+		bmclibv2.WithHTTPClient(newHTTPClient()),
 		bmclibv2.WithPerProviderTimeout(loginTimeout),
 	)
 
@@ -135,6 +137,8 @@ func (b *bmc) sessionActive(ctx context.Context) error {
 // check and the login attempt is ignored.
 func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 	attempts := 1
+
+	// nolint:gomnd // time duration definitions are clear as is.
 	delay := &backoff.Backoff{
 		Min:    5 * time.Second,
 		Max:    30 * time.Second,
@@ -149,8 +153,8 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 	// loop returns when a session was established or after retries attempts
 	for {
 		attemptstr := fmt.Sprintf("%d/%d", attempts, tries)
-
 		attemptCtx, cancel := context.WithTimeout(ctx, loginTimeout)
+		// nolint:gocritic // deferInLoop - loop is bounded
 		defer cancel()
 
 		// if a session is active, skip login attempt

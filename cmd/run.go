@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.hollow.sh/toolbox/events"
 
+	// nolint:gosec // profiling endpoint listens on localhost.
 	_ "net/http/pprof"
 )
 
@@ -28,8 +29,8 @@ var cmdRun = &cobra.Command{
 
 // run worker command
 var (
-	dryrun         bool
-	inventoryStore string
+	dryrun    bool
+	storeKind string
 )
 
 var (
@@ -38,12 +39,13 @@ var (
 
 func runWorker(ctx context.Context) {
 	go func() {
+		// nolint:gosec // timeouts aren't a real concern when dealing with this endpoint.
 		log.Println(http.ListenAndServe("localhost:9091", nil))
 	}()
 
 	flasher, termCh, err := app.New(
 		model.AppKindWorker,
-		model.StoreKind(inventoryStore),
+		model.StoreKind(storeKind),
 		cfgFile,
 		logLevel,
 		enableProfiling,
@@ -62,7 +64,7 @@ func runWorker(ctx context.Context) {
 		cancelFunc()
 	}()
 
-	inv, err := initInventory(ctx, flasher.Config, flasher.Logger)
+	inv, err := initInventory(flasher.Config, flasher.Logger)
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
@@ -84,20 +86,20 @@ func runWorker(ctx context.Context) {
 	w.Run(ctx)
 }
 
-func initInventory(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
+func initInventory(config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
 	switch {
 	// from CLI flags
-	case strings.HasSuffix(inventoryStore, ".yml"), strings.HasSuffix(inventoryStore, ".yaml"):
-		return store.NewYamlInventory(inventoryStore)
-	case inventoryStore == string(model.InventoryStoreServerservice):
-		return store.NewServerserviceStore(ctx, config.ServerserviceOptions, logger)
+	case strings.HasSuffix(storeKind, ".yml"), strings.HasSuffix(storeKind, ".yaml"):
+		return store.NewYamlInventory(storeKind)
+	case storeKind == string(model.InventoryStoreServerservice):
+		return store.NewServerserviceStore(config.ServerserviceOptions, logger)
 	}
 
 	return nil, errors.Wrap(ErrInventoryStore, "expected a valid inventory store parameter")
 }
 
 func init() {
-	cmdRun.PersistentFlags().StringVar(&inventoryStore, "store", "", "inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
+	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
 
 	if err := cmdRun.MarkPersistentFlagRequired("store"); err != nil {

@@ -1,14 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/spf13/cobra"
@@ -38,7 +36,7 @@ var cmdExportStatemachine = &cobra.Command{
 	Use:   "statemachine --task|--action",
 	Short: "Export a JSON dump of flasher statemachine(s) - writes to a file task-statemachine.json",
 	Run: func(cmd *cobra.Command, args []string) {
-		exportStatemachine(cmd.Context())
+		exportStatemachine()
 	},
 }
 
@@ -71,21 +69,21 @@ func exportAsDot(data []byte) (string, error) {
 	return g.String(), nil
 }
 
-func exportStatemachine(ctx context.Context) {
+func exportStatemachine() {
 	if exportFlagSet.task {
-		exportTaskStatemachine(ctx)
+		exportTaskStatemachine()
 		os.Exit(0)
 	}
 
 	if exportFlagSet.action {
-		exportOutofbandActionStatemachine(ctx)
+		exportOutofbandActionStatemachine()
 	}
 }
 
-func exportTaskStatemachine(ctx context.Context) {
-	// Task: &model.Task{}
-	handler := &mockTaskHandler{}
-	m, err := sm.NewTaskStateMachine(ctx, handler)
+func exportTaskStatemachine() {
+	handler := &sm.MockTaskHandler{}
+
+	m, err := sm.NewTaskStateMachine(handler)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -108,8 +106,8 @@ func exportTaskStatemachine(ctx context.Context) {
 	fmt.Println(val)
 }
 
-func exportOutofbandActionStatemachine(ctx context.Context) {
-	m, err := outofband.NewActionStateMachine(ctx, "dummy")
+func exportOutofbandActionStatemachine() {
+	m, err := outofband.NewActionStateMachine("dummy")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -139,44 +137,4 @@ func init() {
 
 	cmdExport.AddCommand(cmdExportStatemachine)
 	rootCmd.AddCommand(cmdExport)
-}
-
-// mockTaskHandler implements the TaskTransitioner interface
-type mockTaskHandler struct{}
-
-func (h *mockTaskHandler) Init(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-// planFromFirmwareSet
-func (h *mockTaskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task, device model.Asset) error {
-	return nil
-}
-
-func (h *mockTaskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
-	return true, nil
-}
-
-func (h *mockTaskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) TaskSuccessful(task sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) PublishStatus(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
 }

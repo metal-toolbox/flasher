@@ -23,9 +23,7 @@ import (
 )
 
 var (
-	logLevel string
-	// storeKind is inventory store name - serverservice
-	storeKind       string
+	logLevel        string
 	cfgFile         string
 	enableProfiling bool
 )

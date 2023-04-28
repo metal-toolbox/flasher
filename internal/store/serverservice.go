@@ -24,8 +24,6 @@ const (
 
 	// serverservice attribute namespace for firmware set labels
 	firmwareAttributeNSFirmwareSetLabels = "sh.hollow.firmware_set.labels"
-
-	component = "inventory.serverservice"
 )
 
 var (
@@ -63,7 +61,7 @@ type Serverservice struct {
 	logger *logrus.Logger
 }
 
-func NewServerserviceStore(ctx context.Context, config *app.ServerserviceOptions, logger *logrus.Logger) (Repository, error) {
+func NewServerserviceStore(config *app.ServerserviceOptions, logger *logrus.Logger) (Repository, error) {
 	// TODO: add helper method for OIDC auth
 	client, err := sservice.NewClientWithToken("fake", config.Endpoint, nil)
 	if err != nil {
@@ -208,6 +206,8 @@ func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceV
 	}
 
 	found := []*model.Firmware{}
+
+	// nolint:gocritic // rangeValCopy - the data is returned by serverservice in this form.
 	for _, set := range firmwaresets {
 		found = append(found, intoFirmwaresSlice(set.ComponentFirmware)...)
 	}
@@ -228,6 +228,7 @@ func intoFirmwaresSlice(componentFirmware []sservice.ComponentFirmwareVersion) [
 
 	firmwares := make([]*model.Firmware, 0, len(componentFirmware))
 
+	// nolint:gocritic // rangeValCopy - componentFirmware is returned by serverservice in this form.
 	for _, firmware := range componentFirmware {
 		firmwares = append(firmwares, &model.Firmware{
 			ID:        firmware.UUID.String(),

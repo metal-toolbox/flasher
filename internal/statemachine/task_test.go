@@ -1,9 +1,9 @@
+// nolint
 package statemachine
 
 // this package gets its own fixtures to prevent import cycles.
 
 import (
-	"context"
 	"net"
 	"testing"
 
@@ -34,6 +34,7 @@ var (
 	}
 
 	asset1 = uuid.New()
+
 	asset2 = uuid.New()
 
 	assets = map[string]model.Asset{
@@ -57,9 +58,14 @@ var (
 	}
 )
 
-func newTaskFixture(state string) *model.Task {
+func newTaskFixture(t *testing.T, state string) *model.Task {
+	t.Helper()
+
 	task := &model.Task{}
-	task.SetState(sw.State(state))
+	if err := task.SetState(sw.State(state)); err != nil {
+		t.Fatal(err)
+	}
+
 	task.InstallFirmwares = firmwares
 	task.Parameters.AssetID = asset1
 
@@ -76,17 +82,15 @@ func Test_NewTaskStateMachine(t *testing.T) {
 	}{
 		{
 			"new task statemachine is created",
-			newTaskFixture(string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending)),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
-
 			// transition handler implements the taskTransitioner methods to complete tasks
-			handler := &mockTaskHandler{}
-			m, err := NewTaskStateMachine(ctx, handler)
+			handler := &MockTaskHandler{}
+			m, err := NewTaskStateMachine(handler)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -107,7 +111,7 @@ func Test_Transitions(t *testing.T) {
 	}{
 		{
 			"Pending to Active",
-			newTaskFixture(string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending)),
 			[]sw.TransitionType{TransitionTypeActive},
 			string(model.StateActive),
 			false,
@@ -115,7 +119,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Active to Success",
-			newTaskFixture(string(model.StateActive)),
+			newTaskFixture(t, string(model.StateActive)),
 			[]sw.TransitionType{TransitionTypeRun},
 			string(model.StateSucceeded),
 			false,
@@ -123,7 +127,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Queued to Success - run all transitions",
-			newTaskFixture(string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending)),
 			[]sw.TransitionType{}, // with this not defined, the statemachine defaults to the configured transitions.
 			string(model.StateSucceeded),
 			false,
@@ -131,7 +135,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Queued to Failed",
-			newTaskFixture(string(model.StateActive)),
+			newTaskFixture(t, string(model.StateActive)),
 			[]sw.TransitionType{TransitionTypeTaskFail},
 			string(model.StateFailed),
 			true,
@@ -139,7 +143,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Active to Failed",
-			newTaskFixture(string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending)),
 			[]sw.TransitionType{TransitionTypeTaskFail},
 			string(model.StateFailed),
 			true,
@@ -147,7 +151,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Success to Active fails - invalid transition",
-			newTaskFixture(string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending)),
 			[]sw.TransitionType{TransitionTypeTaskSuccess},
 			string(model.StateFailed),
 			true,
@@ -157,13 +161,12 @@ func Test_Transitions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
 			// init task handler context
 			tctx := &HandlerContext{Task: tc.task}
-			handler := &mockTaskHandler{}
+			handler := &MockTaskHandler{}
 
 			// init new state machine
-			m, err := NewTaskStateMachine(ctx, handler)
+			m, err := NewTaskStateMachine(handler)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -174,7 +177,7 @@ func Test_Transitions(t *testing.T) {
 			}
 
 			// run transition
-			err = m.Run(ctx, tc.task, handler, tctx)
+			err = m.Run(tc.task, tctx)
 			if err != nil {
 				if !tc.expectError {
 					t.Fatal(err)
@@ -189,44 +192,4 @@ func Test_Transitions(t *testing.T) {
 
 		})
 	}
-}
-
-// mockTaskHandler implements the TaskTransitioner interface
-type mockTaskHandler struct{}
-
-func (h *mockTaskHandler) Init(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-// planFromFirmwareSet
-func (h *mockTaskHandler) planFromFirmwareSet(tctx *HandlerContext, task *model.Task, asset model.Asset) error {
-	return nil
-}
-
-func (h *mockTaskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
-	return true, nil
-}
-
-func (h *mockTaskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) TaskSuccessful(task sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) PublishStatus(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
 }

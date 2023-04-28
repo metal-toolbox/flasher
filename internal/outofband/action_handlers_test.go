@@ -60,7 +60,7 @@ func Test_pollFirmwareInstallStatus(t *testing.T) {
 			}
 
 			_ = action.SetState(model.StateActive)
-			task.ActionsPlanned = append(task.ActionsPlanned, action)
+			task.ActionsPlanned = append(task.ActionsPlanned, &action)
 
 			// init handler
 			handler := &actionHandler{}
@@ -88,5 +88,4 @@ func Test_pollFirmwareInstallStatus(t *testing.T) {
 			}
 		})
 	}
-
 }

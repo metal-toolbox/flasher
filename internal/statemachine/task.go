@@ -30,11 +30,12 @@ var (
 	ErrTaskTransition            = errors.New("error in task transition")
 )
 
+// Publisher defines methods to publish task information.
 type Publisher interface {
 	Publish(ctx context.Context, task *model.Task)
 }
 
-// HandlerContext holds references to objects it requires to complete task and action transitions.
+// HandlerContext holds references to objects required to complete firmware install task and action transitions.
 //
 // The HandlerContext is passed to every transition handler.
 type HandlerContext struct {
@@ -44,6 +45,7 @@ type HandlerContext struct {
 	// Task is the task being executed.
 	Task *model.Task
 
+	// Publisher provides the Publish method to publish Task status changes.
 	Publisher Publisher
 
 	// err is set when a transition fails to complete its transitions in run()
@@ -62,6 +64,9 @@ type HandlerContext struct {
 
 	// Asset holds attributes about the device under firmware install.
 	Asset *model.Asset
+
+	// FacilityCode limits the task handler to Assets in the given facility.
+	FacilityCode string
 
 	// Logger is the task, action handler logger.
 	Logger *logrus.Entry
@@ -117,7 +122,7 @@ type TaskStateMachine struct {
 }
 
 // NewTaskStateMachine declares, initializes and returns a TaskStateMachine object to execute flasher tasks.
-func NewTaskStateMachine(ctx context.Context, handler TaskTransitioner) (*TaskStateMachine, error) {
+func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
 	transitionOrder := []sw.TransitionType{
 		TransitionTypeActive,
@@ -284,17 +289,17 @@ func (m *TaskStateMachine) SetTransitionOrder(transitions []sw.TransitionType) {
 }
 
 // TransitionFailed is the task failed transition handler.
-func (m *TaskStateMachine) TransitionFailed(ctx context.Context, task *model.Task, tctx *HandlerContext) error {
+func (m *TaskStateMachine) TransitionFailed(task *model.Task, tctx *HandlerContext) error {
 	return m.sm.Run(TransitionTypeTaskFail, task, tctx)
 }
 
 // TransitionSuccess is the task success transition handler.
-func (m *TaskStateMachine) TransitionSuccess(ctx context.Context, task *model.Task, tctx *HandlerContext) error {
+func (m *TaskStateMachine) TransitionSuccess(task *model.Task, tctx *HandlerContext) error {
 	return m.sm.Run(TransitionTypeTaskSuccess, task, tctx)
 }
 
 // Run executes the transitions in the expected order while handling any failures.
-func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler TaskTransitioner, tctx *HandlerContext) error {
+func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 	var err error
 
 	var finalTransition sw.TransitionType
@@ -315,7 +320,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 			task.Status = err.Error()
 
 			// run transition failed handler
-			if txErr := m.TransitionFailed(ctx, task, tctx); txErr != nil {
+			if txErr := m.TransitionFailed(task, tctx); txErr != nil {
 				err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
 			}
 
@@ -325,7 +330,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 
 	// run transition success handler when the final successful transition is as expected
 	if finalTransition == TransitionTypeRun {
-		if err := m.TransitionSuccess(ctx, task, tctx); err != nil {
+		if err := m.TransitionSuccess(task, tctx); err != nil {
 			return errors.Wrap(err, string(TransitionTypeActionSuccess)+": "+err.Error())
 		}
 	}

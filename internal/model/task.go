@@ -41,10 +41,7 @@ const (
 	StateFailed    sw.State = sw.State(cptypes.Failed)
 )
 
-// Action is part of a task, it is resolved from the Firmware configuration
-//
-// Actions transition through states as the action progresses
-// those states are `queued`, `active`, `success`, `FailedState`.
+// Action holds attributes of a Task sub-statemachine
 type Action struct {
 	// ID is a unique identifier for this action
 	ID string
@@ -95,13 +92,13 @@ func (a *Action) State() sw.State {
 }
 
 // Actions is a list of actions
-type Actions []Action
+type Actions []*Action
 
 // ByID returns the Action matched by the identifier
 func (a Actions) ByID(id string) *Action {
 	for _, action := range a {
 		if action.ID == id {
-			return &action
+			return action
 		}
 	}
 
@@ -111,6 +108,8 @@ func (a Actions) ByID(id string) *Action {
 // Task is a top level unit of work handled by flasher.
 //
 // A task performs one or more actions, each of the action corresponds to a Firmware planned for install.
+//
+// nolint:govet // fieldalignment - struct is better readable in its current form.
 type Task struct {
 	// Task unique identifier, this is set to the Condition identifier.
 	ID uuid.UUID
@@ -139,7 +138,7 @@ type Task struct {
 	CompletedAt time.Time
 }
 
-// StreamEvent holds properties of a message recieved on the stream.
+// StreamEvent holds properties of a message received on the stream.
 type StreamEvent struct {
 	// Msg is the original message that created this task.
 	// This is here so that the events subsystem can be acked/notified as the task makes progress.
@@ -167,8 +166,9 @@ func (t *Task) State() sw.State {
 	return sw.State(t.state)
 }
 
-// TaskParameters are the parameters set for each task flasher works
-// these are parameters received from an operator which determines the task execution actions.
+// TaskParameters are the parameters set for each task
+//
+// nolint:govet // fieldalignment struct is easier to read in the current format
 type TaskParameters struct {
 	// Inventory identifier for the asset to install firmware on.
 	AssetID uuid.UUID `json:"assetID"`

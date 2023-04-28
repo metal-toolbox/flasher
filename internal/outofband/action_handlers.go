@@ -297,6 +297,9 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 	return nil
 }
 
+// polls firmware install status from the BMC
+//
+// nolint:gocyclo // for now this is best kept in the same method
 func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
@@ -543,9 +546,5 @@ func (h *actionHandler) actionFailed(_ sw.StateSwitch, _ sw.TransitionArgs) erro
 }
 
 func (h *actionHandler) actionSuccessful(_ sw.StateSwitch, _ sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *actionHandler) actionSkipped(_ sw.StateSwitch, _ sw.TransitionArgs) error {
 	return nil
 }

@@ -37,6 +37,9 @@ func StoreKinds() []StoreKind {
 	return []StoreKind{InventoryStoreYAML, InventoryStoreServerservice}
 }
 
+// Asset holds attributes of a server retrieved from the inventory store.
+//
+// nolint:govet // fieldalignment struct is easier to read in the current format
 type Asset struct {
 	ID uuid.UUID
 
@@ -53,11 +56,16 @@ type Asset struct {
 	Model  string
 	Serial string
 
+	// Facility this Asset is hosted in.
+	FacilityCode string
+
 	// Device components
 	Components Components
 }
 
 // Firmware includes a firmware version attributes and is part of FirmwareConfig
+//
+// nolint:govet // fieldalignment struct is easier to read in the current format
 type Firmware struct {
 	ID        string   `yaml:"id"`
 	Vendor    string   `yaml:"vendor"`
@@ -73,6 +81,7 @@ var (
 	// FirmwareInstallOrder defines the order in which firmware is installed.
 	//
 	// TODO(joel): fix up bmc-toolbox/common slugs to be of lower case instead of upper
+	// nolint:gomnd // component install order number is clear as is.
 	FirmwareInstallOrder = map[string]int{
 		strings.ToLower(common.SlugBMC):               0,
 		strings.ToLower(common.SlugBIOS):              1,

@@ -13,12 +13,11 @@ import (
 )
 
 var (
-	ErrSaveTask            = errors.New("error in saveTask transition handler")
-	ErrTaskTypeAssertion   = errors.New("error asserting Task type")
-	errTaskQueryInventory  = errors.New("error in task query inventory for installed firmware")
-	errPlanFromFirmwareSet = errors.New("error planning firmwares for install from firmware set")
-	errTaskPlanActions     = errors.New("error in task action planning")
-	errTaskPlanValidate    = errors.New("error in task plan validation")
+	ErrSaveTask           = errors.New("error in saveTask transition handler")
+	ErrTaskTypeAssertion  = errors.New("error asserting Task type")
+	errTaskQueryInventory = errors.New("error in task query inventory for installed firmware")
+	errTaskPlanActions    = errors.New("error in task action planning")
+	errTaskPlanValidate   = errors.New("error in task plan validation")
 )
 
 // taskHandler implements the taskTransitionHandler methods
@@ -312,7 +311,7 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 		// based on that the action plan is setup.
 		//
 		// For now this is hardcoded to outofband.
-		m, err := outofband.NewActionStateMachine(tctx.Ctx, actionID)
+		m, err := outofband.NewActionStateMachine(actionID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -348,7 +347,7 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 		}
 
 		// create action thats added to the task
-		actions = append(actions, newAction)
+		actions = append(actions, &newAction)
 	}
 
 	return actionMachines, actions, nil

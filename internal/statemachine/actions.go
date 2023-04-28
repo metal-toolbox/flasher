@@ -100,7 +100,7 @@ func ActionID(taskID, componentSlug string, idx int) string {
 }
 
 // NewActionStateMachine initializes an action state machine to install firmware on a component.
-func NewActionStateMachine(ctx context.Context, actionID string, transitions []sw.TransitionType, transitionRules []sw.TransitionRule) (*ActionStateMachine, error) {
+func NewActionStateMachine(actionID string, transitions []sw.TransitionType, transitionRules []sw.TransitionRule) (*ActionStateMachine, error) {
 	m := &ActionStateMachine{
 		actionID:    actionID,
 		sm:          sw.NewStateMachine(),
@@ -131,12 +131,12 @@ func (a *ActionStateMachine) DescribeAsJSON() ([]byte, error) {
 }
 
 // TransitionFailed is the action statemachine handler that runs when an action fails.
-func (a *ActionStateMachine) TransitionFailed(ctx context.Context, action *model.Action, hctx *HandlerContext) error {
+func (a *ActionStateMachine) TransitionFailed(action *model.Action, hctx *HandlerContext) error {
 	return a.sm.Run(TransitionTypeActionFailed, action, hctx)
 }
 
 // TransitionSuccess is the action statemachine handler that runs when an action succeeds.
-func (a *ActionStateMachine) TransitionSuccess(ctx context.Context, action *model.Action, hctx *HandlerContext) error {
+func (a *ActionStateMachine) TransitionSuccess(action *model.Action, hctx *HandlerContext) error {
 	return a.sm.Run(TransitionTypeActionSuccess, action, hctx)
 }
 
@@ -153,8 +153,8 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
 
 		// return on context cancellation
-		if tctx.Ctx.Err() != nil {
-			return tctx.Ctx.Err()
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
 		err := a.sm.Run(transitionType, action, tctx)
@@ -166,7 +166,7 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			}
 
 			// run transition failed handler
-			if txErr := a.TransitionFailed(ctx, action, tctx); txErr != nil {
+			if txErr := a.TransitionFailed(action, tctx); txErr != nil {
 				err = multierror.Append(err, errors.Wrap(txErr, "actionSM TransitionFailed() error"))
 			}
 
@@ -188,7 +188,7 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 	}
 
 	// run transition success handler
-	if err := a.TransitionSuccess(ctx, action, tctx); err != nil {
+	if err := a.TransitionSuccess(action, tctx); err != nil {
 		return errors.Wrap(err, err.Error())
 	}
 
