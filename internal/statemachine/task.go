@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	// TransitionTypeQuery is the the transition
-	TransitionTypeQuery sw.TransitionType = "query"
-	TransitionTypePlan  sw.TransitionType = "plan"
-	TransitionTypeRun   sw.TransitionType = "run"
+	TransitionTypeActive sw.TransitionType = "active"
+	TransitionTypeQuery  sw.TransitionType = "query"
+	TransitionTypePlan   sw.TransitionType = "plan"
+	TransitionTypeRun    sw.TransitionType = "run"
 
 	// TransitionTypeTaskSuccess is transition type for successful tasks
-	TransitionTypeTaskSuccess sw.TransitionType = "success"
+	TransitionTypeTaskSuccess sw.TransitionType = "succeeded"
 	// TransitionTypeTaskFailed is transition type for failed tasks
 	TransitionTypeTaskFail sw.TransitionType = "failed"
 )
@@ -197,7 +197,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeRun,
 		SourceStates:     sw.States{model.StateActive},
-		DestinationState: model.StateSuccess,
+		DestinationState: model.StateSucceeded,
 		Condition:        handler.ValidatePlan,
 		Transition:       handler.Run,
 		PostTransition:   handler.PersistState,
@@ -209,7 +209,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeTaskFail,
-		SourceStates:     sw.States{model.StateQueued, model.StateActive},
+		SourceStates:     sw.States{model.StatePending, model.StateActive},
 		DestinationState: model.StateFailed,
 		Condition:        nil,
 		Transition:       handler.TaskFailed,
@@ -223,7 +223,7 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeTaskSuccess,
 		SourceStates:     sw.States{model.StateActive},
-		DestinationState: model.StateSuccess,
+		DestinationState: model.StateSucceeded,
 		Condition:        nil,
 		Transition:       handler.TaskSuccessful,
 		PostTransition:   handler.PersistState,
@@ -237,12 +237,12 @@ func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTran
 }
 
 func (m *TaskStateMachine) addDocumentation() {
-	m.sm.DescribeState(model.StateRequested, sw.StateDoc{
+	m.sm.DescribeState(model.StatePending, sw.StateDoc{
 		Name:        "Requested",
 		Description: "In this state the task has been requested (this is done outside of the state machine).",
 	})
 
-	m.sm.DescribeState(model.StateQueued, sw.StateDoc{
+	m.sm.DescribeState(model.StatePending, sw.StateDoc{
 		Name:        "Queued",
 		Description: "In this state the task is being initialized (this is done outside of the state machine).",
 	})
@@ -257,7 +257,7 @@ func (m *TaskStateMachine) addDocumentation() {
 		Description: "In this state the task execution has failed.",
 	})
 
-	m.sm.DescribeState(model.StateSuccess, sw.StateDoc{
+	m.sm.DescribeState(model.StateSucceeded, sw.StateDoc{
 		Name:        "Success",
 		Description: "In this state the task execution has completed successfully.",
 	})

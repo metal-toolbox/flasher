@@ -14,12 +14,12 @@ import (
 const (
 
 	// state for successful actions
-	StateActionSuccessful sw.State = "success"
+	StateActionSuccessful sw.State = model.StateSucceeded
 	// state for failed actions
-	StateActionFailed sw.State = "failed"
+	StateActionFailed sw.State = model.StateFailed
 
 	// transition for completed actions
-	TransitionTypeActionSuccess sw.TransitionType = "success"
+	TransitionTypeActionSuccess sw.TransitionType = "succeeded"
 	// transition for failed actions
 	TransitionTypeActionFailed sw.TransitionType = "failed"
 )
