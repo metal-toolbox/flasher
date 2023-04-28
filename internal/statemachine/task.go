@@ -89,6 +89,9 @@ type HandlerContext struct {
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.
 type TaskTransitioner interface {
+	// Init transitions a pending task to the active state.
+	Init(task sw.StateSwitch, args sw.TransitionArgs) error
+
 	// Query queries information for planning task actions.
 	Query(task sw.StateSwitch, args sw.TransitionArgs) error
 
@@ -122,6 +125,7 @@ type TaskStateMachine struct {
 func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
 	transitionOrder := []sw.TransitionType{
+		TransitionTypeActive,
 		TransitionTypeQuery,
 		TransitionTypePlan,
 		TransitionTypeRun,
@@ -132,6 +136,19 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 
 	// The SM has transition rules define the transitionHandler methods
 	// each transitionHandler method is passed as values to the transition rule.
+
+	m.sm.AddTransition(sw.TransitionRule{
+		TransitionType:   TransitionTypeActive,
+		SourceStates:     sw.States{model.StatePending},
+		DestinationState: model.StateActive,
+		Condition:        nil,
+		Transition:       handler.Init,
+		PostTransition:   handler.PublishStatus,
+		Documentation: sw.TransitionRuleDoc{
+			Name:        "Initialize task",
+			Description: "Performs any task initialization, and transitions the state from pending to active.",
+		},
+	})
 
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeQuery,
