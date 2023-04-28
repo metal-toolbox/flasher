@@ -11,26 +11,31 @@ import (
 	"github.com/google/uuid"
 )
 
-type AppKind string
+type (
+	AppKind   string
+	StoreKind string
+	// LogLevel is the logging level string.
+	LogLevel string
+)
 
 const (
+	AppName               = "flasher"
 	AppKindWorker AppKind = "worker"
-	AppKindClient AppKind = "client"
 
-	InventorySourceYaml          = "yaml"
-	InventorySourceServerservice = "serverservice"
+	InventoryStoreYAML          StoreKind = "yaml"
+	InventoryStoreServerservice StoreKind = "serverservice"
 
-	LogLevelInfo  = 0
-	LogLevelDebug = 1
-	LogLevelTrace = 2
+	LogLevelInfo  LogLevel = "info"
+	LogLevelDebug LogLevel = "debug"
+	LogLevelTrace LogLevel = "trace"
 )
 
 // AppKinds returns the supported flasher app kinds
-func AppKinds() []AppKind { return []AppKind{AppKindWorker, AppKindClient} }
+func AppKinds() []AppKind { return []AppKind{AppKindWorker} }
 
-// InventorySourceKinds returns the supported asset inventory, firmware configuration sources
-func InventorySourceKinds() []string {
-	return []string{InventorySourceYaml, InventorySourceServerservice}
+// StoreKinds returns the supported asset inventory, firmware configuration sources
+func StoreKinds() []StoreKind {
+	return []StoreKind{InventoryStoreYAML, InventoryStoreServerservice}
 }
 
 type Device struct {
