@@ -146,7 +146,7 @@ type TaskStateMachine struct {
 }
 
 // NewTaskStateMachine declares, initializes and returns a TaskStateMachine object to execute flasher tasks.
-func NewTaskStateMachine(ctx context.Context, task *model.Task, handler TaskTransitioner) (*TaskStateMachine, error) {
+func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 	// transitions are executed in this order
 	transitionOrder := []sw.TransitionType{
 		TransitionTypeQuery,
@@ -299,17 +299,17 @@ func (m *TaskStateMachine) SetTransitionOrder(transitions []sw.TransitionType) {
 }
 
 // TransitionFailed is the task failed transition handler.
-func (m *TaskStateMachine) TransitionFailed(ctx context.Context, task *model.Task, tctx *HandlerContext) error {
+func (m *TaskStateMachine) TransitionFailed(task *model.Task, tctx *HandlerContext) error {
 	return m.sm.Run(TransitionTypeTaskFail, task, tctx)
 }
 
 // TransitionSuccess is the task success transition handler.
-func (m *TaskStateMachine) TransitionSuccess(ctx context.Context, task *model.Task, tctx *HandlerContext) error {
+func (m *TaskStateMachine) TransitionSuccess(task *model.Task, tctx *HandlerContext) error {
 	return m.sm.Run(TransitionTypeTaskSuccess, task, tctx)
 }
 
 // Run executes the transitions in the expected order while handling any failures.
-func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler TaskTransitioner, tctx *HandlerContext) error {
+func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 	var err error
 
 	var finalTransition sw.TransitionType
@@ -330,7 +330,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 			task.Info = err.Error()
 
 			// run transition failed handler
-			if txErr := m.TransitionFailed(ctx, task, tctx); txErr != nil {
+			if txErr := m.TransitionFailed(task, tctx); txErr != nil {
 				err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
 			}
 
@@ -340,7 +340,7 @@ func (m *TaskStateMachine) Run(ctx context.Context, task *model.Task, handler Ta
 
 	// run transition success handler when the final successful transition is as expected
 	if finalTransition == TransitionTypeRun {
-		if err := m.TransitionSuccess(ctx, task, tctx); err != nil {
+		if err := m.TransitionSuccess(task, tctx); err != nil {
 			return errors.Wrap(err, string(TransitionTypeActionSuccess)+": "+err.Error())
 		}
 	}
