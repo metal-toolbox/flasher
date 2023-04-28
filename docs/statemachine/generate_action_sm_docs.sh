@@ -3,12 +3,12 @@
 #
 # script adapted from https://github.com/omertuc/assisted-service/tree/statemachine/cmd/graphstatemachine
 #
-set -euxo pipefail
+set -euo pipefail
 
 SCRIPT_DIR="./docs/statemachine"
 
-JSON="${SCRIPT_DIR}"/action-statemachine.json
-OUT_FILE="${SCRIPT_DIR}"/README-action-statemachine.md
+JSON="$1"
+OUT_FILE="$2"
 
 echo Compiling and running go state machine doc JSON dump...
 #go run "${SCRIPT_DIR}"/main.go | jq >"${JSON}"
@@ -91,12 +91,6 @@ function github_markdown_linkify() {
         | "[\($name)](#\(.))"
     ' -r
 }
-
-echo "# Flasher task action sub-statemachine" >"${OUT_FILE}"
-
-echo "The Action sub-statemachine(s) is executed to install firmware for each component." >>"${OUT_FILE}"
-echo "" >>"${OUT_FILE}"
-
 echo Generating table of contents...
 
 echo "## Table of Contents" >>"${OUT_FILE}"

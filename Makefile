@@ -14,6 +14,9 @@ lint:
 test:
 	CGO_ENABLED=0 go test -timeout 1m -v -covermode=atomic ./...
 
+build:
+	go build -o flasher
+
 ## build osx bin
 build-osx:
 ifeq ($(GO_VERSION), 0)
@@ -57,14 +60,8 @@ push-image:
 
 
 ## generate statemachine graphs and docs
-docs: build-osx
-	./flasher export statemachine --action | dot -Tsvg  > ./docs/statemachine/action_sm.svg
-	./flasher export statemachine --task | dot -Tsvg  > ./docs/statemachine/task_sm.svg
-	./flasher export statemachine --task --json > ./docs/statemachine/task-statemachine.json
-	./flasher export statemachine --action --json > ./docs/statemachine/action-statemachine.json
-	./docs/statemachine/generate_action_sm_docs.sh
-	./docs/statemachine/generate_task_sm_docs.sh
-
+docs: build
+	./docs/statemachine/generate.sh
 
 # https://gist.github.com/prwhite/8168133
 # COLORS
