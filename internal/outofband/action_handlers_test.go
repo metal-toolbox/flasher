@@ -50,18 +50,17 @@ func Test_pollFirmwareInstallStatus(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			task := newTaskFixture(string(model.StateActive))
-			tctx := newtaskHandlerContextFixture(task.ID.String(), &model.Device{})
+			asset := fixtures.Assets[fixtures.Asset1ID.String()]
+			tctx := newtaskHandlerContextFixture(task, &asset)
 
 			action := model.Action{
 				ID:       "foobar",
 				TaskID:   task.ID.String(),
-				Status:   string(model.StateActive),
-				Firmware: fixtures.NewFirmware()[0],
+				Firmware: *fixtures.NewFirmware()[0],
 			}
 
-			task.ActionsPlanned = append(task.ActionsPlanned, action)
-
-			_, _ = tctx.Store.AddTask(tctx.Ctx, *task)
+			_ = action.SetState(model.StateActive)
+			task.ActionsPlanned = append(task.ActionsPlanned, &action)
 
 			// init handler
 			handler := &actionHandler{}
@@ -89,5 +88,4 @@ func Test_pollFirmwareInstallStatus(t *testing.T) {
 			}
 		})
 	}
-
 }

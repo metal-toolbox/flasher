@@ -10,7 +10,6 @@ import (
 
 	"github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
-	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/internal/store"
@@ -19,40 +18,47 @@ import (
 )
 
 func newTaskFixture(status string) *model.Task {
-	task, _ := model.NewTask("", nil)
+	task := &model.Task{}
 	task.Status = string(status)
-	task.FirmwaresPlanned = fixtures.Firmware
-	task.Parameters.Device = fixtures.Devices[fixtures.Device1.String()]
-	return &task
+	task.InstallFirmwares = fixtures.Firmware
+
+	// task.Parameters.Device =
+	return task
 }
 
-func newtaskHandlerContextFixture(taskID string, device *model.Device) *sm.HandlerContext {
-	inv, _ := inventory.NewMockInventory()
+// eventEmitter implements the statemachine.Publisher interface
+type eventEmitter struct{}
+
+func (e *eventEmitter) Publish(_ context.Context, _ *model.Task) {}
+
+func newtaskHandlerContextFixture(task *model.Task, asset *model.Asset) *sm.HandlerContext {
+	repository, _ := store.NewMockInventory()
+
 	logger := logrus.New().WithField("test", "true")
+
 	return &sm.HandlerContext{
-		TaskID:        taskID,
-		DeviceQueryor: fixtures.NewDeviceQueryor(context.Background(), device, logger),
+		Task:          task,
+		Publisher:     &eventEmitter{},
+		Asset:         asset,
+		Store:         repository,
+		DeviceQueryor: fixtures.NewDeviceQueryor(context.Background(), asset, logger),
 		Ctx:           context.Background(),
-		Store:         store.NewMemStore(),
-		Inv:           inv,
 		Logger:        logger,
 		Data:          map[string]string{},
 	}
 }
 
 func Test_NewActionStateMachine(t *testing.T) {
-	ctx := context.Background()
 	// init new state machine
-	m, err := NewActionStateMachine(ctx, "testing")
+	m, err := NewActionStateMachine("testing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, transitionOrder(), m.TransitionOrder())
-	assert.Len(t, transitionRules(), 9)
 	// TODO(joel): at some point we'd want to test if the nodes and edges
 	// in the transition rules match whats expected
-
+	assert.Equal(t, transitionOrder(), m.TransitionOrder())
+	assert.Len(t, transitionRules(), 10)
 }
 
 func serverMux(t *testing.T, serveblob []byte) *http.ServeMux {
@@ -94,7 +100,7 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	task := newTaskFixture(string(model.StateActive))
 
 	// task handler context fixture
-	tctx := newtaskHandlerContextFixture(task.ID.String(), &model.Device{})
+	tctx := newtaskHandlerContextFixture(task, &model.Asset{})
 
 	// firmware fixture
 	firmware := fixtures.NewFirmware()
@@ -111,54 +117,40 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	firmware[0].FileName = "dummy.bin"
 
 	// set firmware planned for install
-	task.FirmwaresPlanned = model.Firmwares{firmware[0]}
+	task.InstallFirmwares = []*model.Firmware{firmware[0]}
+
+	action := model.Action{
+		ID:       "foobar",
+		TaskID:   task.ID.String(),
+		Firmware: *firmware[0],
+	}
+
+	_ = action.SetState(model.StateActive)
 
 	// set action planned
-	task.ActionsPlanned = model.Actions{
-		model.Action{
-			ID:       "foobar",
-			TaskID:   task.ID.String(),
-			Status:   string(model.StateQueued),
-			Firmware: firmware[0],
-		},
-	}
+	task.ActionsPlanned = model.Actions{&action}
 
 	// set test env variables
 	os.Setenv(envTesting, "1")
-	// this causes the mock bmc to indicate the firmware install was successfull
+	// this causes the mock bmc to indicate the firmware install was successful
 	os.Setenv(fixtures.EnvMockBMCFirmwareInstallStatus, string(model.StatusInstallComplete))
 
-	// add task to store
-	_, err := tctx.Store.AddTask(ctx, *task)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// init new state machine to run actions
-	m, err := NewActionStateMachine(ctx, "testing")
+	m, err := NewActionStateMachine("testing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// run action state machine
-	err = m.Run(ctx, &task.ActionsPlanned[0], tctx)
+	err = m.Run(ctx, task.ActionsPlanned[0], tctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	server.Close()
 
-	// lookup task from cache
-	taskSaved, err := tctx.Store.TaskByID(ctx, task.ID.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// assert transitions executed
 	assert.Equal(t, transitionOrder(), m.TransitionsCompleted())
-
-	// assert final state is persisted
-	assert.Equal(t, string(model.StateSuccess), taskSaved.ActionsPlanned[0].Status)
 }
 
 // Test runs an action state machine on a task
@@ -172,7 +164,7 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 	task := newTaskFixture(string(model.StateActive))
 
 	// task handler context fixture
-	tctx := newtaskHandlerContextFixture(task.ID.String(), &model.Device{})
+	tctx := newtaskHandlerContextFixture(task, &model.Asset{})
 
 	// firmware fixture
 	firmware := fixtures.NewFirmware()
@@ -189,52 +181,43 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 	firmware[0].FileName = "dummy.bin"
 
 	// set firmware planned for install
-	task.FirmwaresPlanned = model.Firmwares{firmware[0]}
+	task.InstallFirmwares = []*model.Firmware{firmware[0]}
+
+	action := model.Action{
+		ID:       "foobar",
+		TaskID:   task.ID.String(),
+		Firmware: *firmware[0],
+	}
+
+	_ = action.SetState(model.StateActive)
 
 	// set action planned
-	task.ActionsPlanned = model.Actions{
-		model.Action{
-			ID:       "foobar",
-			TaskID:   task.ID.String(),
-			Status:   string(model.StateQueued),
-			Firmware: firmware[0],
-		},
-	}
+	task.ActionsPlanned = model.Actions{&action}
 
 	// set test env variables
 	os.Setenv(envTesting, "1")
 	// this causes the firmware install poll method to fail on multiple unknown statuses returned by the mock bmc
 	os.Setenv(fixtures.EnvMockBMCFirmwareInstallStatus, string(model.StatusInstallUnknown))
 
-	// add task to store
-	_, err := tctx.Store.AddTask(ctx, *task)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// init new state machine to run actions
-	m, err := NewActionStateMachine(ctx, "testing")
+	m, err := NewActionStateMachine("testing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// run action state machine
-	err = m.Run(ctx, &task.ActionsPlanned[0], tctx)
+	err = m.Run(ctx, task.ActionsPlanned[0], tctx)
 	assert.NotNil(t, err)
 
 	server.Close()
 
-	// lookup task from cache
-	taskSaved, err := tctx.Store.TaskByID(ctx, task.ID.String())
-	if err != nil {
-		t.Fatal(err)
+	expectedComplete := []stateswitch.TransitionType{
+		transitionTypePowerOnDevice,
+		transitionTypeCheckInstalledFirmware,
+		transitionTypeDownloadFirmware,
+		transitionTypeInitiatingInstallFirmware,
 	}
-
-	expectedComplete := []stateswitch.TransitionType{transitionTypePowerOnDevice, transitionTypeDownloadFirmware, transitionTypeInitiatingInstallFirmware}
 
 	// assert transitions executed
 	assert.Equal(t, expectedComplete, m.TransitionsCompleted())
-
-	// assert final state is persisted
-	assert.Equal(t, string(model.StateFailed), taskSaved.ActionsPlanned[0].Status)
 }
