@@ -9,12 +9,12 @@ import (
 )
 
 var (
-	Device1 = uuid.New()
-	Device2 = uuid.New()
+	Asset1ID = uuid.New()
+	Asset2ID = uuid.New()
 
-	Devices = map[string]model.Device{
-		Device1.String(): {
-			ID:          Device1,
+	Assets = map[string]model.Asset{
+		Asset1ID.String(): {
+			ID:          Asset1ID,
 			Vendor:      "dell",
 			Model:       "r6515",
 			BmcAddress:  net.ParseIP("127.0.0.1"),
@@ -22,8 +22,8 @@ var (
 			BmcPassword: "hunter2",
 		},
 
-		Device2.String(): {
-			ID:          Device2,
+		Asset2ID.String(): {
+			ID:          Asset2ID,
 			Vendor:      "dell",
 			Model:       "r6515",
 			BmcAddress:  net.ParseIP("127.0.0.2"),
