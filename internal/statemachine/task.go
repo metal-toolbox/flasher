@@ -3,10 +3,8 @@ package statemachine
 import (
 	"context"
 	"fmt"
-	"time"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/inventory"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/pkg/errors"
@@ -32,35 +30,25 @@ var (
 	ErrTaskTransition            = errors.New("error in task transition")
 )
 
-// TaskEvents are events sent by tasks and actions, they include information
-// on the task, action being executed
-type TaskEvent struct {
-	TaskID string
-	Info   string
+// Publisher defines methods to publish task information.
+type Publisher interface {
+	Publish(ctx context.Context, task *model.Task)
 }
 
-// SendEvent sends the TaskEvent on the channel with a timeout.
-func SendEvent(ctx context.Context, ch chan<- TaskEvent, e TaskEvent) {
-	if ch == nil {
-		return
-	}
-
-	select {
-	case ch <- e:
-	case <-time.After(1 * time.Second):
-		logrus.New().Debug("dropped event with info: " + e.Info)
-		return
-	}
-}
-
-// HandlerContext holds references to objects it requires to complete task and action transitions.
+// HandlerContext holds references to objects required to complete firmware install task and action transitions.
 //
 // The HandlerContext is passed to every transition handler.
 type HandlerContext struct {
 	// ctx is the parent cancellation context
 	Ctx context.Context
 
-	// err is set when a transition fails to complete its transittions in run()
+	// Task is the task being executed.
+	Task *model.Task
+
+	// Publisher provides the Publish method to publish Task status changes.
+	Publisher Publisher
+
+	// err is set when a transition fails to complete its transitions in run()
 	// the err value is then passed into the task information
 	// as the state machine transitions into a failed state.
 	Err error
@@ -68,24 +56,17 @@ type HandlerContext struct {
 	// DeviceQueryor is the interface to query target device under firmware install.
 	DeviceQueryor model.DeviceQueryor
 
-	// Store is the task storage
-	//
-	// TODO(joel): move Inv, Store into the Task, Action handler context
-	// so this package does not depend on those package.
-	Store store.Storage
-
-	// Inv is the device inventory backend.
-	Inv inventory.Inventory
+	// Store is the asset inventory store.
+	Store store.Repository
 
 	// Data is an arbitrary key values map available to all task, action handler methods.
 	Data map[string]string
 
-	// Device holds attributes about the device under firmware install.
-	Device *model.Device
+	// Asset holds attributes about the device under firmware install.
+	Asset *model.Asset
 
-	// TaskEventCh is where a Task or an Action may emit an event
-	// which includes information on the status information of a task.
-	TaskEventCh chan TaskEvent
+	// FacilityCode limits the task handler to Assets in the given facility.
+	FacilityCode string
 
 	// Logger is the task, action handler logger.
 	Logger *logrus.Entry
@@ -93,16 +74,8 @@ type HandlerContext struct {
 	// WorkerID is the identifier for the worker executing this task.
 	WorkerID string
 
-	// TaskID is the identifier for this task.
-	TaskID string
-
-	// This value is prefixed to the path generated to download the firmware to install.
-	//
-	// TODO(joel): remove this once the firmware data contains the full URL to the firmware
-	FirmwareURLPrefix string
-
 	// ActionStateMachines are sub-statemachines of this Task
-	// each firmware applicable has a Action statmachine that is
+	// each firmware applicable has a Action statemachine that is
 	// executed as part of this task.
 	ActionStateMachines ActionStateMachines
 

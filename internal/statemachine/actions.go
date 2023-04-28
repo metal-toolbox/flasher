@@ -143,19 +143,19 @@ func (a *ActionStateMachine) TransitionSuccess(action *model.Action, hctx *Handl
 // Run executes the transitions in the action statemachine while handling errors returned from any failed actions.
 func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx *HandlerContext) error {
 	for _, transitionType := range a.transitions {
-		// send event task action is running
-		SendEvent(
-			ctx,
-			tctx.TaskEventCh,
-			TaskEvent{
-				tctx.TaskID,
-				fmt.Sprintf(
-					"component: %s, running action: %s ",
-					action.Firmware.ComponentSlug,
-					string(transitionType),
-				),
-			},
+		// publish task action running
+		tctx.Task.Status = fmt.Sprintf(
+			"component: %s, running action: %s ",
+			action.Firmware.Component,
+			string(transitionType),
 		)
+
+		tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
+
+		// return on context cancellation
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
 		err := a.sm.Run(transitionType, action, tctx)
 		if err != nil {
@@ -170,26 +170,21 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 				err = multierror.Append(err, errors.Wrap(txErr, "actionSM TransitionFailed() error"))
 			}
 
-			err = newErrAction(action.Status, string(transitionType), err.Error())
+			err = newErrAction(string(action.State()), string(transitionType), err.Error())
 
 			return err
 		}
 
 		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
 
-		// send event task action is complete
-		SendEvent(
-			ctx,
-			tctx.TaskEventCh,
-			TaskEvent{
-				tctx.TaskID,
-				fmt.Sprintf(
-					"component: %s, completed action: %s ",
-					action.Firmware.ComponentSlug,
-					string(transitionType),
-				),
-			},
+		// publish task action completion
+		tctx.Task.Status = fmt.Sprintf(
+			"component: %s, completed action: %s ",
+			action.Firmware.Component,
+			string(transitionType),
 		)
+
+		tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
 	}
 
 	// run transition success handler
