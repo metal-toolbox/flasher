@@ -6,9 +6,13 @@ flasher currently supports is Out of band component firmware installs, that is -
 
 As of this release flasher depends on serverservice for the inventory and firmware information.
 
-<p align="left">
- <img height="500px" width="450px" src="./docs/flasher-min.png">
-</p>
+```mermaid
+graph TB
+  a((Flasher))-- 1. Query Asset BMC creds, attributes -->ss[(Serverservice)]
+  a((Flasher))-- 2. Query current inventory -->sb(ServerA BMC)
+  a((Flasher))-- 3. Fetch firmware files -->sa(Firmware file store)
+  a((Flasher))-- 4. install firmware -->sb(ServerA BMC)
+```
 
 
 ## build
@@ -21,7 +25,7 @@ see [cheatsheet.md](./docs/cheatsheet.md)
 
 ## Documentation
 
-Documentation on development and flasher implementation can be found in [docs](./docs/README-devel.md) 
+Documentation on development and flasher implementation can be found in [docs](./docs/README-devel.md)
 
 ## Supported devices
 
