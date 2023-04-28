@@ -10,8 +10,37 @@ serverservice:
   outofband_firmware_ns: "sh.hollow.alloy.outofband.status"
   # device_state_attribute_ns is the serverservice attribute
   # which indicates the inventory state for the device
-  device_state_attribute_ns: "com.inventory.api.data"
-   # devices in these device_states will be ignored by flasher.
+  device_state_attribute_ns:
+    "com.inventory.api.data"
+    # devices in these device_states will be ignored by flasher.
   device_states: ["maintenance"]
   #  device_state_attribute_key is the key name for the node state value in the device_state_attribute_ns->data field
   device_state_attribute_key: "node_state"
+events_broker_kind: nats
+nats:
+  url: nats://nats:4222
+  app_name: flasher
+  publisher_subject_prefix: com.hollow.sh.controllers.responses
+  stream_urn_ns: hollow-controllers
+  connect_timeout: 500ms
+  stream_user: flasher
+  stream_pass: password
+  #creds_file:
+  consumer:
+    pull: true
+    name: flasher
+    ack_wait: 5m
+    max_ack_pending: 10
+    queue_group: controllers
+    subscribe_subjects:
+      - com.hollow.sh.controllers.commands.>
+    # filter_subject required for a workqueue stream
+    filter_subject: com.hollow.sh.controllers.commands.>
+  stream:
+    name: controllers
+    subjects:
+      - com.hollow.sh.controllers.commands.>
+      - com.hollow.sh.controllers.responses.>
+    acknowledgements: true
+    duplicate_window: 5m
+    retention: workQueue
