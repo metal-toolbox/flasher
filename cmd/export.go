@@ -1,14 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/spf13/cobra"
@@ -16,18 +14,11 @@ import (
 	"github.com/emicklei/dot"
 )
 
-var cmdExport = &cobra.Command{
-	Use:   "export",
-	Short: "export resources [statemachine]",
-	Run: func(cmd *cobra.Command, args []string) {
-		_ = cmd.Help()
-	},
-}
-
 type exportFlags struct {
-	action bool
-	task   bool
-	json   bool
+	actionSM bool
+	taskSM   bool
+	mermaid  bool
+	json     bool
 }
 
 var (
@@ -35,24 +26,18 @@ var (
 )
 
 var cmdExportStatemachine = &cobra.Command{
-	Use:   "statemachine --task|--action",
+	Use:   "export-statemachine --task|--action [--json|--mermaid]",
 	Short: "Export a JSON dump of flasher statemachine(s) - writes to a file task-statemachine.json",
 	Run: func(cmd *cobra.Command, args []string) {
-		exportStatemachine(cmd.Context())
+		exportStatemachine()
 	},
 }
 
-func exportAsDot(data []byte) (string, error) {
-	smJSON := &sw.StateMachineJSON{}
-
-	if err := json.Unmarshal(data, smJSON); err != nil {
-		return "", err
-	}
-
+func asGraph(s *sw.StateMachineJSON) *dot.Graph {
 	g := dot.NewGraph(dot.Directed)
 	nodes := map[string]dot.Node{}
 
-	for _, transition := range smJSON.TransitionRules {
+	for _, transition := range s.TransitionRules {
 		_, exists := nodes[transition.DestinationState]
 		if !exists {
 			nodes[transition.DestinationState] = g.Node(transition.DestinationState)
@@ -68,114 +53,80 @@ func exportAsDot(data []byte) (string, error) {
 		}
 	}
 
-	return g.String(), nil
+	return g
 }
 
-func exportStatemachine(ctx context.Context) {
-	if exportFlagSet.task {
-		exportTaskStatemachine(ctx)
-		os.Exit(0)
-	}
+func taskStateMachine() {
+	handler := &sm.MockTaskHandler{}
 
-	if exportFlagSet.action {
-		exportOutofbandActionStatemachine(ctx)
-	}
-}
-
-func exportTaskStatemachine(ctx context.Context) {
-	task, err := model.NewTask("", nil)
+	m, err := sm.NewTaskStateMachine(handler)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	m, err := sm.NewTaskStateMachine(ctx, &task, &mockTaskHandler{})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	data, err := m.DescribeAsJSON()
+	j, err := m.DescribeAsJSON()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if exportFlagSet.json {
-		fmt.Println(string(data))
+		fmt.Println(string(j))
 		os.Exit(0)
 	}
 
-	val, err := exportAsDot(data)
-	if err != nil {
+	t := &sw.StateMachineJSON{}
+	if err := json.Unmarshal(j, t); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(val)
+	fmt.Println(dot.MermaidGraph(asGraph(t), dot.MermaidTopDown))
 }
 
-func exportOutofbandActionStatemachine(ctx context.Context) {
-	m, err := outofband.NewActionStateMachine(ctx, "dummy")
+func outofbandActionStatemachine() {
+	m, err := outofband.NewActionStateMachine("dummy")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	data, err := m.DescribeAsJSON()
+	j, err := m.DescribeAsJSON()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if exportFlagSet.json {
-		fmt.Println(string(data))
+		fmt.Println(string(j))
 		os.Exit(0)
 	}
 
-	val, err := exportAsDot(data)
-	if err != nil {
+	t := &sw.StateMachineJSON{}
+	if err := json.Unmarshal(j, t); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(val)
+	fmt.Println(dot.MermaidGraph(asGraph(t), dot.MermaidTopDown))
+}
+
+func exportStatemachine() {
+	if exportFlagSet.taskSM {
+		taskStateMachine()
+		return
+	}
+
+	if exportFlagSet.actionSM {
+		outofbandActionStatemachine()
+
+		return
+	}
+
+	log.Println("expected --task OR --action flag")
+	os.Exit(1)
 }
 
 func init() {
-	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.action, "action", "", false, "export action statemachine in the Graphviz Dot format")
-	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.task, "task", "", false, "export task statemachine in the Graphviz Dot format")
+	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.taskSM, "task", "", false, "export Task main statemachine")
+	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.actionSM, "action", "", false, "export action sub-statemachine")
+	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.mermaid, "mermaid", "", true, "export statemachine in mermaid format")
 	cmdExportStatemachine.PersistentFlags().BoolVarP(&exportFlagSet.json, "json", "", false, "export task statemachine in the JSON format")
 
-	cmdExport.AddCommand(cmdExportStatemachine)
-	rootCmd.AddCommand(cmdExport)
-}
-
-// mockTaskHandler implements the TaskTransitioner interface
-type mockTaskHandler struct{}
-
-func (h *mockTaskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-// planFromFirmwareSet
-func (h *mockTaskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task, device model.Device) error {
-	return nil
-}
-
-func (h *mockTaskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
-	return true, nil
-}
-
-func (h *mockTaskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) TaskFailed(task sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) TaskSuccessful(task sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *mockTaskHandler) PersistState(t sw.StateSwitch, args sw.TransitionArgs) error {
-	return nil
+	rootCmd.AddCommand(cmdExportStatemachine)
 }
