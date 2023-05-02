@@ -18,7 +18,7 @@ const (
 	// state for failed actions
 	StateActionFailed sw.State = model.StateFailed
 
-	// transition for completed actions
+	// transition for successful actions
 	TransitionTypeActionSuccess sw.TransitionType = "succeeded"
 	// transition for failed actions
 	TransitionTypeActionFailed sw.TransitionType = "failed"
