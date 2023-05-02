@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
 	"go.hollow.sh/toolbox/events"
-	"go.infratographer.com/x/pubsubx"
 	"go.infratographer.com/x/urnx"
 )
 
@@ -140,15 +139,11 @@ type Task struct {
 
 // StreamEvent holds properties of a message received on the stream.
 type StreamEvent struct {
-	// Msg is the original message that created this task.
+	// Msg is the original event that created this task.
 	// This is here so that the events subsystem can be acked/notified as the task makes progress.
 	Msg events.Message
 
-	// Data is the data parsed from Msg for the task runner.
-	Data *pubsubx.Message
-
-	// Condition defines the kind of work to be performed,
-	// its parsed from the message.
+	// Condition defines the kind of work to be performed, its parsed from Data.
 	Condition *cptypes.Condition
 
 	// Urn is the URN parsed from Msg for the task runner.
