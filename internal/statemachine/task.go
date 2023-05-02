@@ -228,13 +228,8 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 
 func (m *TaskStateMachine) addDocumentation() {
 	m.sm.DescribeState(model.StatePending, sw.StateDoc{
-		Name:        "Requested",
-		Description: "In this state the task has been requested (this is done outside of the state machine).",
-	})
-
-	m.sm.DescribeState(model.StatePending, sw.StateDoc{
-		Name:        "Queued",
-		Description: "In this state the task is being initialized (this is done outside of the state machine).",
+		Name:        "Pending",
+		Description: "In this state the task is being initialized.",
 	})
 
 	m.sm.DescribeState(model.StateActive, sw.StateDoc{
@@ -248,7 +243,7 @@ func (m *TaskStateMachine) addDocumentation() {
 	})
 
 	m.sm.DescribeState(model.StateSucceeded, sw.StateDoc{
-		Name:        "Success",
+		Name:        "Succeeded",
 		Description: "In this state the task execution has completed successfully.",
 	})
 
@@ -269,12 +264,12 @@ func (m *TaskStateMachine) addDocumentation() {
 
 	m.sm.DescribeTransitionType(TransitionTypeTaskFail, sw.TransitionTypeDoc{
 		Name:        string(TransitionTypeTaskFail),
-		Description: "In this transition the task has failed and any post failure steps are being executed.",
+		Description: "In this transition the task has failed and any post-failure steps are being executed.",
 	})
 
 	m.sm.DescribeTransitionType(TransitionTypeTaskSuccess, sw.TransitionTypeDoc{
 		Name:        string(TransitionTypeTaskSuccess),
-		Description: "In this transition the task has completed successfully and any post failure steps are being executed.",
+		Description: "In this transition the task has completed successfully and any post-success steps are executed.",
 	})
 }
 
