@@ -273,7 +273,6 @@ func (o *Worker) processEvent(ctx context.Context, e events.Message) {
 
 	streamEvent := &model.StreamEvent{
 		Msg:       e,
-		Data:      data,
 		Condition: condition,
 		Urn:       urn,
 	}
