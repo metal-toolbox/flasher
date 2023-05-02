@@ -20,7 +20,6 @@ import (
 func newTaskFixture(status string) *model.Task {
 	task := &model.Task{}
 	task.Status = string(status)
-	task.InstallFirmwares = fixtures.Firmware
 
 	// task.Parameters.Device =
 	return task
@@ -116,9 +115,6 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 	firmware[0].Checksum = blobChecksum
 	firmware[0].FileName = "dummy.bin"
 
-	// set firmware planned for install
-	task.InstallFirmwares = []*model.Firmware{firmware[0]}
-
 	action := model.Action{
 		ID:       "foobar",
 		TaskID:   task.ID.String(),
@@ -179,9 +175,6 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 	firmware[0].URL = server.URL + "/dummy.bin"
 	firmware[0].Checksum = blobChecksum
 	firmware[0].FileName = "dummy.bin"
-
-	// set firmware planned for install
-	task.InstallFirmwares = []*model.Firmware{firmware[0]}
 
 	action := model.Action{
 		ID:       "foobar",

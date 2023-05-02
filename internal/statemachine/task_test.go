@@ -66,7 +66,6 @@ func newTaskFixture(t *testing.T, state string) *model.Task {
 		t.Fatal(err)
 	}
 
-	task.InstallFirmwares = firmwares
 	task.Parameters.AssetID = asset1
 
 	return task

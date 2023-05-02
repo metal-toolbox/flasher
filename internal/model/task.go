@@ -126,9 +126,6 @@ type Task struct {
 	// these are generated in the `pending` stage of the task.
 	ActionsPlanned Actions
 
-	// InstallFirmwares is the list of firmware planned for install.
-	InstallFirmwares []*Firmware
-
 	// Parameters for this task
 	Parameters TaskParameters
 
