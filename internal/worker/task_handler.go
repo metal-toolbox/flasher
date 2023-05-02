@@ -1,8 +1,6 @@
 package worker
 
 import (
-	"strings"
-
 	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -246,44 +244,10 @@ func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components
 	return model.NewComponentConverter().CommonDeviceToComponents(deviceCommon)
 }
 
-// returns a bool value based on if the firmware install (for a component) should be skipped
-func (h *taskHandler) skipFirmwareInstall(tctx *sm.HandlerContext, task *model.Task, firmware *model.Firmware) bool {
-	component := tctx.Asset.Components.BySlugVendorModel(firmware.Component, firmware.Vendor, firmware.Models)
-	if component == nil {
-		tctx.Logger.WithFields(
-			logrus.Fields{
-				"component": firmware.Component,
-				"models":    firmware.Models,
-				"vendor":    firmware.Vendor,
-				"requested": firmware.Version,
-			},
-		).Trace("install skipped - component not present on device")
-
-		return true
-	}
-
-	// when force install is set, installed firmware version comparison is skipped.
-	if task.Parameters.ForceInstall {
-		return false
-	}
-
-	skip := strings.EqualFold(component.FirmwareInstalled, firmware.Version)
-	if skip {
-		tctx.Logger.WithFields(
-			logrus.Fields{
-				"component": firmware.Component,
-				"requested": firmware.Version,
-			},
-		).Info("install skipped - installed firmware equals requested")
-	}
-
-	return skip
-}
-
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, firmwares []*model.Firmware) (sm.ActionStateMachines, model.Actions, error) {
+func (h *taskHandler) planInstall(_ *sm.HandlerContext, task *model.Task, firmwares []*model.Firmware) (sm.ActionStateMachines, model.Actions, error) {
 	actionMachines := make(sm.ActionStateMachines, 0)
 	actions := make(model.Actions, 0)
 
@@ -292,11 +256,6 @@ func (h *taskHandler) planInstall(tctx *sm.HandlerContext, task *model.Task, fir
 
 	// each firmware applicable results in an ActionPlan and an Action
 	for idx, firmware := range firmwares {
-		// skip firmware install based on a few clauses
-		if h.skipFirmwareInstall(tctx, task, firmwares[idx]) {
-			continue
-		}
-
 		// set final bool when its the last firmware in the slice
 		if len(firmwares) > 1 {
 			final = (idx == len(firmwares)-1)
