@@ -90,10 +90,6 @@ func (h *taskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bo
 		return false, errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
-	if len(task.InstallFirmwares) == 0 {
-		return false, errors.Wrap(errTaskPlanValidate, "no firmwares planned for install")
-	}
-
 	// validate task has action plans listed
 	if len(task.ActionsPlanned) == 0 {
 		return false, errors.Wrap(errTaskPlanValidate, "no task actions planned")
@@ -277,9 +273,6 @@ func (h *taskHandler) planInstall(_ *sm.HandlerContext, task *model.Task, firmwa
 
 		// include action state machines that will be executed.
 		actionMachines = append(actionMachines, m)
-
-		// include applicable firmware in planned
-		task.InstallFirmwares = append(task.InstallFirmwares, firmwares[idx])
 
 		newAction := model.Action{
 			ID:     actionID,
