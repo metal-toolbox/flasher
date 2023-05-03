@@ -121,7 +121,6 @@ func initInventory(ctx context.Context, config *model.Config, logger *logrus.Log
 	case config.InventorySource == model.InventorySourceServerservice:
 		return inventory.NewServerserviceInventory(ctx, config, logger)
 	default:
-
 	}
 
 	return nil, errors.Wrap(ErrInventorySourceUndefined, "expected a valid parameter through CLI or configuration file")

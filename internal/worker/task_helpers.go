@@ -78,7 +78,7 @@ func (h *taskHandler) skipFirmwareInstall(tctx *sm.HandlerContext, task *model.T
 		return true
 	}
 
-	// when force install is set, firmware version comparision is skipped.
+	// when force install is set, firmware version comparison is skipped.
 	if task.Parameters.ForceInstall {
 		return false
 	}

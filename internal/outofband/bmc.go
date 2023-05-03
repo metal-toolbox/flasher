@@ -19,7 +19,7 @@ import (
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
 	logoutTimeout = "1m"
-	//loginTimeout  = "1m"
+	// loginTimeout  = "1m"
 	loginAttempts = 3
 
 	// login errors
@@ -74,8 +74,6 @@ func (b *bmc) Open(ctx context.Context) error {
 	if err := b.loginWithRetries(ctx, loginAttempts); err != nil {
 		return err
 	}
-
-
 
 	return nil
 }

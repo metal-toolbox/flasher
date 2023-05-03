@@ -33,7 +33,7 @@ const (
 	// PlanFromInstalledFirmware is a TaskParameter attribute that indicates
 	// the firmware versions to be installed have to be planned
 	// based on the firmware currently installed on the device.
-	//PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
+	// PlanFromInstalledFirmware FirmwarePlanMethod = "fromInstalledFirmware"
 
 	// task states
 	//
@@ -93,7 +93,6 @@ type Action struct {
 }
 
 func (a *Action) SetState(state sw.State) error {
-
 	a.Status = string(state)
 
 	return nil

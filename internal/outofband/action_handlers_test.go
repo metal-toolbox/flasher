@@ -89,5 +89,4 @@ func Test_pollFirmwareInstallStatus(t *testing.T) {
 			}
 		})
 	}
-
 }

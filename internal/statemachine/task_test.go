@@ -186,7 +186,6 @@ func Test_Transitions(t *testing.T) {
 			}
 
 			assert.Equal(t, tc.expectedState, tc.task.Status)
-
 		})
 	}
 }

@@ -52,7 +52,6 @@ func Test_NewActionStateMachine(t *testing.T) {
 	assert.Len(t, transitionRules(), 9)
 	// TODO(joel): at some point we'd want to test if the nodes and edges
 	// in the transition rules match whats expected
-
 }
 
 func serverMux(t *testing.T, serveblob []byte) *http.ServeMux {
@@ -125,7 +124,7 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 
 	// set test env variables
 	os.Setenv(envTesting, "1")
-	// this causes the mock bmc to indicate the firmware install was successfull
+	// this causes the mock bmc to indicate the firmware install was successful
 	os.Setenv(fixtures.EnvMockBMCFirmwareInstallStatus, string(model.StatusInstallComplete))
 
 	// add task to store

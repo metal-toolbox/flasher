@@ -348,7 +348,7 @@ func (s *Serverservice) FirmwareInstalled(ctx context.Context, deviceID string) 
 	return converted, nil
 }
 
-//func cacheServerComponentTypes(ctx context.Context) error {
+// func cacheServerComponentTypes(ctx context.Context) error {
 //	s.componentSlugs = map[string]string{}
 //
 //	return nil
