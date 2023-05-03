@@ -5,8 +5,6 @@ service:
 
 linters-settings:
   govet:
-    enable:
-      - fieldalignment
     auto-fix: true
     check-shadowing: true
     settings:
