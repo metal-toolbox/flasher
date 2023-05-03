@@ -212,11 +212,5 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 	}
 
 	// 	update task in cache
-
-	// THIS can go
-	if err := tctx.Store.UpdateTask(tctx.Ctx, *task); err != nil {
-		return err
-	}
-
-	return nil
+	return tctx.Store.UpdateTask(tctx.Ctx, *task)
 }

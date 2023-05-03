@@ -15,7 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec // yes, I know this exposes pprof, that's the point.
 )
 
 var cmdRun = &cobra.Command{
@@ -46,10 +46,11 @@ var cmdRunWorker = &cobra.Command{
 }
 
 func runWorker(ctx context.Context) {
+	//nolint:govet // false positive about logLevel shadowing something at line 27?! o.O
 	var logLevel int
 
 	go func() {
-		log.Println(http.ListenAndServe("localhost:9091", nil))
+		log.Println(http.ListenAndServe("localhost:9091", nil)) //nolint:gosec // this intentionally has no timeout
 	}()
 
 	switch {

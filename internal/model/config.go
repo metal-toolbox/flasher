@@ -136,6 +136,8 @@ func (c *Config) validateYamlParams() error {
 
 // validateServerServiceParams checks required serverservice configuration parameters are present
 // and returns the serverservice URL endpoint
+//
+//nolint:gocyclo // XXX: This is a temporary lint exception
 func (c *Config) validateServerServiceParams() error {
 	if c.Serverservice.Endpoint == "" {
 		return errors.Wrap(ErrConfig, "Serverservice endpoint not defined")

@@ -1,3 +1,4 @@
+//nolint:all // don't lint test files
 package statemachine
 
 // this package gets its own fixtures to prevent import cycles.

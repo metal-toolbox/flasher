@@ -68,12 +68,10 @@ linters:
     - goerr113
     - goimports
     - revive
-    - gomnd
     - misspell
     - noctx
     - stylecheck
     - whitespace
-    - wsl
     - gosec
   enable-all: false
   disable-all: true
@@ -92,6 +90,29 @@ issues:
     - linters:
         - stylecheck
       text: "ST1016"
+
+    - linters:
+        - wsl
+      text: "return statements should not be cuddled"
+
+    # XXX: renable these gocritic checks later
+    - linters:
+        - gocritic
+      text: "rangeValCopy"
+    - linters:
+        - gocritic
+      text: "hugeParam"
+    - linters:
+        - gocritic
+      text: "commentedOutCode"
+
+    # XXX: renable these revive checks later
+    - linters:
+        - revive
+      text: "var-naming"
+    - linters:
+        - revive
+      text: "unused-parameter"
   exclude:
     # Default excludes from `golangci-lint run --help` with EXC0002 removed
     # EXC0001 errcheck: Almost all programs ignore errors on these functions and in most cases it's ok

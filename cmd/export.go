@@ -155,7 +155,7 @@ func (h *mockTaskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
 }
 
-// planFromFirmwareSet
+//nolint:unused // XXX: temporary exception
 func (h *mockTaskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.Task, device model.Device) error {
 	return nil
 }

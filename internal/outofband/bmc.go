@@ -60,6 +60,7 @@ func (e *ErrBmcQuery) Error() string {
 	return e.cause
 }
 
+//nolint:unused // XXX: this is a temporary exception
 func newErrBmcQuery(cause string) error {
 	return &ErrBmcQuery{cause: cause}
 }
@@ -71,11 +72,7 @@ func (b *bmc) Open(ctx context.Context) error {
 	}
 
 	// login to the bmc with retries
-	if err := b.loginWithRetries(ctx, loginAttempts); err != nil {
-		return err
-	}
-
-	return nil
+	return b.loginWithRetries(ctx, loginAttempts)
 }
 
 // Close logs out of the BMC

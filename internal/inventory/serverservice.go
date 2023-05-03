@@ -220,7 +220,6 @@ func (s *Serverservice) ReleaseDevice(ctx context.Context, id string) error {
 func (s *Serverservice) FirmwareSetByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]model.Firmware, error) {
 	// looks up device inventory
 	// looks up firmware
-
 	return nil, nil
 }
 

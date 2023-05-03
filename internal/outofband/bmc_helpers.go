@@ -23,7 +23,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func newHttpClient() *http.Client {
+func newHTTPClient() *http.Client {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		panic(err)
@@ -33,7 +33,7 @@ func newHttpClient() *http.Client {
 		Timeout: time.Second * 600,
 		Jar:     jar,
 		Transport: &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // yes, I know InsecureSkipVerify is set, thanks
 			DisableKeepAlives: true,
 			Dial: (&net.Dialer{
 				Timeout:   180 * time.Second,
@@ -71,7 +71,7 @@ func newBmclibv2Client(ctx context.Context, device *model.Device, l *logrus.Entr
 		device.BmcUsername,
 		device.BmcPassword,
 		bmclibv2.WithLogger(logruslogr),
-		bmclibv2.WithHTTPClient(newHttpClient()),
+		bmclibv2.WithHTTPClient(newHTTPClient()),
 	)
 
 	// set bmclibv2 driver

@@ -98,7 +98,8 @@ func (h *actionHandler) conditionPowerOnDevice(action *model.Action, tctx *sm.Ha
 		tctx.DeviceQueryor = NewDeviceQueryor(tctx.Ctx, &task.Parameters.Device, tctx.Logger)
 	}
 
-	if err = tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
+	err = tctx.DeviceQueryor.Open(tctx.Ctx)
+	if err != nil {
 		return false, err
 	}
 
@@ -312,6 +313,7 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 	return nil
 }
 
+//nolint:gocyclo // XXX: This is a temporary exception
 func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
@@ -588,6 +590,7 @@ func (h *actionHandler) actionSuccessful(a sw.StateSwitch, c sw.TransitionArgs) 
 	return nil
 }
 
+//nolint:unused // XXX: this is a temporary exception
 func (h *actionHandler) actionSkipped(a sw.StateSwitch, c sw.TransitionArgs) error {
 	return nil
 }
