@@ -127,6 +127,7 @@ Loop:
 }
 
 func (o *Worker) processEvents(ctx context.Context) {
+	// XXX: consider having a separate context for message retrieval
 	msgs, err := o.stream.PullMsg(ctx, 1)
 	if err != nil {
 		o.logger.WithFields(
@@ -148,7 +149,7 @@ func (o *Worker) processEvents(ctx context.Context) {
 			defer o.syncWG.Done()
 
 			atomic.AddInt32(&o.dispatched, 1)
-			defer atomic.AddInt32(&o.dispatched, ^int32(0))
+			defer atomic.AddInt32(&o.dispatched, -1)
 
 			o.processEvent(ctx, msg)
 		}(msg)
