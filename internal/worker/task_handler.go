@@ -123,6 +123,9 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 		// fetch action attributes from task
 		action := task.ActionsPlanned.ByID(actionSM.ActionID())
+		if err := action.SetState(model.StateActive); err != nil {
+			return err
+		}
 
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
