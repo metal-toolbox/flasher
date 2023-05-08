@@ -50,7 +50,7 @@ var (
 	ErrActionTypeAssertion     = errors.New("error occurred in action object type assertion")
 	ErrContextCancelled        = errors.New("context canceled")
 	ErrUnexpected              = errors.New("unexpected error occurred")
-	ErrInstalledFirmwareEqual  = errors.New("installed firmware equal")
+	ErrInstalledFirmwareEqual  = errors.New("installed and expected firmware equal")
 	ErrInstalledVersionUnknown = errors.New("installed version unknown")
 	ErrComponentNotFound       = errors.New("component not found for firmware install")
 )
@@ -192,9 +192,9 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 				"component":        action.Firmware.Component,
 				"vendor":           action.Firmware.Vendor,
 				"models":           action.Firmware.Models,
-				"plannedVersion":   action.Firmware.Version,
+				"expectedVersion":  action.Firmware.Version,
 				"installedVersion": component.FirmwareInstalled,
-			}).Error("Installed firmware version equals planned - set TaskParameters.Force=true to disable this check")
+			}).Error("Installed firmware version equals expected - set TaskParameters.Force=true to disable this check")
 
 		return ErrInstalledFirmwareEqual
 	}
