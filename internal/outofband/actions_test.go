@@ -106,13 +106,13 @@ func Test_ActionStateMachine_Run_Succeeds(t *testing.T) {
 
 	// firmware blob served
 	blob := []byte(`blob`)
-	blobChecksum := "fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8"
+	blobMD5Checksum := "ee26908bf9629eeb4b37dac350f4754a"
 
 	server := httptest.NewServer(serverMux(t, blob))
 
 	// rig firmware endpoints to point to the test service
 	firmware[0].URL = server.URL + "/dummy.bin"
-	firmware[0].Checksum = blobChecksum
+	firmware[0].Checksum = blobMD5Checksum
 	firmware[0].FileName = "dummy.bin"
 
 	action := model.Action{
@@ -167,7 +167,7 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 
 	// firmware blob served
 	blob := []byte(`blob`)
-	blobChecksum := "fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8"
+	blobChecksum := "ee26908bf9629eeb4b37dac350f4754a"
 
 	server := httptest.NewServer(serverMux(t, blob))
 

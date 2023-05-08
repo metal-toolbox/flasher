@@ -3,7 +3,7 @@ package outofband
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,7 +63,9 @@ func download(ctx context.Context, fileURL, dst string) error {
 	return err
 }
 
-func checksumValidateSHA256(filename, checksum string) error {
+// TODO: firmware-syncer needs to prefix firmware checksums values with the type of checksum
+// so consumers can validate it accordingly
+func checksumValidateMD5(filename, checksum string) error {
 	var err error
 
 	expectedChecksum := []byte(checksum)
@@ -79,7 +81,7 @@ func checksumValidateSHA256(filename, checksum string) error {
 	}
 	defer f.Close()
 
-	h := sha256.New()
+	h := md5.New()
 
 	// TODO(joel) - wrap this within a context
 	if _, err := io.Copy(h, f); err != nil {
