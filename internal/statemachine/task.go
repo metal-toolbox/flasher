@@ -307,7 +307,11 @@ func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
 				err = errors.Wrap(
 					ErrTaskTransition,
-					fmt.Sprintf("no transition rule found for task transition type '%s' and state '%s'", transitionType, task.Status),
+					fmt.Sprintf(
+						"no transition rule found for task transition type '%s' in state '%s'",
+						transitionType,
+						task.State(),
+					),
 				)
 			}
 
