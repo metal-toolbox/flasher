@@ -194,7 +194,6 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 				"models":           action.Firmware.Models,
 				"plannedVersion":   action.Firmware.Version,
 				"installedVersion": component.FirmwareInstalled,
-				"err":              err.Error(),
 			}).Error("Installed firmware version equals planned - set TaskParameters.Force=true to disable this check")
 
 		return ErrInstalledFirmwareEqual
