@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	sw "github.com/filanov/stateswitch"
-	"github.com/hashicorp/go-multierror"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 )
@@ -34,18 +33,25 @@ var (
 
 // ErrAction is an error type containing information on the Action failure.
 type ErrAction struct {
-	handler string
-	status  string
-	cause   string
+	handler   string
+	component string
+	status    string
+	cause     string
 }
 
 // Error implements the Error() interface
 func (e *ErrAction) Error() string {
-	return fmt.Sprintf("action '%s' with status '%s', returned error: %s", e.handler, e.status, e.cause)
+	return fmt.Sprintf(
+		"action '%s' on component '%s' with status '%s', returned error: %s",
+		e.handler,
+		e.component,
+		e.status,
+		e.cause,
+	)
 }
 
-func newErrAction(handler, status, cause string) error {
-	return &ErrAction{handler, status, cause}
+func newErrAction(handler, component, status, cause string) error {
+	return &ErrAction{handler, component, status, cause}
 }
 
 // ActionStateMachine is an object holding the action statemachine.
@@ -160,19 +166,31 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		err := a.sm.Run(transitionType, action, tctx)
 		if err != nil {
 			// When the condition returns false, run the next transition
-			// note: do we want to log this for debugging?
 			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
-				continue
+				return newErrAction(
+					string(transitionType),
+					action.Firmware.Component,
+					string(action.State()),
+					err.Error(),
+				)
 			}
 
 			// run transition failed handler
 			if txErr := a.TransitionFailed(action, tctx); txErr != nil {
-				err = multierror.Append(err, errors.Wrap(txErr, "actionSM TransitionFailed() error"))
+				return newErrAction(
+					string(transitionType),
+					action.Firmware.Component,
+					string(action.State()),
+					txErr.Error(),
+				)
 			}
 
-			err = newErrAction(string(action.State()), string(transitionType), err.Error())
-
-			return err
+			return newErrAction(
+				string(transitionType),
+				action.Firmware.Component,
+				string(action.State()),
+				err.Error(),
+			)
 		}
 
 		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
