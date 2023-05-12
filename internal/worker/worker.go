@@ -444,6 +444,7 @@ func (e *statusEmitter) Publish(ctx context.Context, task *model.Task) {
 	update := &cpv1types.ConditionUpdateEvent{
 		Kind: cptypes.FirmwareInstallOutofband,
 		ConditionUpdate: cpv1types.ConditionUpdate{
+			ID:     task.ID,
 			State:  cptypes.ConditionState(task.State()),
 			Status: statusInfoJSON(task.Status),
 		},
