@@ -3,6 +3,7 @@ package statemachine
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -28,6 +29,7 @@ var (
 	ErrInvalidTransitionHandler  = errors.New("expected a valid transitionHandler{} type")
 	ErrInvalidtaskHandlerContext = errors.New("expected a HandlerContext{} type")
 	ErrTaskTransition            = errors.New("error in task transition")
+	errConditionFault            = errors.New("condition induced fault")
 )
 
 // Publisher defines methods to publish task information.
@@ -293,6 +295,31 @@ func (m *TaskStateMachine) TransitionSuccess(task *model.Task, tctx *HandlerCont
 	return m.sm.Run(TransitionTypeTaskSuccess, task, tctx)
 }
 
+// ConditionalFault is invoked before each transition to induce a fault if specified.
+func (m *TaskStateMachine) ConditionalFault(handlerCtx *HandlerContext, task *model.Task, transitionType sw.TransitionType) error {
+	if task.Fault == nil {
+		return nil
+	}
+
+	if task.Fault.Panic {
+		panic("condition induced panic..")
+	}
+
+	if task.Fault.FailAt == string(transitionType) {
+		return errors.Wrap(errConditionFault, string(transitionType))
+	}
+
+	if task.Fault.ExecuteWithDelay > 0 {
+		handlerCtx.Logger.WithField("delay", task.Fault.ExecuteWithDelay.Seconds()).Warn("condition induced delayed execution..")
+		time.Sleep(task.Fault.ExecuteWithDelay)
+
+		// reset delay duration
+		task.Fault.ExecuteWithDelay = 0
+	}
+
+	return nil
+}
+
 // Run executes the transitions in the expected order while handling any failures.
 func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 	var err error
@@ -300,6 +327,20 @@ func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 	var finalTransition sw.TransitionType
 
 	for _, transitionType := range m.transitions {
+		// conditionally fault
+		if errFault := m.ConditionalFault(tctx, task, transitionType); errFault != nil {
+			// include error in task
+			task.Status = errFault.Error()
+
+			// run transition failed handler
+			if txErr := m.TransitionFailed(task, tctx); txErr != nil {
+				err = errors.Wrap(errFault, string(TransitionTypeActionFailed)+": "+txErr.Error())
+			}
+
+			return err
+		}
+
+		// execute transition
 		err = m.sm.Run(transitionType, task, tctx)
 		if err != nil {
 			err = errors.Wrap(err, string(transitionType))
