@@ -1517,6 +1517,8 @@ github.com/metal-toolbox/conditionorc v0.0.0-20230510100430-eb39915f4269 h1:wtps
 github.com/metal-toolbox/conditionorc v0.0.0-20230510100430-eb39915f4269/go.mod h1:VsP3gc11GbLMwDXs21qEODrvQIHkmKA+Tt0dXJjEk/0=
 github.com/metal-toolbox/conditionorc v0.0.0-20230511120135-5f378bc854a2 h1:S5l2u9XHyH0TSQZkzgTgVZfwEArB+WIAznO5JMJNuHI=
 github.com/metal-toolbox/conditionorc v0.0.0-20230511120135-5f378bc854a2/go.mod h1:VsP3gc11GbLMwDXs21qEODrvQIHkmKA+Tt0dXJjEk/0=
+github.com/metal-toolbox/conditionorc v0.0.0-20230516094857-e5d4e1dd5357 h1:wBgBjMQ1DemBMP17eoidMHdDphFu8Qn1L70pawApnXs=
+github.com/metal-toolbox/conditionorc v0.0.0-20230516094857-e5d4e1dd5357/go.mod h1:VsP3gc11GbLMwDXs21qEODrvQIHkmKA+Tt0dXJjEk/0=
 github.com/microsoft/ApplicationInsights-Go v0.4.4/go.mod h1:fKRUseBqkw6bDiXTs3ESTiU/4YTIHsQS4W3fP2ieF4U=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=
 github.com/microsoft/go-mssqldb v0.18.0/go.mod h1:ukJCBnnzLzpVF0qYRT+eg1e+eSwjeQ7IvenUv8QPook=

@@ -16,7 +16,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jinzhu/copier v0.3.5
 	github.com/jpillora/backoff v1.0.0
-	github.com/metal-toolbox/conditionorc v0.0.0-20230511120135-5f378bc854a2
+	github.com/metal-toolbox/conditionorc v0.0.0-20230516094857-e5d4e1dd5357
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
