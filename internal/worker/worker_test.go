@@ -103,7 +103,7 @@ func Test_newTaskFromCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newTaskFromCondition(tt.condition)
+			got, err := newTaskFromCondition(tt.condition, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newTaskFromCondition() error = %v, wantErr %v", err, tt.wantErr)
 				return

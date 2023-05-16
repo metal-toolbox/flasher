@@ -47,21 +47,23 @@ const (
 
 // Worker holds attributes for firmware install routines.
 type Worker struct {
-	stream       events.Stream
-	store        store.Repository
-	syncWG       *sync.WaitGroup
-	logger       *logrus.Logger
-	id           string
-	facilityCode string
-	concurrency  int
-	dispatched   int32
-	dryrun       bool
+	stream         events.Stream
+	store          store.Repository
+	syncWG         *sync.WaitGroup
+	logger         *logrus.Logger
+	id             string
+	facilityCode   string
+	concurrency    int
+	dispatched     int32
+	dryrun         bool
+	faultInjection bool
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
 func New(
 	facilityCode string,
 	dryrun bool,
+	faultInjection bool,
 	concurrency int,
 	stream events.Stream,
 	repository store.Repository,
@@ -70,14 +72,15 @@ func New(
 	id, _ := os.Hostname()
 
 	return &Worker{
-		id:           id,
-		facilityCode: facilityCode,
-		dryrun:       dryrun,
-		concurrency:  concurrency,
-		syncWG:       &sync.WaitGroup{},
-		stream:       stream,
-		store:        repository,
-		logger:       logger,
+		id:             id,
+		facilityCode:   facilityCode,
+		dryrun:         dryrun,
+		faultInjection: faultInjection,
+		concurrency:    concurrency,
+		syncWG:         &sync.WaitGroup{},
+		stream:         stream,
+		store:          repository,
+		logger:         logger,
 	}
 }
 
@@ -101,8 +104,9 @@ func (o *Worker) Run(ctx context.Context) {
 
 	o.logger.WithFields(
 		logrus.Fields{
-			"concurrency": o.concurrency,
-			"dry-run":     o.dryrun,
+			"concurrency":     o.concurrency,
+			"dry-run":         o.dryrun,
+			"fault-injection": o.faultInjection,
 		},
 	).Info("flasher worker running")
 
@@ -252,7 +256,7 @@ func (o *Worker) processEvent(ctx context.Context, e events.Message) {
 		return
 	}
 
-	task, err := newTaskFromCondition(condition)
+	task, err := newTaskFromCondition(condition, o.faultInjection)
 	if err != nil {
 		o.logger.WithError(err).Warn("error initializing task from condition")
 
@@ -408,7 +412,7 @@ func conditionFromEvent(e events.Message) (*cptypes.Condition, error) {
 }
 
 // newTaskFromMsg returns a new task object with the given parameters
-func newTaskFromCondition(condition *cptypes.Condition) (*model.Task, error) {
+func newTaskFromCondition(condition *cptypes.Condition, faultInjection bool) (*model.Task, error) {
 	parameters := &model.TaskParameters{}
 	if err := json.Unmarshal(condition.Parameters, parameters); err != nil {
 		return nil, errors.Wrap(errInitTask, "Task parameters error: "+err.Error())
@@ -417,6 +421,10 @@ func newTaskFromCondition(condition *cptypes.Condition) (*model.Task, error) {
 	task, err := newTask(condition.ID, parameters)
 	if err != nil {
 		return nil, err
+	}
+
+	if faultInjection && condition.Fault != nil {
+		task.Fault = condition.Fault
 	}
 
 	return &task, nil
