@@ -6,10 +6,13 @@ package statemachine
 import (
 	"net"
 	"testing"
+	"time"
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
+	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -58,10 +61,10 @@ var (
 	}
 )
 
-func newTaskFixture(t *testing.T, state string) *model.Task {
+func newTaskFixture(t *testing.T, state string, fault *cptypes.Fault) *model.Task {
 	t.Helper()
 
-	task := &model.Task{}
+	task := &model.Task{Fault: fault}
 	if err := task.SetState(sw.State(state)); err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +84,7 @@ func Test_NewTaskStateMachine(t *testing.T) {
 	}{
 		{
 			"new task statemachine is created",
-			newTaskFixture(t, string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending), nil),
 		},
 	}
 
@@ -110,7 +113,7 @@ func Test_Transitions(t *testing.T) {
 	}{
 		{
 			"Pending to Active",
-			newTaskFixture(t, string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending), nil),
 			[]sw.TransitionType{TransitionTypeActive},
 			string(model.StateActive),
 			false,
@@ -118,7 +121,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Active to Success",
-			newTaskFixture(t, string(model.StateActive)),
+			newTaskFixture(t, string(model.StateActive), nil),
 			[]sw.TransitionType{TransitionTypeRun},
 			string(model.StateSucceeded),
 			false,
@@ -126,7 +129,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Queued to Success - run all transitions",
-			newTaskFixture(t, string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending), nil),
 			[]sw.TransitionType{}, // with this not defined, the statemachine defaults to the configured transitions.
 			string(model.StateSucceeded),
 			false,
@@ -134,7 +137,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Queued to Failed",
-			newTaskFixture(t, string(model.StateActive)),
+			newTaskFixture(t, string(model.StateActive), nil),
 			[]sw.TransitionType{TransitionTypeTaskFail},
 			string(model.StateFailed),
 			true,
@@ -142,7 +145,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Active to Failed",
-			newTaskFixture(t, string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending), nil),
 			[]sw.TransitionType{TransitionTypeTaskFail},
 			string(model.StateFailed),
 			true,
@@ -150,7 +153,7 @@ func Test_Transitions(t *testing.T) {
 		},
 		{
 			"Success to Active fails - invalid transition",
-			newTaskFixture(t, string(model.StatePending)),
+			newTaskFixture(t, string(model.StatePending), nil),
 			[]sw.TransitionType{TransitionTypeTaskSuccess},
 			string(model.StateFailed),
 			true,
@@ -189,6 +192,88 @@ func Test_Transitions(t *testing.T) {
 
 			assert.Equal(t, tc.expectedState, string(tc.task.State()))
 
+		})
+	}
+}
+
+func Test_ConditionalFaultWithTransitions(t *testing.T) {
+	tests := []struct {
+		name          string
+		task          *model.Task
+		runTransition []sw.TransitionType
+		expectedState string
+		expectError   bool
+		expectPanic   bool
+		expectDelay   bool
+	}{
+		{
+			"condition induced error",
+			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{FailAt: "plan"}),
+			[]sw.TransitionType{TransitionTypePlan},
+			string(model.StateFailed),
+			true,
+			false,
+			false,
+		},
+		{
+			"condition induced panic",
+			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{Panic: true}),
+			[]sw.TransitionType{TransitionTypePlan},
+			string(model.StateFailed),
+			true,
+			true,
+			false,
+		},
+		{
+			"condition induced delay",
+			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{ExecuteWithDelay: 30 * time.Millisecond}),
+			[]sw.TransitionType{TransitionTypePlan},
+			string(model.StateActive),
+			false,
+			false,
+			true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// init task handler context
+			tctx := &HandlerContext{Task: tc.task, Logger: logrus.NewEntry(logrus.New())}
+			handler := &MockTaskHandler{}
+
+			// init new state machine
+			m, err := NewTaskStateMachine(handler)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// set transition to perform based on test case
+			if len(tc.runTransition) > 0 {
+				m.SetTransitionOrder(tc.runTransition)
+			}
+
+			if tc.expectPanic {
+				assert.Panics(t, func() {
+					_ = m.Run(tc.task, tctx)
+				})
+
+			} else {
+				start := time.Now()
+
+				// run transition
+				err = m.Run(tc.task, tctx)
+				if err != nil {
+					if !tc.expectError {
+						t.Fatal(err)
+					}
+				}
+
+				if tc.expectDelay {
+					assert.GreaterOrEqual(t, time.Since(start), tc.task.Fault.ExecuteWithDelay)
+				}
+
+				assert.Equal(t, tc.expectedState, string(tc.task.State()))
+			}
 		})
 	}
 }

@@ -2,6 +2,7 @@ package statemachine
 
 import (
 	sw "github.com/filanov/stateswitch"
+	"github.com/metal-toolbox/flasher/internal/model"
 )
 
 // MockTaskHandler implements the TaskTransitioner interface
@@ -36,5 +37,9 @@ func (h *MockTaskHandler) TaskSuccessful(_ sw.StateSwitch, _ sw.TransitionArgs) 
 }
 
 func (h *MockTaskHandler) PublishStatus(_ sw.StateSwitch, _ sw.TransitionArgs) error {
+	return nil
+}
+
+func (h *MockTaskHandler) ConditionalFault(_ *HandlerContext, _ *model.Task, _ sw.TransitionType) error {
 	return nil
 }
