@@ -181,7 +181,7 @@ func (h *taskHandler) PublishStatus(t sw.StateSwitch, args sw.TransitionArgs) er
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
-	tctx.Publisher.Publish(tctx.Ctx, task)
+	tctx.Publisher.Publish(tctx, task)
 
 	return nil
 }
@@ -218,14 +218,14 @@ func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components
 	}
 
 	tctx.Task.Status = "connecting to device BMC"
-	tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
+	tctx.Publisher.Publish(tctx, tctx.Task)
 
 	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
 		return nil, err
 	}
 
 	tctx.Task.Status = "collecting inventory from device BMC"
-	tctx.Publisher.Publish(tctx.Ctx, tctx.Task)
+	tctx.Publisher.Publish(tctx, tctx.Task)
 
 	deviceCommon, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {

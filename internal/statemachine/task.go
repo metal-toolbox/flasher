@@ -34,7 +34,7 @@ var (
 
 // Publisher defines methods to publish task information.
 type Publisher interface {
-	Publish(ctx context.Context, task *model.Task)
+	Publish(ctx *HandlerContext, task *model.Task)
 }
 
 // HandlerContext holds references to objects required to complete firmware install task and action transitions.

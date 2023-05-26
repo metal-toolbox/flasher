@@ -6,8 +6,6 @@ import (
 	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
 	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
-	"go.hollow.sh/toolbox/events"
-	"go.infratographer.com/x/urnx"
 )
 
 // InstallMethod is one of 'outofband' OR 'inband'
@@ -136,19 +134,6 @@ type Task struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	CompletedAt time.Time
-}
-
-// StreamEvent holds properties of a message received on the stream.
-type StreamEvent struct {
-	// Msg is the original event that created this task.
-	// This is here so that the events subsystem can be acked/notified as the task makes progress.
-	Msg events.Message
-
-	// Condition defines the kind of work to be performed, its parsed from Data.
-	Condition *cptypes.Condition
-
-	// Urn is the URN parsed from Msg for the task runner.
-	Urn *urnx.URN
 }
 
 // SetState implements the stateswitch statemachine interface

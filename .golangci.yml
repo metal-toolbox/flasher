@@ -47,8 +47,6 @@ linters-settings:
       - wrapperFunc
   gofumpt:
     extra-rules: true
-  wsl:
-    auto-fix: true
 
 linters:
   enable:
@@ -75,7 +73,6 @@ linters:
     - noctx
     - stylecheck
     - whitespace
-    - wsl
     - gosec
   enable-all: false
   disable-all: true

@@ -35,14 +35,9 @@ var (
 	// This value should be set to less than the event stream Ack timeout value.
 	taskInprogressTick = 3 * time.Minute
 
-	errEventAttributes   = errors.New("error in event attributes")
-	errTaskFirmwareParam = errors.New("error in task firmware parameters")
-	errInitTask          = errors.New("error initializing new task from event")
-)
-
-const (
-	// urnNamespace defines the event message namespace value that this worker will process.
-	urnNamespace = "hollow-controllers"
+	errConditionDeserialize = errors.New("unable to deserialize condition")
+	errTaskFirmwareParam    = errors.New("error in task firmware parameters")
+	errInitTask             = errors.New("error initializing new task from event")
 )
 
 // Worker holds attributes for firmware install routines.
@@ -183,11 +178,11 @@ func (o *Worker) eventNak(event events.Message) {
 }
 
 func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, error) {
-	task := model.Task{ID: conditionID}
-
-	if err := task.SetState(model.StatePending); err != nil {
-		return task, err
+	task := model.Task{
+		ID: conditionID,
 	}
+	//nolint:errcheck // this method returns nil unconditionally
+	task.SetState(model.StatePending)
 
 	task.Parameters.AssetID = params.AssetID
 	task.Parameters.ForceInstall = params.ForceInstall
@@ -213,82 +208,37 @@ func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, e
 func (o *Worker) processEvent(ctx context.Context, e events.Message) {
 	defer o.eventAckComplete(e)
 
-	data, err := e.Data()
-	if err != nil {
-		o.logger.WithFields(
-			logrus.Fields{"err": err.Error(), "subject": e.Subject()},
-		).Error("data unpack error")
-
-		return
-	}
-
-	urn, err := e.SubjectURN(data)
-	if err != nil {
-		o.logger.WithFields(
-			logrus.Fields{"err": err.Error(), "subject": e.Subject()},
-		).Error("error parsing subject URN in msg")
-
-		return
-	}
-
-	if urn.ResourceType != cptypes.ServerResourceType {
-		o.logger.WithError(errEventAttributes).Warn("unsupported resourceType: " + urn.ResourceType)
-
-		return
-	}
-
-	if data.EventType != string(cptypes.FirmwareInstallOutofband.EventType()) {
-		o.logger.WithError(errEventAttributes).Warn("unsupported eventType: " + data.EventType)
-
-		return
-	}
-
-	if urn.Namespace != urnNamespace {
-		o.logger.WithError(errEventAttributes).Warn("unsupported URN Namespace: " + urn.Namespace)
-
-		return
-	}
-
 	condition, err := conditionFromEvent(e)
 	if err != nil {
-		o.logger.WithError(errEventAttributes).Warn("error in Condition data" + urn.Namespace)
-
+		o.logger.WithError(err).WithField(
+			"subject", e.Subject()).Warn("unable to retrieve condition from message")
 		return
 	}
 
 	task, err := newTaskFromCondition(condition, o.faultInjection)
 	if err != nil {
 		o.logger.WithError(err).Warn("error initializing task from condition")
-
 		return
 	}
 
 	// first try to fetch asset inventory from inventory store
-	//
-	// error ignored on purpose
 	asset, err := o.store.AssetByID(ctx, task.Parameters.AssetID.String())
 	if err != nil {
 		o.logger.WithFields(logrus.Fields{
 			"assetID":     task.Parameters.AssetID.String(),
 			"conditionID": condition.ID,
 		}).Warn("error initializing task from condition")
-
+		o.eventNak(e) // have the message bus re-deliver this message
 		return
-	}
-
-	streamEvent := &model.StreamEvent{
-		Msg:       e,
-		Condition: condition,
-		Urn:       urn,
 	}
 
 	taskCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
 
-	o.runTaskWithMonitor(taskCtx, task, asset, streamEvent)
+	o.runTaskWithMonitor(taskCtx, task, asset, e)
 }
 
-func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset *model.Asset, streamEvent *model.StreamEvent) {
+func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset *model.Asset, e events.Message) {
 	// the runTask method is expected to close this channel to indicate its done
 	doneCh := make(chan bool)
 
@@ -303,7 +253,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 		for {
 			select {
 			case <-ticker.C:
-				o.eventAckInprogress(streamEvent.Msg)
+				o.eventAckInprogress(e)
 			case <-doneCh:
 				break Loop
 			}
@@ -385,27 +335,14 @@ func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Handle
 }
 
 func conditionFromEvent(e events.Message) (*cptypes.Condition, error) {
-	data, err := e.Data()
-	if err != nil {
-		return nil, err
-	}
-
-	value, exists := data.AdditionalData["data"]
-	if !exists {
+	data := e.Data()
+	if data == nil {
 		return nil, errors.New("data field empty")
 	}
 
-	// we do this marshal, unmarshal dance here
-	// since value is of type map[string]interface{} and unpacking this
-	// into a known type isn't easily feasible (or atleast I'd be happy to find out otherwise).
-	cbytes, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-
 	condition := &cptypes.Condition{}
-	if err := json.Unmarshal(cbytes, condition); err != nil {
-		return nil, err
+	if err := json.Unmarshal(data, condition); err != nil {
+		return nil, errors.Wrap(errConditionDeserialize, err.Error())
 	}
 
 	return condition, nil
@@ -448,22 +385,29 @@ func statusInfoJSON(s string) json.RawMessage {
 	return []byte(fmt.Sprintf("{%q: %q}", "msg", s))
 }
 
-func (e *statusEmitter) Publish(ctx context.Context, task *model.Task) {
+func (e *statusEmitter) Publish(hCtx *sm.HandlerContext, task *model.Task) {
 	update := &cpv1types.ConditionUpdateEvent{
 		Kind: cptypes.FirmwareInstallOutofband,
 		ConditionUpdate: cpv1types.ConditionUpdate{
-			ID:     task.ID,
-			State:  cptypes.ConditionState(task.State()),
-			Status: statusInfoJSON(task.Status),
+			ConditionID: task.ID,
+			TargetID:    task.Parameters.AssetID,
+			State:       cptypes.ConditionState(task.State()),
+			Status:      statusInfoJSON(task.Status),
 		},
 	}
 
-	if err := e.stream.PublishAsyncWithContext(
-		ctx,
-		events.ResourceType(cptypes.ServerResourceType),
-		cptypes.ConditionUpdateEvent,
-		task.Parameters.AssetID.String(),
-		update,
+	// XXX: This ought to be a method on ConditionUpdate like we have for Condition in
+	// ConditionOrc
+	byt, err := json.Marshal(update)
+	if err != nil {
+		panic("unable to marshal a condition update" + err.Error())
+	}
+
+	subject := fmt.Sprintf("com.hollow.sh.controllers.responses.%s.update", hCtx.FacilityCode)
+	if err := e.stream.Publish(
+		hCtx.Ctx,
+		subject,
+		byt,
 	); err != nil {
 		e.logger.WithError(err).Error("error publishing condition update")
 	}
