@@ -3,11 +3,17 @@ package store
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
+	"time"
 
 	sservice "go.hollow.sh/serverservice/pkg/api/v1"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"golang.org/x/oauth2/clientcredentials"
 
+	"github.com/coreos/go-oidc"
 	"github.com/google/uuid"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/sirupsen/logrus"
 
 	"github.com/metal-toolbox/flasher/internal/app"
@@ -24,6 +30,9 @@ const (
 
 	// serverservice attribute namespace for firmware set labels
 	firmwareAttributeNSFirmwareSetLabels = "sh.hollow.firmware_set.labels"
+
+	// connectionTimeout is the maximum amount of time spent on each http connection to serverservice.
+	connectionTimeout = 30 * time.Second
 )
 
 var (
@@ -61,11 +70,20 @@ type Serverservice struct {
 	logger *logrus.Logger
 }
 
-func NewServerserviceStore(config *app.ServerserviceOptions, logger *logrus.Logger) (Repository, error) {
-	// TODO: add helper method for OIDC auth
-	client, err := sservice.NewClientWithToken("fake", config.Endpoint, nil)
-	if err != nil {
-		return nil, err
+func NewServerserviceStore(ctx context.Context, config *app.ServerserviceOptions, logger *logrus.Logger) (Repository, error) {
+	var client *sservice.Client
+	var err error
+
+	if !config.DisableOAuth {
+		client, err = newClientWithOAuth(ctx, config, logger)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		client, err = sservice.NewClientWithToken("fake", config.Endpoint, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	serverservice := &Serverservice{
@@ -75,6 +93,58 @@ func NewServerserviceStore(config *app.ServerserviceOptions, logger *logrus.Logg
 	}
 
 	return serverservice, nil
+}
+
+// returns a serverservice retryable http client with Otel and Oauth wrapped in
+func newClientWithOAuth(ctx context.Context, cfg *app.ServerserviceOptions, logger *logrus.Logger) (*sservice.Client, error) {
+	// init retryable http client
+	retryableClient := retryablehttp.NewClient()
+
+	// set retryable HTTP client to be the otel http client to collect telemetry
+	retryableClient.HTTPClient = otelhttp.DefaultClient
+
+	// disable default debug logging on the retryable client
+	if logger.Level < logrus.DebugLevel {
+		retryableClient.Logger = nil
+	} else {
+		retryableClient.Logger = logger
+	}
+
+	// setup oidc provider
+	provider, err := oidc.NewProvider(ctx, cfg.OidcIssuerEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	clientID := "flasher"
+
+	if cfg.OidcClientID != "" {
+		clientID = cfg.OidcClientID
+	}
+
+	// setup oauth configuration
+	oauthConfig := clientcredentials.Config{
+		ClientID:       clientID,
+		ClientSecret:   cfg.OidcClientSecret,
+		TokenURL:       provider.Endpoint().TokenURL,
+		Scopes:         cfg.OidcClientScopes,
+		EndpointParams: url.Values{"audience": []string{cfg.OidcAudienceEndpoint}},
+	}
+
+	// wrap OAuth transport, cookie jar in the retryable client
+	oAuthclient := oauthConfig.Client(ctx)
+
+	retryableClient.HTTPClient.Transport = oAuthclient.Transport
+	retryableClient.HTTPClient.Jar = oAuthclient.Jar
+
+	httpClient := retryableClient.StandardClient()
+	httpClient.Timeout = connectionTimeout
+
+	return sservice.NewClientWithToken(
+		cfg.OidcClientSecret,
+		cfg.Endpoint,
+		httpClient,
+	)
 }
 
 // AssetByID returns an Asset object with various attributes populated.
