@@ -65,7 +65,7 @@ func runWorker(ctx context.Context) {
 		cancelFunc()
 	}()
 
-	inv, err := initInventory(flasher.Config, flasher.Logger)
+	inv, err := initInventory(ctx, flasher.Config, flasher.Logger)
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
@@ -88,13 +88,13 @@ func runWorker(ctx context.Context) {
 	w.Run(ctx)
 }
 
-func initInventory(config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
+func initInventory(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
 	switch {
 	// from CLI flags
 	case strings.HasSuffix(storeKind, ".yml"), strings.HasSuffix(storeKind, ".yaml"):
 		return store.NewYamlInventory(storeKind)
 	case storeKind == string(model.InventoryStoreServerservice):
-		return store.NewServerserviceStore(config.ServerserviceOptions, logger)
+		return store.NewServerserviceStore(ctx, config.ServerserviceOptions, logger)
 	}
 
 	return nil, errors.Wrap(ErrInventoryStore, "expected a valid inventory store parameter")
