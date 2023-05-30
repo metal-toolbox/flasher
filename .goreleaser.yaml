@@ -1,0 +1,84 @@
+project_name: alloy
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    ldflags:
+      - -X "github.com/metal-toolbox/alloy/internal/version.AppVersion={{ .Version }}"
+        -X "github.com/metal-toolbox/alloy/internal/version.GoVersion={{ .Env.GOVERSION }}"
+        -X "github.com/metal-toolbox/alloy/internal/version.GitCommit={{ .Commit }}"
+        -X "github.com/metal-toolbox/alloy/internal/version.GitBranch={{ .Branch }}"
+        -X "github.com/metal-toolbox/alloy/internal/version.BuildDate={{ .Date }}"
+
+
+archives:
+  - id: go
+    format: tar.gz
+    name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}-{{.Arch}}"
+    replacements:
+      amd64: 64bit
+      darwin: macOS
+      linux: Linux
+    files:
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+dockers:
+  -
+    image_templates:
+      - "ghcr.io/metal-toolbox/{{.ProjectName}}:{{ .Tag }}"
+      - "ghcr.io/metal-toolbox/{{.ProjectName}}:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+sboms:
+  - artifacts: archive
+  - id: source
+    artifacts: source
+
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--oidc-issuer=https://token.actions.githubusercontent.com"
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes" # required on cosign 2.0.0+
+    artifacts: all
+    output: true
+
+docker_signs:
+  - cmd: cosign
+    args:
+      - "sign"
+      - "--oidc-issuer=https://token.actions.githubusercontent.com"
+      - "${artifact}"
+      - "--yes" # required on cosign 2.0.0+
+    artifacts: all
+    output: true
