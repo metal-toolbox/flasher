@@ -9,7 +9,7 @@ import (
 
 var cmdVersion = &cobra.Command{
 	Use:   "version",
-	Short: "Print Alloy version along with dependency - ironlib, bmclib version information.",
+	Short: "Print Flasher version along with dependency information.",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf(
 			"commit: %s\nbranch: %s\ngit summary: %s\nbuildDate: %s\nversion: %s\nGo version: %s\nbmclib version: %s\nserverservice version: %s",
