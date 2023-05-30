@@ -1,4 +1,4 @@
-project_name: alloy
+project_name: flasher
 before:
   hooks:
     - go mod tidy
@@ -11,11 +11,11 @@ builds:
       - linux
       - darwin
     ldflags:
-      - -X "github.com/metal-toolbox/alloy/internal/version.AppVersion={{ .Version }}"
-        -X "github.com/metal-toolbox/alloy/internal/version.GoVersion={{ .Env.GOVERSION }}"
-        -X "github.com/metal-toolbox/alloy/internal/version.GitCommit={{ .Commit }}"
-        -X "github.com/metal-toolbox/alloy/internal/version.GitBranch={{ .Branch }}"
-        -X "github.com/metal-toolbox/alloy/internal/version.BuildDate={{ .Date }}"
+      - -X "github.com/metal-toolbox/flasher/internal/version.AppVersion={{ .Version }}"
+        -X "github.com/metal-toolbox/flasher/internal/version.GoVersion={{ .Env.GOVERSION }}"
+        -X "github.com/metal-toolbox/flasher/internal/version.GitCommit={{ .Commit }}"
+        -X "github.com/metal-toolbox/flasher/internal/version.GitBranch={{ .Branch }}"
+        -X "github.com/metal-toolbox/flasher/internal/version.BuildDate={{ .Date }}"
 
 
 archives:
