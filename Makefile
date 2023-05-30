@@ -1,4 +1,10 @@
 export DOCKER_BUILDKIT=1
+LDFLAG_LOCATION := github.com/metal-toolbox/flasher/internal/version
+GIT_COMMIT  := $(shell git rev-parse --short HEAD)
+GIT_BRANCH  := $(shell git symbolic-ref -q --short HEAD)
+GIT_SUMMARY := $(shell git describe --tags --dirty --always)
+VERSION     := $(shell git describe --tags 2> /dev/null)
+BUILD_DATE  := $(shell date +%s)
 GIT_COMMIT_FULL  := $(shell git rev-parse HEAD)
 GO_VERSION := $(shell expr `go version |cut -d ' ' -f3 |cut -d. -f2` \>= 16)
 DOCKER_IMAGE  := "ghcr.io/metal-toolbox/flasher"
@@ -14,15 +20,18 @@ lint:
 test:
 	CGO_ENABLED=0 go test -timeout 1m -v -covermode=atomic ./...
 
-build:
-	go build -o flasher
-
-## build osx bin
+## build-osx
 build-osx:
 ifeq ($(GO_VERSION), 0)
 	$(error build requies go version 1.17.n or higher)
 endif
-	  GOOS=darwin GOARCH=amd64 go build -o flasher
+	  go build -o flasher \
+	   -ldflags \
+		"-X $(LDFLAG_LOCATION).GitCommit=$(GIT_COMMIT) \
+         -X $(LDFLAG_LOCATION).GitBranch=$(GIT_BRANCH) \
+         -X $(LDFLAG_LOCATION).GitSummary=$(GIT_SUMMARY) \
+         -X $(LDFLAG_LOCATION).Version=$(VERSION) \
+         -X $(LDFLAG_LOCATION).BuildDate=$(BUILD_DATE)"
 
 
 ## Build linux bin
@@ -30,7 +39,14 @@ build-linux:
 ifeq ($(GO_VERSION), 0)
 	$(error build requies go version 1.16.n or higher)
 endif
-	GOOS=linux GOARCH=amd64 go build -o flasher
+	GOOS=linux GOARCH=amd64 go build -o flasher \
+	   -ldflags \
+		"-X $(LDFLAG_LOCATION).GitCommit=$(GIT_COMMIT) \
+         -X $(LDFLAG_LOCATION).GitBranch=$(GIT_BRANCH) \
+         -X $(LDFLAG_LOCATION).GitSummary=$(GIT_SUMMARY) \
+         -X $(LDFLAG_LOCATION).Version=$(VERSION) \
+         -X $(LDFLAG_LOCATION).BuildDate=$(BUILD_DATE)"
+
 
 ## build docker image and tag as ghcr.io/metal-toolbox/flasher:latest
 build-image: build-linux
