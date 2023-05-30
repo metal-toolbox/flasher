@@ -67,7 +67,7 @@ func New(
 	id, _ := os.Hostname()
 
 	return &Worker{
-		id:             id,
+		id:             fmt.Sprintf("flasher-%s", id),
 		facilityCode:   facilityCode,
 		dryrun:         dryrun,
 		faultInjection: faultInjection,
@@ -96,6 +96,8 @@ func (o *Worker) Run(ctx context.Context) {
 	}
 
 	o.logger.Info("connected to event stream.")
+
+	o.startWorkerLivenessCheckin(ctx)
 
 	o.logger.WithFields(
 		logrus.Fields{
