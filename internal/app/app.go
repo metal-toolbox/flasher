@@ -90,7 +90,7 @@ func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel str
 func enableProfilingEndpoint() {
 	go func() {
 		server := &http.Server{
-			Addr:              "",
+			Addr:              ProfilingEndpoint,
 			ReadHeaderTimeout: 2 * time.Second, // nolint:gomnd // time duration value is clear as is.
 		}
 
