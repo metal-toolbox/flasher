@@ -240,6 +240,10 @@ func (a *App) envVarNatsOverrides() error {
 		return errors.New("missing parameter: nats.consumer.filterSubject")
 	}
 
+	if a.v.GetDuration("nats.connect.timeout") != 0 {
+		a.Config.NatsOptions.ConnectTimeout = a.v.GetDuration("nats.connect.timeout")
+	}
+
 	if a.Config.NatsOptions.ConnectTimeout == 0 {
 		a.Config.NatsOptions.ConnectTimeout = defaultNatsConnectTimeout
 	}
