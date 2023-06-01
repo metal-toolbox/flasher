@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"log"
-	"net/http"
 	"strings"
 
 	"github.com/metal-toolbox/flasher/internal/app"
@@ -39,11 +38,6 @@ var (
 )
 
 func runWorker(ctx context.Context) {
-	go func() {
-		// nolint:gosec // timeouts aren't a real concern when dealing with this endpoint.
-		log.Println(http.ListenAndServe("localhost:9091", nil))
-	}()
-
 	flasher, termCh, err := app.New(
 		model.AppKindWorker,
 		model.StoreKind(storeKind),
