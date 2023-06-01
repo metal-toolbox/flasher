@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/metal-toolbox/flasher/internal/app"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/worker"
@@ -48,6 +49,9 @@ func runWorker(ctx context.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// serve metrics endpoint
+	metrics.ListenAndServe()
 
 	// Setup cancel context with cancel func.
 	ctx, cancelFunc := context.WithCancel(ctx)
