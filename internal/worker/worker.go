@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.hollow.sh/toolbox/events"
+	"go.hollow.sh/toolbox/events/registry"
 
 	cpv1types "github.com/metal-toolbox/conditionorc/pkg/api/v1/types"
 	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
@@ -46,18 +47,21 @@ type Worker struct {
 	store          store.Repository
 	syncWG         *sync.WaitGroup
 	logger         *logrus.Logger
-	id             string
+	name           string
+	id             registry.ControllerID // assigned when this worker registers itself
 	facilityCode   string
 	concurrency    int
 	dispatched     int32
 	dryrun         bool
 	faultInjection bool
+	useKV          bool
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
 func New(
 	facilityCode string,
-	dryrun bool,
+	dryrun,
+	useKV,
 	faultInjection bool,
 	concurrency int,
 	stream events.Stream,
@@ -67,9 +71,10 @@ func New(
 	id, _ := os.Hostname()
 
 	return &Worker{
-		id:             fmt.Sprintf("flasher-%s", id),
+		name:           fmt.Sprintf("flasher-%s", id),
 		facilityCode:   facilityCode,
 		dryrun:         dryrun,
+		useKV:          useKV,
 		faultInjection: faultInjection,
 		concurrency:    concurrency,
 		syncWG:         &sync.WaitGroup{},
@@ -278,7 +283,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 		WorkerID:     o.id,
 		Dryrun:       o.dryrun,
 		Task:         task,
-		Publisher:    &statusEmitter{o.stream, o.logger},
+		Publisher:    o.getStatusPublisher(),
 		Ctx:          ctx,
 		Store:        o.store,
 		Data:         make(map[string]string),
@@ -296,6 +301,13 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 
 	o.runTaskStatemachine(handler, handlerCtx, doneCh)
 	<-doneCh
+}
+
+func (o *Worker) getStatusPublisher() sm.Publisher {
+	if o.useKV {
+		return NewStatusKVPublisher(o.stream, o.logger)
+	}
+	return &statusEmitter{o.stream, o.logger}
 }
 
 func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.HandlerContext, doneCh chan bool) {
@@ -387,7 +399,8 @@ func statusInfoJSON(s string) json.RawMessage {
 	return []byte(fmt.Sprintf("{%q: %q}", "msg", s))
 }
 
-func (e *statusEmitter) Publish(hCtx *sm.HandlerContext, task *model.Task) {
+func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
+	task := hCtx.Task
 	update := &cpv1types.ConditionUpdateEvent{
 		Kind: cptypes.FirmwareInstallOutofband,
 		ConditionUpdate: cpv1types.ConditionUpdate{

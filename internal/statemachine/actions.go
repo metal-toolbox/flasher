@@ -156,7 +156,7 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			string(transitionType),
 		)
 
-		tctx.Publisher.Publish(tctx, tctx.Task)
+		tctx.Publisher.Publish(tctx)
 
 		// return on context cancellation
 		if ctx.Err() != nil {
@@ -202,7 +202,7 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			string(transitionType),
 		)
 
-		tctx.Publisher.Publish(tctx, tctx.Task)
+		tctx.Publisher.Publish(tctx)
 	}
 
 	// run transition success handler

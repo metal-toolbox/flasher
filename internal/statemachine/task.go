@@ -10,6 +10,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"go.hollow.sh/toolbox/events/registry"
 )
 
 const (
@@ -34,7 +35,7 @@ var (
 
 // Publisher defines methods to publish task information.
 type Publisher interface {
-	Publish(ctx *HandlerContext, task *model.Task)
+	Publish(ctx *HandlerContext)
 }
 
 // HandlerContext holds references to objects required to complete firmware install task and action transitions.
@@ -74,7 +75,7 @@ type HandlerContext struct {
 	Logger *logrus.Entry
 
 	// WorkerID is the identifier for the worker executing this task.
-	WorkerID string
+	WorkerID registry.ControllerID
 
 	// ActionStateMachines are sub-statemachines of this Task
 	// each firmware applicable has a Action statemachine that is
@@ -87,6 +88,9 @@ type HandlerContext struct {
 	//
 	// It is upto the Action handler implementations to ensure the dry run works as described.
 	Dryrun bool
+
+	// LastRev is the last revision of the status data for this task stored in NATS KV
+	LastRev uint64
 }
 
 // TaskTransitioner defines stateswitch methods that handle state transitions.

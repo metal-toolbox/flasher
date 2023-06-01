@@ -18,13 +18,14 @@ var (
 
 // This starts a go-routine to peridocally check in with the NATS kv
 func (w *Worker) startWorkerLivenessCheckin(ctx context.Context) {
-	natsJS, ok := w.stream.(*events.NatsJetstream)
-	if !ok {
-		w.logger.Error("Non-NATS stores are not supported for worker-liveness")
-		return
-	}
-
 	once.Do(func() {
+		w.id = registry.GetID(w.name)
+		natsJS, ok := w.stream.(*events.NatsJetstream)
+		if !ok {
+			w.logger.Error("Non-NATS stores are not supported for worker-liveness")
+			return
+		}
+
 		if err := registry.InitializeActiveControllerRegistry(natsJS); err != nil {
 			w.logger.WithError(err).Error("unable to initialize active worker registry")
 			return
@@ -35,8 +36,7 @@ func (w *Worker) startWorkerLivenessCheckin(ctx context.Context) {
 }
 
 func (w *Worker) checkinRoutine(ctx context.Context) {
-	me := registry.GetID(w.id)
-	if err := registry.RegisterController(me); err != nil {
+	if err := registry.RegisterController(w.id); err != nil {
 		w.logger.WithError(err).Warn("unable to do initial worker liveness registration")
 	}
 
@@ -47,18 +47,18 @@ func (w *Worker) checkinRoutine(ctx context.Context) {
 	for !stop {
 		select {
 		case <-tick.C:
-			err := registry.ControllerCheckin(me)
+			err := registry.ControllerCheckin(w.id)
 			switch err {
 			case nil:
 			case nats.ErrKeyNotFound: // generally means NATS reaped our entry on TTL
-				if err = registry.RegisterController(me); err != nil {
+				if err = registry.RegisterController(w.id); err != nil {
 					w.logger.WithError(err).
-						WithField("id", me.String()).
+						WithField("id", w.id.String()).
 						Warn("unable to re-register worker")
 				}
 			default:
 				w.logger.WithError(err).
-					WithField("id", me.String()).
+					WithField("id", w.id.String()).
 					Warn("worker checkin failed")
 			}
 		case <-ctx.Done():

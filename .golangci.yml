@@ -81,6 +81,8 @@ run:
 #  build-tags:
   skip-dirs:
     - internal/fixtures
+  skip-files:
+    - "(.*/)*.*_test.go"
 
 issues:
   exclude-rules:
