@@ -184,6 +184,14 @@ func (a *App) envVarNatsOverrides() error {
 		return errors.New("missing parameter: nats.url")
 	}
 
+	if a.v.GetString("nats.publisherSubjectPrefix") != "" {
+		a.Config.NatsOptions.PublisherSubjectPrefix = a.v.GetString("nats.publisherSubjectPrefix")
+	}
+
+	if a.Config.NatsOptions.PublisherSubjectPrefix == "" {
+		return errors.New("missing parameter: nats.publisherSubjectPrefix")
+	}
+
 	if a.v.GetString("nats.stream.user") != "" {
 		a.Config.NatsOptions.StreamUser = a.v.GetString("nats.stream.user")
 	}
@@ -214,6 +222,22 @@ func (a *App) envVarNatsOverrides() error {
 		}
 
 		a.Config.NatsOptions.Consumer.Name = a.v.GetString("nats.consumer.name")
+	}
+
+	if len(a.v.GetStringSlice("nats.consumer.subscribeSubjects")) != 0 {
+		a.Config.NatsOptions.Consumer.SubscribeSubjects = a.v.GetStringSlice("nats.consumer.subscribeSubjects")
+	}
+
+	if len(a.Config.NatsOptions.Consumer.SubscribeSubjects) == 0 {
+		return errors.New("missing parameter: nats.consumer.subscribeSubjects")
+	}
+
+	if a.v.GetString("nats.consumer.filterSubject") != "" {
+		a.Config.NatsOptions.Consumer.FilterSubject = a.v.GetString("nats.consumer.filterSubject")
+	}
+
+	if a.Config.NatsOptions.Consumer.FilterSubject == "" {
+		return errors.New("missing parameter: nats.consumer.filterSubject")
 	}
 
 	if a.Config.NatsOptions.ConnectTimeout == 0 {
