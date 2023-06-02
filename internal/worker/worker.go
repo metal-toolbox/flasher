@@ -405,10 +405,9 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext, task *model.Task) {
 		panic("unable to marshal a condition update" + err.Error())
 	}
 
-	subject := fmt.Sprintf("com.hollow.sh.controllers.responses.%s.update", hCtx.FacilityCode)
 	if err := e.stream.Publish(
 		hCtx.Ctx,
-		subject,
+		string(cptypes.FirmwareInstall),
 		byt,
 	); err != nil {
 		e.logger.WithError(err).Error("error publishing condition update")
