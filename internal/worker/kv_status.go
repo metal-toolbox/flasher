@@ -41,14 +41,14 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 		rev, err = s.kv.Update(key, payload, hCtx.LastRev)
 	}
 
-	if err == nil {
-		hCtx.LastRev = rev
-	} else {
+	if err != nil {
 		s.log.WithError(err).WithFields(logrus.Fields{
 			"task_id":  hCtx.Task.ID.String(),
 			"last_rev": hCtx.LastRev,
 		}).Warn("unable to write task status")
+		return
 	}
+	hCtx.LastRev = rev
 }
 
 type statusValue struct {

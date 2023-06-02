@@ -29,7 +29,7 @@ var cmdRun = &cobra.Command{
 
 // run worker command
 var (
-	useKV          bool
+	useStatusKV    bool
 	dryrun         bool
 	faultInjection bool
 	storeKind      string
@@ -77,7 +77,7 @@ func runWorker(ctx context.Context) {
 	w := worker.New(
 		flasher.Config.FacilityCode,
 		dryrun,
-		useKV,
+		useStatusKV,
 		faultInjection,
 		flasher.Config.Concurrency,
 		stream,
@@ -103,7 +103,7 @@ func initInventory(ctx context.Context, config *app.Configuration, logger *logru
 func init() {
 	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
-	cmdRun.PersistentFlags().BoolVarP(&useKV, "use-kv", "", false, "when this is true, flasher writes status to a NATS KV store instead of sending reply messages")
+	cmdRun.PersistentFlags().BoolVarP(&useStatusKV, "use-kv", "", false, "when this is true, flasher writes status to a NATS KV store instead of sending reply messages")
 	cmdRun.PersistentFlags().BoolVarP(&faultInjection, "fault-injection", "", false, "Tasks can include a Fault attribute to allow fault injection for development purposes")
 
 	if err := cmdRun.MarkPersistentFlagRequired("store"); err != nil {

@@ -54,14 +54,14 @@ type Worker struct {
 	dispatched     int32
 	dryrun         bool
 	faultInjection bool
-	useKV          bool
+	useStatusKV    bool
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
 func New(
 	facilityCode string,
 	dryrun,
-	useKV,
+	useStatusKV,
 	faultInjection bool,
 	concurrency int,
 	stream events.Stream,
@@ -74,7 +74,7 @@ func New(
 		name:           fmt.Sprintf("flasher-%s", id),
 		facilityCode:   facilityCode,
 		dryrun:         dryrun,
-		useKV:          useKV,
+		useStatusKV:    useStatusKV,
 		faultInjection: faultInjection,
 		concurrency:    concurrency,
 		syncWG:         &sync.WaitGroup{},
@@ -304,7 +304,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 }
 
 func (o *Worker) getStatusPublisher() sm.Publisher {
-	if o.useKV {
+	if o.useStatusKV {
 		return NewStatusKVPublisher(o.stream, o.logger)
 	}
 	return &statusEmitter{o.stream, o.logger}
