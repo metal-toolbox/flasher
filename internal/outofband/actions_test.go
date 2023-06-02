@@ -28,7 +28,7 @@ func newTaskFixture(status string) *model.Task {
 // eventEmitter implements the statemachine.Publisher interface
 type eventEmitter struct{}
 
-func (e *eventEmitter) Publish(_ *sm.HandlerContext, _ *model.Task) {}
+func (e *eventEmitter) Publish(_ *sm.HandlerContext) {}
 
 func newtaskHandlerContextFixture(task *model.Task, asset *model.Asset) *sm.HandlerContext {
 	repository, _ := store.NewMockInventory()

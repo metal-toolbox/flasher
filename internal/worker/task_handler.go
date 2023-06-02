@@ -170,18 +170,13 @@ func (h *taskHandler) TaskSuccessful(_ sw.StateSwitch, args sw.TransitionArgs) e
 	return nil
 }
 
-func (h *taskHandler) PublishStatus(t sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) PublishStatus(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
 	}
 
-	task, ok := t.(*model.Task)
-	if !ok {
-		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
-	}
-
-	tctx.Publisher.Publish(tctx, task)
+	tctx.Publisher.Publish(tctx)
 
 	return nil
 }
@@ -218,14 +213,14 @@ func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components
 	}
 
 	tctx.Task.Status = "connecting to device BMC"
-	tctx.Publisher.Publish(tctx, tctx.Task)
+	tctx.Publisher.Publish(tctx)
 
 	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
 		return nil, err
 	}
 
 	tctx.Task.Status = "collecting inventory from device BMC"
-	tctx.Publisher.Publish(tctx, tctx.Task)
+	tctx.Publisher.Publish(tctx)
 
 	deviceCommon, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
 	if err != nil {

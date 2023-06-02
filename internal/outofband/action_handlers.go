@@ -535,7 +535,7 @@ func (h *actionHandler) PublishStatus(_ sw.StateSwitch, args sw.TransitionArgs) 
 		return sm.ErrInvalidTransitionHandler
 	}
 
-	tctx.Publisher.Publish(tctx, tctx.Task)
+	tctx.Publisher.Publish(tctx)
 
 	return nil
 }
