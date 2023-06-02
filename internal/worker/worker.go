@@ -389,10 +389,10 @@ func statusInfoJSON(s string) json.RawMessage {
 
 func (e *statusEmitter) Publish(hCtx *sm.HandlerContext, task *model.Task) {
 	update := &cpv1types.ConditionUpdateEvent{
-		Kind: cptypes.FirmwareInstallOutofband,
+		Kind: cptypes.FirmwareInstall,
 		ConditionUpdate: cpv1types.ConditionUpdate{
 			ConditionID: task.ID,
-			TargetID:    task.Parameters.AssetID,
+			ServerID:    task.Parameters.AssetID,
 			State:       cptypes.ConditionState(task.State()),
 			Status:      statusInfoJSON(task.Status),
 		},

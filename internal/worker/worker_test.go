@@ -81,7 +81,7 @@ func Test_newTaskFromCondition(t *testing.T) {
 			"condition parameters parsed into task parameters",
 			&cptypes.Condition{
 				ID:         uuid.MustParse("abc81024-f62a-4288-8730-3fab8ccea777"),
-				Kind:       cptypes.FirmwareInstallOutofband,
+				Kind:       cptypes.FirmwareInstall,
 				Version:    "1",
 				Parameters: []byte(`{"assetID":"ede81024-f62a-4288-8730-3fab8cceab78","firmwareSetID":"9d70c28c-5f65-4088-b014-205c54ad4ac7", "forceInstall": true, "resetBMCBeforeInstall": true}`),
 			},
