@@ -420,7 +420,7 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 
 	if err := e.stream.Publish(
 		hCtx.Ctx,
-		string(cptypes.FirmwareInstall),
+		string(cptypes.ConditionUpdateEvent),
 		byt,
 	); err != nil {
 		e.logger.WithError(err).Error("error publishing condition update")
