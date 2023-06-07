@@ -313,12 +313,19 @@ func (m *TaskStateMachine) ConditionalFault(handlerCtx *HandlerContext, task *mo
 		return errors.Wrap(errConditionFault, string(transitionType))
 	}
 
-	if task.Fault.ExecuteWithDelay > 0 {
-		handlerCtx.Logger.WithField("delay", task.Fault.ExecuteWithDelay.Seconds()).Warn("condition induced delayed execution..")
-		time.Sleep(task.Fault.ExecuteWithDelay)
+	if task.Fault.DelayDuration != "" {
+		td, err := time.ParseDuration(task.Fault.DelayDuration)
+		if err != nil {
+			// invalid duration string is ignored
+			return nil
+		}
 
-		// reset delay duration
-		task.Fault.ExecuteWithDelay = 0
+		handlerCtx.Logger.WithField("delay", td.Seconds()).Warn("condition induced delay in execution")
+		time.Sleep(td)
+
+		// purge delay duration string, this is to execute only once
+		// and this method is called at each transition.
+		task.Fault.DelayDuration = ""
 	}
 
 	return nil
