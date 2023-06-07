@@ -204,7 +204,7 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 		expectedState string
 		expectError   bool
 		expectPanic   bool
-		expectDelay   bool
+		expectDelay   time.Duration
 	}{
 		{
 			"condition induced error",
@@ -213,7 +213,7 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 			string(model.StateFailed),
 			true,
 			false,
-			false,
+			0,
 		},
 		{
 			"condition induced panic",
@@ -222,16 +222,16 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 			string(model.StateFailed),
 			true,
 			true,
-			false,
+			0,
 		},
 		{
 			"condition induced delay",
-			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{ExecuteWithDelay: 30 * time.Millisecond}),
+			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{DelayDuration: "33ms"}),
 			[]sw.TransitionType{TransitionTypePlan},
 			string(model.StateActive),
 			false,
 			false,
-			true,
+			33 * time.Millisecond,
 		},
 	}
 
@@ -268,9 +268,7 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 					}
 				}
 
-				if tc.expectDelay {
-					assert.GreaterOrEqual(t, time.Since(start), tc.task.Fault.ExecuteWithDelay)
-				}
+				assert.GreaterOrEqual(t, time.Since(start), tc.expectDelay)
 
 				assert.Equal(t, tc.expectedState, string(tc.task.State()))
 			}

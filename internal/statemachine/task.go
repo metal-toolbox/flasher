@@ -320,7 +320,7 @@ func (m *TaskStateMachine) ConditionalFault(handlerCtx *HandlerContext, task *mo
 			return nil
 		}
 
-		handlerCtx.Logger.WithField("delay", td.Seconds()).Warn("condition induced delay in execution")
+		handlerCtx.Logger.WithField("delay", td.String()).Warn("condition induced delay in execution")
 		time.Sleep(td)
 
 		// purge delay duration string, this is to execute only once
