@@ -12,11 +12,11 @@ const (
 // StatusValue is the canonical structure
 type StatusValue struct {
 	UpdatedAt time.Time       `json:"updated"`
-	Version   int32           `json:"version"`
 	WorkerID  string          `json:"worker"`
 	Target    string          `json:"target"`
 	State     string          `json:"state"`
 	Status    json.RawMessage `json:"status"`
+	Version   int32           `json:"version"`
 	// WorkSpec json.RawMessage `json:"spec"` XXX: for re-publish use-cases
 }
 

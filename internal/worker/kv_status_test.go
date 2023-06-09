@@ -89,7 +89,7 @@ func TestPublisher(t *testing.T) {
 	require.NotPanics(t, func() { pub.Publish(testContext) }, "publish initial")
 	require.NotEqual(t, 0, testContext.LastRev, "last rev - 1")
 
-	entry, err := readHandle.Get("fac13/" + taskID.String())
+	entry, err := readHandle.Get("fac13." + taskID.String())
 	require.Equal(t, entry.Revision(), testContext.LastRev, "last rev - 2")
 
 	sv := &types.StatusValue{}
@@ -103,6 +103,6 @@ func TestPublisher(t *testing.T) {
 	testContext.Task.SetState(model.StateActive)
 	require.NotPanics(t, func() { pub.Publish(testContext) }, "publish revision")
 
-	entry, err = readHandle.Get("fac13/" + taskID.String())
+	entry, err = readHandle.Get("fac13." + taskID.String())
 	require.Equal(t, entry.Revision(), testContext.LastRev, "last rev - 3")
 }

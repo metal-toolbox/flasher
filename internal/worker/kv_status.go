@@ -30,7 +30,7 @@ type statusKVPublisher struct {
 
 // Publish implements the statemachine Publisher interface.
 func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
-	key := fmt.Sprintf("%s/%s", hCtx.Asset.FacilityCode, hCtx.Task.ID.String())
+	key := fmt.Sprintf("%s.%s", hCtx.Asset.FacilityCode, hCtx.Task.ID.String())
 	payload := statusFromContext(hCtx)
 
 	var err error
