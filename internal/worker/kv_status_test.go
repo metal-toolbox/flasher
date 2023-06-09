@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/metal-toolbox/flasher/types"
 	"github.com/nats-io/nats-server/v2/server"
 	srvtest "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go"
@@ -88,19 +89,20 @@ func TestPublisher(t *testing.T) {
 	require.NotPanics(t, func() { pub.Publish(testContext) }, "publish initial")
 	require.NotEqual(t, 0, testContext.LastRev, "last rev - 1")
 
-	entry, err := readHandle.Get("fac13/" + taskID.String())
+	entry, err := readHandle.Get("fac13." + taskID.String())
 	require.Equal(t, entry.Revision(), testContext.LastRev, "last rev - 2")
 
-	sv := &statusValue{}
+	sv := &types.StatusValue{}
 	err = json.Unmarshal(entry.Value(), sv)
 	require.NoError(t, err, "unmarshal")
 
+	require.Equal(t, types.Version, sv.Version, "version check")
 	require.Equal(t, assetID.String(), sv.Target, "sv Target")
 	require.Equal(t, json.RawMessage(`{"msg":"some-status"}`), sv.Status, "sv Status")
 
 	testContext.Task.SetState(model.StateActive)
 	require.NotPanics(t, func() { pub.Publish(testContext) }, "publish revision")
 
-	entry, err = readHandle.Get("fac13/" + taskID.String())
+	entry, err = readHandle.Get("fac13." + taskID.String())
 	require.Equal(t, entry.Revision(), testContext.LastRev, "last rev - 3")
 }

@@ -2,11 +2,11 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/metal-toolbox/flasher/types"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 
@@ -30,7 +30,7 @@ type statusKVPublisher struct {
 
 // Publish implements the statemachine Publisher interface.
 func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
-	key := fmt.Sprintf("%s/%s", hCtx.Asset.FacilityCode, hCtx.Task.ID.String())
+	key := fmt.Sprintf("%s.%s", hCtx.Asset.FacilityCode, hCtx.Task.ID.String())
 	payload := statusFromContext(hCtx)
 
 	var err error
@@ -51,26 +51,8 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 	hCtx.LastRev = rev
 }
 
-type statusValue struct {
-	UpdatedAt time.Time       `json:"updated"`
-	WorkerID  string          `json:"worker"`
-	Target    string          `json:"target"`
-	State     string          `json:"state"`
-	Status    json.RawMessage `json:"status"`
-	// WorkSpec json.RawMessage `json:"spec"`
-}
-
-// panic if we cannot serialize to JSON
-func (v *statusValue) MustBytes() []byte {
-	byt, err := json.Marshal(v)
-	if err != nil {
-		panic("unable to serialize status value: " + err.Error())
-	}
-	return byt
-}
-
 func statusFromContext(hCtx *sm.HandlerContext) []byte {
-	sv := &statusValue{
+	sv := &types.StatusValue{
 		WorkerID:  hCtx.WorkerID.String(),
 		Target:    hCtx.Asset.ID.String(),
 		State:     string(hCtx.Task.State()),
