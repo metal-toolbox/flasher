@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	cotyp "github.com/metal-toolbox/conditionorc/pkg/types"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/types"
 	"github.com/nats-io/nats.go"
@@ -15,7 +16,7 @@ import (
 )
 
 var (
-	statusKVName  = "flasher-status"
+	statusKVName  = string(cotyp.FirmwareInstall)
 	defaultKVOpts = []kv.Option{
 		kv.WithReplicas(3),
 		kv.WithDescription("flasher condition status tracking"),
@@ -53,10 +54,12 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 
 func statusFromContext(hCtx *sm.HandlerContext) []byte {
 	sv := &types.StatusValue{
-		WorkerID:  hCtx.WorkerID.String(),
-		Target:    hCtx.Asset.ID.String(),
-		State:     string(hCtx.Task.State()),
-		Status:    statusInfoJSON(hCtx.Task.Status),
+		WorkerID: hCtx.WorkerID.String(),
+		Target:   hCtx.Asset.ID.String(),
+		State:    string(hCtx.Task.State()),
+		Status:   statusInfoJSON(hCtx.Task.Status),
+		// ResourceVersion:  XXX: the handler context has no concept of this! does this make
+		// sense at the controller-level?
 		UpdatedAt: time.Now(),
 	}
 	return sv.MustBytes()

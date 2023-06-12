@@ -67,7 +67,7 @@ func TestPublisher(t *testing.T) {
 	pub := NewStatusKVPublisher(evJS, logrus.New(), kv.WithReplicas(1))
 	require.NotNil(t, pub, "publisher constructor")
 
-	readHandle, err := js.KeyValue("flasher-status")
+	readHandle, err := js.KeyValue("firmwareInstall")
 	require.NoError(t, err, "read handle")
 
 	taskID := uuid.New()
@@ -96,7 +96,7 @@ func TestPublisher(t *testing.T) {
 	err = json.Unmarshal(entry.Value(), sv)
 	require.NoError(t, err, "unmarshal")
 
-	require.Equal(t, types.Version, sv.Version, "version check")
+	require.Equal(t, types.Version, sv.MsgVersion, "version check")
 	require.Equal(t, assetID.String(), sv.Target, "sv Target")
 	require.Equal(t, json.RawMessage(`{"msg":"some-status"}`), sv.Status, "sv Status")
 
