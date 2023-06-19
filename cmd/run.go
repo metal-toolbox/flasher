@@ -33,6 +33,7 @@ var (
 	dryrun         bool
 	faultInjection bool
 	storeKind      string
+	replicas       int
 )
 
 var (
@@ -80,6 +81,7 @@ func runWorker(ctx context.Context) {
 		useStatusKV,
 		faultInjection,
 		flasher.Config.Concurrency,
+		replicas,
 		stream,
 		inv,
 		flasher.Logger,
@@ -105,6 +107,7 @@ func init() {
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
 	cmdRun.PersistentFlags().BoolVarP(&useStatusKV, "use-kv", "", false, "when this is true, flasher writes status to a NATS KV store instead of sending reply messages")
 	cmdRun.PersistentFlags().BoolVarP(&faultInjection, "fault-injection", "", false, "Tasks can include a Fault attribute to allow fault injection for development purposes")
+	cmdRun.PersistentFlags().IntVarP(&replicas, "nats-replicas", "r", 1, "the default number of replicas to use for NATS data")
 
 	if err := cmdRun.MarkPersistentFlagRequired("store"); err != nil {
 		log.Fatal(err)

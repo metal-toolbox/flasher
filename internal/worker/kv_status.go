@@ -18,7 +18,6 @@ import (
 var (
 	statusKVName  = string(cotyp.FirmwareInstall)
 	defaultKVOpts = []kv.Option{
-		kv.WithReplicas(3),
 		kv.WithDescription("flasher condition status tracking"),
 		kv.WithTTL(10 * 24 * time.Hour),
 	}
@@ -78,9 +77,7 @@ func NewStatusKVPublisher(s events.Stream, log *logrus.Logger, opts ...kv.Option
 	}
 
 	kvOpts := defaultKVOpts
-	if len(opts) > 0 {
-		kvOpts = opts
-	}
+	kvOpts = append(kvOpts, opts...)
 
 	statusKV, err := kv.CreateOrBindKVBucket(js, statusKVName, kvOpts...)
 	if err != nil {
