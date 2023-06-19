@@ -165,31 +165,40 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	asset.BmcUsername = credential.Username
 	asset.BmcPassword = credential.Password
 
-	// query attributes
-	attributes, _, err := s.client.ListAttributes(ctx, deviceUUID, nil)
+	// query the server object
+	srv, _, err := s.client.Get(ctx, deviceUUID)
 	if err != nil {
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
 
+	asset.FacilityCode = srv.FacilityCode
+
 	// set bmc address
-	asset.BmcAddress, err = s.bmcAddressFromAttributes(attributes)
+	asset.BmcAddress, err = s.bmcAddressFromAttributes(srv.Attributes)
 	if err != nil {
 		return nil, err
 	}
 
 	// set device state attribute
-	asset.State, err = s.assetStateAttribute(attributes)
+	asset.State, err = s.assetStateAttribute(srv.Attributes)
 	if err != nil {
 		return nil, err
 	}
 
 	// set asset vendor attributes
-	asset.Vendor, asset.Model, asset.Serial, err = s.vendorModelFromAttributes(attributes)
+	asset.Vendor, asset.Model, asset.Serial, err = s.vendorModelFromAttributes(srv.Attributes)
 	if err != nil {
 		return nil, errors.Wrap(ErrVendorModelAttributes, err.Error())
 	}
 
-	// query asset component inventory
+	// set device state attribute
+	asset.State, err = s.assetStateAttribute(srv.Attributes)
+	if err != nil {
+		return nil, err
+	}
+
+	// query asset component inventory -- the default on the server object do not
+	// include all required information
 	components, _, err := s.client.GetComponents(ctx, deviceUUID, nil)
 	if err != nil {
 		return nil, errors.Wrap(ErrServerserviceQuery, "device component query error: "+err.Error())
@@ -197,12 +206,6 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 
 	// convert from serverservice components to Asset.Components
 	asset.Components = s.fromServerserviceComponents(components)
-
-	// set device state attribute
-	asset.State, err = s.assetStateAttribute(attributes)
-	if err != nil {
-		return nil, err
-	}
 
 	return asset, nil
 }

@@ -31,7 +31,11 @@ type statusKVPublisher struct {
 
 // Publish implements the statemachine Publisher interface.
 func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
-	key := fmt.Sprintf("%s.%s", hCtx.Asset.FacilityCode, hCtx.Task.ID.String())
+	facility := "facility"
+	if hCtx.Asset.FacilityCode != "" {
+		facility = hCtx.Asset.FacilityCode
+	}
+	key := fmt.Sprintf("%s.%s", facility, hCtx.Task.ID.String())
 	payload := statusFromContext(hCtx)
 
 	var err error
@@ -44,8 +48,10 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 
 	if err != nil {
 		s.log.WithError(err).WithFields(logrus.Fields{
-			"task_id":  hCtx.Task.ID.String(),
-			"last_rev": hCtx.LastRev,
+			"asset_id":       hCtx.Asset.ID.String(),
+			"asset_facility": hCtx.Asset.FacilityCode,
+			"task_id":        hCtx.Task.ID.String(),
+			"last_rev":       hCtx.LastRev,
 		}).Warn("unable to write task status")
 		return
 	}
