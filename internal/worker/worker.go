@@ -71,7 +71,7 @@ func New(
 	id, _ := os.Hostname()
 
 	return &Worker{
-		name:           fmt.Sprintf("flasher-%s", id),
+		name:           id,
 		facilityCode:   facilityCode,
 		dryrun:         dryrun,
 		useStatusKV:    useStatusKV,
