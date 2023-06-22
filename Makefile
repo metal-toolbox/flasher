@@ -56,13 +56,11 @@ build-image: build-linux
 							 --label org.label-schema.vcs-ref=$(GIT_COMMIT_FULL) \
 							 --label org.label-schema.vcs-url=$(REPO)
 
-
-
-## build devel docker image
-build-image-devel: build-image
-	docker tag ${DOCKER_IMAGE}:latest localhost:5000/flasher:latest
-	docker push localhost:5000/flasher:latest
-	kind load docker-image localhost:5000/flasher:latest
+## tag and push devel docker image to local registry
+push-image-devel: build-image
+	docker tag ${DOCKER_IMAGE}:latest localhost:5001/flasher:latest
+	docker push localhost:5001/flasher:latest
+	kind load docker-image localhost:5001/flasher:latest
 
 ## push docker image
 push-image:
