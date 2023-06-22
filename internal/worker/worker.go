@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.hollow.sh/toolbox/events"
+	"go.hollow.sh/toolbox/events/pkg/kv"
 	"go.hollow.sh/toolbox/events/registry"
 
 	cpv1types "github.com/metal-toolbox/conditionorc/pkg/api/v1/types"
@@ -55,6 +56,7 @@ type Worker struct {
 	dryrun         bool
 	faultInjection bool
 	useStatusKV    bool
+	replicaCount   int
 }
 
 // NewOutofbandWorker returns a out of band firmware install worker instance
@@ -63,7 +65,8 @@ func New(
 	dryrun,
 	useStatusKV,
 	faultInjection bool,
-	concurrency int,
+	concurrency,
+	replicaCount int,
 	stream events.Stream,
 	repository store.Repository,
 	logger *logrus.Logger,
@@ -77,6 +80,7 @@ func New(
 		useStatusKV:    useStatusKV,
 		faultInjection: faultInjection,
 		concurrency:    concurrency,
+		replicaCount:   replicaCount,
 		syncWG:         &sync.WaitGroup{},
 		stream:         stream,
 		store:          repository,
@@ -106,6 +110,7 @@ func (o *Worker) Run(ctx context.Context) {
 
 	o.logger.WithFields(
 		logrus.Fields{
+			"replica-count":   o.replicaCount,
 			"concurrency":     o.concurrency,
 			"dry-run":         o.dryrun,
 			"fault-injection": o.faultInjection,
@@ -305,7 +310,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 
 func (o *Worker) getStatusPublisher() sm.Publisher {
 	if o.useStatusKV {
-		return NewStatusKVPublisher(o.stream, o.logger)
+		return NewStatusKVPublisher(o.stream, o.logger, kv.WithReplicas(o.replicaCount))
 	}
 	return &statusEmitter{o.stream, o.logger}
 }
