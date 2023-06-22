@@ -68,7 +68,6 @@ linters:
     - goerr113
     - goimports
     - revive
-    - gomnd
     - misspell
     - noctx
     - stylecheck
