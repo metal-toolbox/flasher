@@ -196,11 +196,19 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
 
 		// publish task action completion
-		tctx.Task.Status = fmt.Sprintf(
-			"component: %s, completed action: %s ",
-			action.Firmware.Component,
-			string(transitionType),
-		)
+		if action.Final {
+			tctx.Task.Status = fmt.Sprintf(
+				"component: %s, completed firmware install, version: %s",
+				action.Firmware.Component,
+				action.Firmware.Version,
+			)
+		} else {
+			tctx.Task.Status = fmt.Sprintf(
+				"component: %s, completed action: %s ",
+				action.Firmware.Component,
+				string(transitionType),
+			)
+		}
 
 		tctx.Publisher.Publish(tctx)
 	}
