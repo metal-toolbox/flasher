@@ -310,7 +310,11 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 
 func (o *Worker) getStatusPublisher() sm.Publisher {
 	if o.useStatusKV {
-		return NewStatusKVPublisher(o.stream, o.logger, kv.WithReplicas(o.replicaCount))
+		var opts []kv.Option
+		if o.replicaCount > 1 {
+			opts = append(opts, kv.WithReplicas(o.replicaCount))
+		}
+		return NewStatusKVPublisher(o.stream, o.logger, opts...)
 	}
 	return &statusEmitter{o.stream, o.logger}
 }
