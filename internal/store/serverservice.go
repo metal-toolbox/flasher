@@ -188,20 +188,16 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	// set asset vendor attributes
 	asset.Vendor, asset.Model, asset.Serial, err = s.vendorModelFromAttributes(srv.Attributes)
 	if err != nil {
-		return nil, errors.Wrap(ErrVendorModelAttributes, err.Error())
-	}
-
-	// set device state attribute
-	asset.State, err = s.assetStateAttribute(srv.Attributes)
-	if err != nil {
-		return nil, err
+		s.logger.WithError(err).Warn(ErrVendorModelAttributes)
 	}
 
 	// query asset component inventory -- the default on the server object do not
 	// include all required information
 	components, _, err := s.client.GetComponents(ctx, deviceUUID, nil)
 	if err != nil {
-		return nil, errors.Wrap(ErrServerserviceQuery, "device component query error: "+err.Error())
+		s.logger.WithError(err).Warn(errors.Wrap(ErrServerserviceQuery, "component information query failed"))
+
+		return asset, nil
 	}
 
 	// convert from serverservice components to Asset.Components
