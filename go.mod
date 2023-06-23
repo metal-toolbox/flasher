@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
-	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230426154556-8907c8d39762
+	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230622122705-0793b705a33b
 	github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/jacobweinstock/registrar v0.4.6
+	github.com/jacobweinstock/registrar v0.4.7
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jinzhu/copier v0.3.5
 	github.com/jpillora/backoff v1.0.0
@@ -74,7 +74,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jackc/pgx/v4 v4.18.1 // indirect
-	github.com/jacobweinstock/iamt v0.0.0-20230304043040-a6b4a1001123 // indirect
+	github.com/jacobweinstock/iamt v0.0.0-20230502042727-d7cdbe67d9ef // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.0 // indirect
