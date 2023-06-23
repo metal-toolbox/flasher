@@ -10,7 +10,6 @@ import (
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/hashicorp/go-multierror"
-	"github.com/jpillora/backoff"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/pkg/errors"
@@ -18,6 +17,23 @@ import (
 )
 
 const (
+	// delayHostPowerStatusChange is the delay after the host has been power cycled or powered on
+	// this delay ensures that any existing pending updates are applied and that the
+	// the host components are initialized properly before inventory and other actions are attempted.
+	delayHostPowerStatusChange = 10 * time.Minute
+
+	// delay after when the BMC was reset
+	delayBMCReset = 5 * time.Minute
+
+	// delay between polling the firmware install status
+	delayPollStatus = 10 * time.Second
+
+	// maxPollStatusAttempts is set based on how long the loop below should keep polling
+	// for a finalized state before giving up
+	//
+	// 600 (maxAttempts) * 10s (delayPollInstallStatus) = 100 minutes (1.6hours)
+	maxPollStatusAttempts = 600
+
 	// this value indicates the device was powered on by flasher
 	devicePoweredOn = "devicePoweredOn"
 
@@ -26,19 +42,13 @@ const (
 )
 
 var (
-	// delayHostPowerStatusChange is the delay after the host has been power cycled or powered on
-	// this delay ensures that any existing pending updates are applied and that the
-	// the host components are initialized properly before inventory and other actions are attempted.
-	delayHostPowerStatusChange = 10 * time.Minute
-
-	delayBMCReset = 5 * time.Minute
 
 	// exponential backoff parameters
 	//
 	// nolint:revive // variable names are clear as is
-	backoffMin    = 20 * time.Second
-	backoffMax    = 10 * time.Minute
-	backoffFactor = 2
+	//	backoffMin    = 20 * time.Second
+	//	backoffMax    = 10 * time.Minute
+	//	backoffFactor = 2
 
 	// envTesting is set by tests to '1' to skip sleeps and backoffs in the handlers.
 	//
@@ -309,17 +319,6 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 		return nil
 	}
 
-	delay := &backoff.Backoff{
-		Min:    backoffMin,
-		Max:    backoffMax,
-		Factor: float64(backoffFactor),
-		Jitter: true,
-	}
-
-	// maxAttempts here is set based on how long the loop below should keep polling for a finalized state before giving up
-	// 10 (maxAttempts) * 600s (delay.Max) = 100 minutes (1.6hours)
-	maxAttempts := 10
-
 	startTS := time.Now()
 
 	// number of status queries attempted
@@ -338,15 +337,15 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 		// increment attempts
 		attempts++
 
-		// delay with backoff if we're in the second or subsequent attempts
+		// delay if we're in the second or subsequent attempts
 		if attempts > 0 {
-			if err := sleepWithContext(tctx.Ctx, delay.Duration()); err != nil {
+			if err := sleepWithContext(tctx.Ctx, delayPollStatus); err != nil {
 				return err
 			}
 		}
 
-		// return when attempts exceed maxAttempts
-		if attempts >= maxAttempts {
+		// return when attempts exceed maxPollStatusAttempts
+		if attempts >= maxPollStatusAttempts {
 			attemptErrors = multierror.Append(attemptErrors, errors.Wrapf(
 				ErrMaxBMCQueryAttempts,
 				"%d attempts querying FirmwareInstallStatus(), elapsed: %s",
@@ -372,11 +371,11 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 				"version":   action.Firmware.Version,
 				"bmc":       tctx.Asset.BmcAddress,
 				"elapsed":   time.Since(startTS).String(),
-				"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxAttempts),
+				"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxPollStatusAttempts),
 				"taskState": status,
 			}).Debug("firmware install status query attempt")
 
-		// error check returns when maxAttempts have been reached
+		// error check returns when maxPollStatusAttempts have been reached
 		if err != nil {
 			attemptErrors = multierror.Append(attemptErrors, err)
 
