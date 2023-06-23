@@ -175,13 +175,3 @@ type TaskParameters struct {
 	// FirmwareSetID specifies the firmware set to be applied.
 	FirmwareSetID uuid.UUID `json:"firmwareSetID,omitempty"`
 }
-
-// Fault holds attributes to cause failures/delay in flasher
-type Fault struct {
-	// FailWithPanic will cause the task to panic while being executed.
-	FailWithPanic bool `json:"panic,omitempty"`
-	// Fail this task at initialization.
-	FailAtTaskInit bool `json:"failTask,omitempty"`
-	// Fakes the install duration by running the install process for the given duration.
-	FakeInstallDuration time.Duration `json:"firmwareInstallDuration,omitempty"`
-}
