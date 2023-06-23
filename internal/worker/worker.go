@@ -143,7 +143,7 @@ func (o *Worker) processEvents(ctx context.Context) {
 	if err != nil {
 		o.logger.WithFields(
 			logrus.Fields{"err": err.Error()},
-		).Debug("error fetching work")
+		).Trace("no new events")
 	}
 
 	for _, msg := range msgs {
@@ -218,18 +218,20 @@ func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, e
 }
 
 func (o *Worker) processEvent(ctx context.Context, e events.Message) {
-	defer o.eventAckComplete(e)
-
 	condition, err := conditionFromEvent(e)
 	if err != nil {
 		o.logger.WithError(err).WithField(
 			"subject", e.Subject()).Warn("unable to retrieve condition from message")
+
+		o.eventAckComplete(e)
 		return
 	}
 
 	task, err := newTaskFromCondition(condition, o.faultInjection)
 	if err != nil {
 		o.logger.WithError(err).Warn("error initializing task from condition")
+
+		o.eventAckComplete(e)
 		return
 	}
 
@@ -239,13 +241,18 @@ func (o *Worker) processEvent(ctx context.Context, e events.Message) {
 		o.logger.WithFields(logrus.Fields{
 			"assetID":     task.Parameters.AssetID.String(),
 			"conditionID": condition.ID,
-		}).Warn("error initializing task from condition")
-		o.eventNak(e) // have the message bus re-deliver this message
+			"err":         err.Error(),
+		}).Warn("asset lookup error")
+
+		o.eventNak(e) // have the message bus re-deliver the message
+
 		return
 	}
 
 	taskCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
+
+	defer o.eventAckComplete(e)
 
 	o.runTaskWithMonitor(taskCtx, task, asset, e)
 }
