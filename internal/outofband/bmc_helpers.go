@@ -69,7 +69,6 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 
 	bmcClient := bmclibv2.NewClient(
 		asset.BmcAddress.String(),
-		"", // port unset
 		asset.BmcUsername,
 		asset.BmcPassword,
 		bmclibv2.WithLogger(logruslogr),
