@@ -108,6 +108,7 @@ func (o *Worker) taskInProgress(cID string) taskState {
 		o.logger.WithError(err).WithFields(logrus.Fields{
 			"condition_id": cID,
 		}).Warn("unable to connect to status KV for condition lookup")
+
 		return indeterminate
 	}
 
@@ -123,6 +124,7 @@ func (o *Worker) taskInProgress(cID string) taskState {
 		o.logger.WithError(err).WithFields(logrus.Fields{
 			"condition_id": cID,
 		}).Warn("error reading condition status")
+
 		return indeterminate
 	}
 
@@ -132,6 +134,7 @@ func (o *Worker) taskInProgress(cID string) taskState {
 		o.logger.WithError(errJson).WithFields(logrus.Fields{
 			"condition_id": cID,
 		}).Warn("unable to construct a sane status for this condition")
+
 		return indeterminate
 	}
 
@@ -141,6 +144,7 @@ func (o *Worker) taskInProgress(cID string) taskState {
 			"condition_id":    cID,
 			"condition_state": sv.State,
 		}).Info("this condition is already complete")
+
 		return complete
 	}
 
@@ -151,6 +155,7 @@ func (o *Worker) taskInProgress(cID string) taskState {
 			"condition_id": cID,
 			"worker_id":    sv.WorkerID,
 		}).Warn("bad worker id")
+
 		return indeterminate
 	}
 
@@ -165,6 +170,7 @@ func (o *Worker) taskInProgress(cID string) taskState {
 			"condition_id": cID,
 			"worker_id":    sv.WorkerID,
 		}).Info("original worker not found")
+
 		return orphaned
 	case nil:
 		timeStr, _ := activeAt.MarshalText()
@@ -173,12 +179,14 @@ func (o *Worker) taskInProgress(cID string) taskState {
 			"worker_id":    sv.WorkerID,
 			"last_active":  timeStr,
 		}).Warn("error looking up worker last contact")
+
 		return inProgress
 	default:
 		o.logger.WithError(err).WithFields(logrus.Fields{
 			"condition_id": cID,
 			"worker_id":    sv.WorkerID,
 		}).Warn("error looking up worker last contact")
+
 		return indeterminate
 	}
 }
