@@ -1,12 +1,17 @@
 package worker
 
 import (
+	"time"
+
 	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
+	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
 
@@ -103,6 +108,24 @@ func (h *taskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bo
 	return true, nil
 }
 
+func (h *taskHandler) registerActionMetrics(startTS time.Time, action *model.Action, state string) {
+	metrics.ActionCounter.With(
+		prometheus.Labels{
+			"vendor":    action.Firmware.Vendor,
+			"component": action.Firmware.Component,
+			"state":     state,
+		},
+	).Inc()
+
+	metrics.ActionRuntimeSummary.With(
+		prometheus.Labels{
+			"vendor":    action.Firmware.Vendor,
+			"component": action.Firmware.Component,
+			"state":     state,
+		},
+	).Observe(time.Since(startTS).Seconds())
+}
+
 func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
@@ -116,10 +139,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 	// each actionSM (state machine) corresponds to a firmware to be installed
 	for _, actionSM := range tctx.ActionStateMachines {
-		// return on context cancellation
-		if tctx.Ctx.Err() != nil {
-			return tctx.Ctx.Err()
-		}
+		startTS := time.Now()
 
 		// fetch action attributes from task
 		action := task.ActionsPlanned.ByID(actionSM.ActionID())
@@ -127,14 +147,25 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 			return err
 		}
 
+		// return on context cancellation
+		if tctx.Ctx.Err() != nil {
+			h.registerActionMetrics(startTS, action, string(cptypes.Failed))
+
+			return tctx.Ctx.Err()
+		}
+
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
+			h.registerActionMetrics(startTS, action, string(cptypes.Failed))
+
 			return errors.Wrap(
 				err,
 				"while running action to install firmware on component "+action.Firmware.Component,
 			)
 		}
+
+		h.registerActionMetrics(startTS, action, string(cptypes.Succeeded))
 	}
 
 	return nil

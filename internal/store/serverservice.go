@@ -14,9 +14,11 @@ import (
 	"github.com/coreos/go-oidc"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/metal-toolbox/flasher/internal/app"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 )
@@ -147,6 +149,15 @@ func newClientWithOAuth(ctx context.Context, cfg *app.ServerserviceOptions, logg
 	)
 }
 
+func (s *Serverservice) registerMetric(queryKind string) {
+	metrics.StoreQueryErrorCount.With(
+		prometheus.Labels{
+			"storeKind": "serverservice",
+			"queryKind": queryKind,
+		},
+	).Inc()
+}
+
 // AssetByID returns an Asset object with various attributes populated.
 func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset, error) {
 	deviceUUID, err := uuid.Parse(id)
@@ -159,6 +170,8 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	// query credentials
 	credential, _, err := s.client.GetCredential(ctx, deviceUUID, sservice.ServerCredentialTypeBMC)
 	if err != nil {
+		s.registerMetric("GetCredential")
+
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
 
@@ -168,6 +181,8 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	// query the server object
 	srv, _, err := s.client.Get(ctx, deviceUUID)
 	if err != nil {
+		s.registerMetric("GetServer")
+
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
 
@@ -195,6 +210,8 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	// include all required information
 	components, _, err := s.client.GetComponents(ctx, deviceUUID, nil)
 	if err != nil {
+		s.registerMetric("GetComponents")
+
 		s.logger.WithError(err).Warn(errors.Wrap(ErrServerserviceQuery, "component information query failed"))
 
 		return asset, nil
@@ -210,6 +227,8 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 func (s *Serverservice) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*model.Firmware, error) {
 	firmwareset, _, err := s.client.GetServerComponentFirmwareSet(ctx, id)
 	if err != nil {
+		s.registerMetric("GetFirmwareSet")
+
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}
 

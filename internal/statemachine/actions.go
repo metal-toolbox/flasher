@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	sw "github.com/filanov/stateswitch"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -146,9 +149,31 @@ func (a *ActionStateMachine) TransitionSuccess(action *model.Action, hctx *Handl
 	return a.sm.Run(TransitionTypeActionSuccess, action, hctx)
 }
 
+func (a *ActionStateMachine) registerTransitionMetrics(startTS time.Time, action *model.Action, transitionType, state string) {
+	metrics.ActionHandlerCounter.With(
+		prometheus.Labels{
+			"vendor":     action.Firmware.Vendor,
+			"component":  action.Firmware.Component,
+			"transition": transitionType,
+			"state":      state,
+		},
+	).Inc()
+
+	metrics.ActionHandlerRunTimeSummary.With(
+		prometheus.Labels{
+			"vendor":     action.Firmware.Vendor,
+			"component":  action.Firmware.Component,
+			"transition": transitionType,
+			"state":      state,
+		},
+	).Observe(time.Since(startTS).Seconds())
+}
+
 // Run executes the transitions in the action statemachine while handling errors returned from any failed actions.
 func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx *HandlerContext) error {
 	for _, transitionType := range a.transitions {
+		startTS := time.Now()
+
 		// publish task action running
 		tctx.Task.Status = fmt.Sprintf(
 			"component: %s, running action: %s ",
@@ -160,11 +185,15 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 
 		// return on context cancellation
 		if ctx.Err() != nil {
+			a.registerTransitionMetrics(startTS, action, string(transitionType), "failed")
+
 			return ctx.Err()
 		}
 
 		err := a.sm.Run(transitionType, action, tctx)
 		if err != nil {
+			a.registerTransitionMetrics(startTS, action, string(transitionType), "failed")
+
 			// When the condition returns false, run the next transition
 			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
 				return newErrAction(
@@ -194,6 +223,7 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		}
 
 		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
+		a.registerTransitionMetrics(startTS, action, string(transitionType), "succeeded")
 
 		// publish task action completion
 		if action.Final {

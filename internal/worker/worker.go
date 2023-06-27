@@ -6,15 +6,18 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"go.hollow.sh/toolbox/events"
 	"go.hollow.sh/toolbox/events/pkg/kv"
@@ -217,13 +220,23 @@ func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, e
 	return task, errors.Wrap(errTaskFirmwareParam, "no firmware list or firmwareSetID specified")
 }
 
+func (o *Worker) registerEventCounter(valid bool, response string) {
+	metrics.EventsCounter.With(
+		prometheus.Labels{
+			"valid":    strconv.FormatBool(valid),
+			"response": response,
+		}).Inc()
+}
+
 func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 	condition, err := conditionFromEvent(e)
 	if err != nil {
 		o.logger.WithError(err).WithField(
 			"subject", e.Subject()).Warn("unable to retrieve condition from message")
 
+		o.registerEventCounter(false, "ack")
 		o.eventAckComplete(e)
+
 		return
 	}
 
@@ -255,7 +268,9 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 	if err != nil {
 		o.logger.WithError(err).Warn("error initializing task from condition")
 
+		o.registerEventCounter(false, "ack")
 		o.eventAckComplete(e)
+
 		return
 	}
 
@@ -268,6 +283,7 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 			"err":         err.Error(),
 		}).Warn("asset lookup error")
 
+		o.registerEventCounter(true, "nack")
 		o.eventNak(e) // have the message bus re-deliver the message
 
 		return
@@ -276,6 +292,7 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 	taskCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
 
+	defer o.registerEventCounter(true, "ack")
 	defer o.eventAckComplete(e)
 
 	o.runTaskWithMonitor(taskCtx, task, asset, e)
@@ -336,6 +353,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 	}
 
 	o.runTaskStatemachine(handler, handlerCtx, doneCh)
+
 	<-doneCh
 }
 
@@ -348,6 +366,21 @@ func (o *Worker) getStatusPublisher() sm.Publisher {
 		return NewStatusKVPublisher(o.stream, o.logger, opts...)
 	}
 	return &statusEmitter{o.stream, o.logger}
+}
+
+func (o *Worker) registerConditionMetrics(startTS time.Time, state string) {
+	metrics.ConditionCounter.With(
+		prometheus.Labels{
+			"condition": string(cptypes.FirmwareInstall),
+			"state":     state,
+		}).Inc()
+
+	metrics.ConditionRunTimeSummary.With(
+		prometheus.Labels{
+			"condition": string(cptypes.FirmwareInstall),
+			"state":     state,
+		},
+	).Observe(time.Since(startTS).Seconds())
 }
 
 func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.HandlerContext, doneCh chan bool) {
@@ -365,6 +398,8 @@ func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Handle
 	if err != nil {
 		o.logger.Error(err)
 
+		o.registerConditionMetrics(startTS, string(cptypes.Failed))
+
 		return
 	}
 
@@ -378,8 +413,12 @@ func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Handle
 			},
 		).Warn("task for device failed")
 
+		o.registerConditionMetrics(startTS, string(cptypes.Failed))
+
 		return
 	}
+
+	o.registerConditionMetrics(startTS, string(cptypes.Succeeded))
 
 	o.logger.WithFields(logrus.Fields{
 		"deviceID":    handlerCtx.Task.Parameters.AssetID.String(),
