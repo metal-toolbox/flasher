@@ -10,9 +10,11 @@ import (
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/hashicorp/go-multierror"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
 
@@ -227,8 +229,20 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 	file := filepath.Join(dir, action.Firmware.FileName)
 
 	// download firmware file
-	if err := download(tctx.Ctx, action.Firmware.URL, file); err != nil {
+	err = download(tctx.Ctx, action.Firmware.URL, file)
+	if err != nil {
 		return err
+	}
+
+	// collect download metrics
+	fileInfo, err := os.Stat(file)
+	if err == nil {
+		metrics.DownloadBytes.With(
+			prometheus.Labels{
+				"component": action.Firmware.Component,
+				"vendor":    action.Firmware.Vendor,
+			},
+		).Add(float64(fileInfo.Size()))
 	}
 
 	// validate checksum
@@ -284,6 +298,17 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 		)
 		if err != nil {
 			return err
+		}
+
+		// collect upload metrics
+		fileInfo, err := os.Stat(action.FirmwareTempFile)
+		if err == nil {
+			metrics.UploadBytes.With(
+				prometheus.Labels{
+					"component": action.Firmware.Component,
+					"vendor":    action.Firmware.Vendor,
+				},
+			).Add(float64(fileInfo.Size()))
 		}
 
 		// returned bmcTaskID corresponds to a redfish task ID on BMCs that support redfish
