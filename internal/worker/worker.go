@@ -162,7 +162,7 @@ func (o *Worker) processEvents(ctx context.Context) {
 			atomic.AddInt32(&o.dispatched, 1)
 			defer atomic.AddInt32(&o.dispatched, -1)
 
-			o.processEvent(ctx, msg)
+			o.processSingleEvent(ctx, msg)
 		}(msg)
 	}
 }
@@ -171,7 +171,7 @@ func (o *Worker) concurrencyLimit() bool {
 	return int(o.dispatched) >= o.concurrency
 }
 
-func (o *Worker) eventAckInprogress(event events.Message) {
+func (o *Worker) eventAckInProgress(event events.Message) {
 	if err := event.InProgress(); err != nil {
 		o.logger.WithError(err).Warn("event Ack Inprogress error")
 	}
@@ -217,13 +217,37 @@ func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, e
 	return task, errors.Wrap(errTaskFirmwareParam, "no firmware list or firmwareSetID specified")
 }
 
-func (o *Worker) processEvent(ctx context.Context, e events.Message) {
+func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 	condition, err := conditionFromEvent(e)
 	if err != nil {
 		o.logger.WithError(err).WithField(
 			"subject", e.Subject()).Warn("unable to retrieve condition from message")
 
 		o.eventAckComplete(e)
+		return
+	}
+
+	// check and see if the task is or has-been handled by another worker
+	currentState := o.taskInProgress(condition.ID.String())
+	switch currentState {
+	case inProgress:
+		o.logger.WithField("condition_id", condition.ID.String()).Info("condition is already in progress")
+		o.eventAckInProgress(e)
+		return
+	case complete:
+		o.logger.WithField("condition_id", condition.ID.String()).Info("condition is complete")
+		o.eventAckComplete(e)
+		return
+	case orphaned:
+		o.logger.WithField("condition_id", condition.ID.String()).Warn("restarting this condition")
+		// we need to restart this event
+	case notStarted:
+		o.logger.WithField("condition_id", condition.ID.String()).Info("starting new condition")
+		// break out here, this is a new event
+	case indeterminate:
+		o.logger.WithField("condition_id", condition.ID.String()).Warn("unable to determine state of this condition")
+		// send it back to NATS to try again
+		o.eventNak(e)
 		return
 	}
 
@@ -272,7 +296,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 		for {
 			select {
 			case <-ticker.C:
-				o.eventAckInprogress(e)
+				o.eventAckInProgress(e)
 			case <-doneCh:
 				break Loop
 			}
