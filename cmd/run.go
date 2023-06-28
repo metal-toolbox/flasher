@@ -32,6 +32,7 @@ var (
 	useStatusKV    bool
 	dryrun         bool
 	faultInjection bool
+	facilityCode   string
 	storeKind      string
 	replicas       int
 )
@@ -75,8 +76,12 @@ func runWorker(ctx context.Context) {
 		flasher.Logger.Fatal(err)
 	}
 
+	if useStatusKV && facilityCode == "" {
+		flasher.Logger.Fatal("--use-kv flag requires a --facility-code parameter")
+	}
+
 	w := worker.New(
-		flasher.Config.FacilityCode,
+		facilityCode,
 		dryrun,
 		useStatusKV,
 		faultInjection,
@@ -103,11 +108,12 @@ func initInventory(ctx context.Context, config *app.Configuration, logger *logru
 }
 
 func init() {
-	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
+	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "Inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
-	cmdRun.PersistentFlags().BoolVarP(&useStatusKV, "use-kv", "", false, "when this is true, flasher writes status to a NATS KV store instead of sending reply messages")
+	cmdRun.PersistentFlags().BoolVarP(&useStatusKV, "use-kv", "", false, "When this is true, flasher writes status to a NATS KV store instead of sending reply messages (requires --facility-code)")
 	cmdRun.PersistentFlags().BoolVarP(&faultInjection, "fault-injection", "", false, "Tasks can include a Fault attribute to allow fault injection for development purposes")
-	cmdRun.PersistentFlags().IntVarP(&replicas, "replica-count", "r", 3, "the number of replicas to use for NATS data")
+	cmdRun.PersistentFlags().IntVarP(&replicas, "replica-count", "r", 3, "The number of replicas to use for NATS data")
+	cmdRun.PersistentFlags().StringVar(&facilityCode, "facility-code", "", "The facility code this flasher instance is associated with")
 
 	if err := cmdRun.MarkPersistentFlagRequired("store"); err != nil {
 		log.Fatal(err)
