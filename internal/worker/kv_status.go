@@ -49,13 +49,22 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 
 	if err != nil {
 		s.log.WithError(err).WithFields(logrus.Fields{
-			"asset_id":       hCtx.Asset.ID.String(),
-			"asset_facility": hCtx.Asset.FacilityCode,
-			"task_id":        hCtx.Task.ID.String(),
-			"last_rev":       hCtx.LastRev,
+			"assetID":           hCtx.Asset.ID.String(),
+			"assetFacilityCode": hCtx.Asset.FacilityCode,
+			"taskID":            hCtx.Task.ID.String(),
+			"lastRev":           hCtx.LastRev,
 		}).Warn("unable to write task status")
 		return
 	}
+
+	s.log.WithFields(logrus.Fields{
+		"assetID":           hCtx.Asset.ID.String(),
+		"assetFacilityCode": hCtx.Asset.FacilityCode,
+		"taskID":            hCtx.Task.ID.String(),
+		"lastRev":           hCtx.LastRev,
+		"key":               key,
+	}).Trace("published task status")
+
 	hCtx.LastRev = rev
 }
 
@@ -106,7 +115,7 @@ func (o *Worker) taskInProgress(cID string) taskState {
 	handle, err := events.AsNatsJetStreamContext(o.stream.(*events.NatsJetstream)).KeyValue(statusKVName)
 	if err != nil {
 		o.logger.WithError(err).WithFields(logrus.Fields{
-			"condition_id": cID,
+			"conditionID": cID,
 		}).Warn("unable to connect to status KV for condition lookup")
 
 		return indeterminate
@@ -122,7 +131,8 @@ func (o *Worker) taskInProgress(cID string) taskState {
 		break // we'll handle this outside the switch
 	default:
 		o.logger.WithError(err).WithFields(logrus.Fields{
-			"condition_id": cID,
+			"conditionID": cID,
+			"lookupKey":   lookupKey,
 		}).Warn("error reading condition status")
 
 		return indeterminate
@@ -132,7 +142,8 @@ func (o *Worker) taskInProgress(cID string) taskState {
 	sv := types.StatusValue{}
 	if errJson := json.Unmarshal(entry.Value(), &sv); errJson != nil {
 		o.logger.WithError(errJson).WithFields(logrus.Fields{
-			"condition_id": cID,
+			"conditionID": cID,
+			"lookupKey":   lookupKey,
 		}).Warn("unable to construct a sane status for this condition")
 
 		return indeterminate
@@ -141,8 +152,9 @@ func (o *Worker) taskInProgress(cID string) taskState {
 	if cotyp.ConditionState(sv.State) == cotyp.Failed ||
 		cotyp.ConditionState(sv.State) == cotyp.Succeeded {
 		o.logger.WithFields(logrus.Fields{
-			"condition_id":    cID,
-			"condition_state": sv.State,
+			"conditionID":    cID,
+			"conditionState": sv.State,
+			"lookupKey":      lookupKey,
 		}).Info("this condition is already complete")
 
 		return complete
@@ -152,8 +164,8 @@ func (o *Worker) taskInProgress(cID string) taskState {
 	worker, err := registry.ControllerIDFromString(sv.WorkerID)
 	if err != nil {
 		o.logger.WithError(err).WithFields(logrus.Fields{
-			"condition_id": cID,
-			"worker_id":    sv.WorkerID,
+			"conditionID": cID,
+			"workerID":    sv.WorkerID,
 		}).Warn("bad worker id")
 
 		return indeterminate
@@ -167,24 +179,24 @@ func (o *Worker) taskInProgress(cID string) taskState {
 		// indeterminate but most times this will indicate that the
 		// worker crashed/restarted and this task should be restarted.
 		o.logger.WithFields(logrus.Fields{
-			"condition_id": cID,
-			"worker_id":    sv.WorkerID,
+			"conditionID": cID,
+			"workerID":    sv.WorkerID,
 		}).Info("original worker not found")
 
 		return orphaned
 	case nil:
 		timeStr, _ := activeAt.MarshalText()
 		o.logger.WithError(err).WithFields(logrus.Fields{
-			"condition_id": cID,
-			"worker_id":    sv.WorkerID,
-			"last_active":  timeStr,
+			"conditionID": cID,
+			"workerID":    sv.WorkerID,
+			"lastActive":  timeStr,
 		}).Warn("error looking up worker last contact")
 
 		return inProgress
 	default:
 		o.logger.WithError(err).WithFields(logrus.Fields{
-			"condition_id": cID,
-			"worker_id":    sv.WorkerID,
+			"conditionID": cID,
+			"workerID":    sv.WorkerID,
 		}).Warn("error looking up worker last contact")
 
 		return indeterminate
