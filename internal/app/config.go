@@ -263,14 +263,6 @@ func (a *App) envVarServerserviceOverrides() error {
 		a.Config.ServerserviceOptions.Endpoint = a.v.GetString("serverservice.endpoint")
 	}
 
-	if a.v.GetString("serverservice.facility.code") != "" {
-		a.Config.ServerserviceOptions.FacilityCode = a.v.GetString("serverservice.facility.code")
-	}
-
-	if a.Config.ServerserviceOptions.FacilityCode == "" {
-		return errors.New("serverservice facility code not defined")
-	}
-
 	endpointURL, err := url.Parse(a.Config.ServerserviceOptions.Endpoint)
 	if err != nil {
 		return errors.New("serverservice endpoint URL error: " + err.Error())
