@@ -172,7 +172,7 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	if err != nil {
 		s.registerMetric("GetCredential")
 
-		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+		return nil, errors.Wrap(ErrServerserviceQuery, "GetCredential: "+err.Error())
 	}
 
 	asset.BmcUsername = credential.Username
@@ -183,7 +183,7 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	if err != nil {
 		s.registerMetric("GetServer")
 
-		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+		return nil, errors.Wrap(ErrServerserviceQuery, "GetServer: "+err.Error())
 	}
 
 	asset.FacilityCode = srv.FacilityCode
@@ -229,7 +229,7 @@ func (s *Serverservice) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*m
 	if err != nil {
 		s.registerMetric("GetFirmwareSet")
 
-		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
+		return nil, errors.Wrap(ErrServerserviceQuery, "GetFirmwareSet: "+err.Error())
 	}
 
 	return intoFirmwaresSlice(firmwareset.ComponentFirmware), nil
