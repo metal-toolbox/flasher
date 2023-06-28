@@ -112,7 +112,7 @@ func init() {
 			Name: "store_query_error_count",
 			Help: "A counter metric to measure the total count of errors querying the asset store.",
 		},
-		[]string{"storeKind"},
+		[]string{"queryKind", "storeKind"},
 	)
 }
 
