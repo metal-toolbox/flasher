@@ -43,14 +43,6 @@ func init() {
 		[]string{"valid", "response"}, // valid is true/false, response is ack/nack
 	)
 
-	ConditionCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flasher_conditions_received",
-			Help: "A counter metric to measure the total count of condition requests received, successful and failed",
-		},
-		[]string{"condition", "state"},
-	)
-
 	ConditionRunTimeSummary = promauto.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name: "flasher_condition_duration_seconds",
@@ -59,28 +51,12 @@ func init() {
 		[]string{"condition", "state"},
 	)
 
-	ActionCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flasher_actions_counter",
-			Help: "A counter metric to measure the sum of firmware install actions executed",
-		},
-		[]string{"vendor", "component", "state"},
-	)
-
 	ActionRuntimeSummary = promauto.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name: "flasher_install_action_runtime_seconds",
 			Help: "A summary metric to measure the total time spent in each install action",
 		},
 		[]string{"vendor", "component", "state"},
-	)
-
-	ActionHandlerCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flasher_install_action_handler_counter",
-			Help: "A counter metric to measure the total count of install action handlers executed",
-		},
-		[]string{"transition", "vendor", "component", "state"},
 	)
 
 	ActionHandlerRunTimeSummary = promauto.NewSummaryVec(
@@ -109,10 +85,10 @@ func init() {
 
 	StoreQueryErrorCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "store_query_error_count",
+			Name: "flasher_store_query_error_count",
 			Help: "A counter metric to measure the total count of errors querying the asset store.",
 		},
-		[]string{"queryKind", "storeKind"},
+		[]string{"storeKind", "queryKind"},
 	)
 }
 
