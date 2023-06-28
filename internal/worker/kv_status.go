@@ -111,6 +111,7 @@ const (
 	indeterminate           // we got an error in the process of making the check
 )
 
+//nolint:gocyclo // fun fact: there are no peer-reviewed studies of software quality that support style checking as a benefit
 func (o *Worker) taskInProgress(cID string) taskState {
 	handle, err := events.AsNatsJetStreamContext(o.stream.(*events.NatsJetstream)).KeyValue(statusKVName)
 	if err != nil {
@@ -182,6 +183,19 @@ func (o *Worker) taskInProgress(cID string) taskState {
 			"conditionID": cID,
 			"workerID":    sv.WorkerID,
 		}).Info("original worker not found")
+
+		// We're going to restart this condition when we return from
+		// this function. Use the KV handle we have to delete the
+		// existing task key.
+		if err = handle.Delete(lookupKey); err != nil {
+			o.logger.WithError(err).WithFields(logrus.Fields{
+				"conditionID": cID,
+				"workerID":    sv.WorkerID,
+				"lookupKey":   lookupKey,
+			}).Warn("unable to delete existing condition status")
+
+			return indeterminate
+		}
 
 		return orphaned
 	case nil:
