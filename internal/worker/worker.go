@@ -369,12 +369,6 @@ func (o *Worker) getStatusPublisher() sm.Publisher {
 }
 
 func (o *Worker) registerConditionMetrics(startTS time.Time, state string) {
-	metrics.ConditionCounter.With(
-		prometheus.Labels{
-			"condition": string(cptypes.FirmwareInstall),
-			"state":     state,
-		}).Inc()
-
 	metrics.ConditionRunTimeSummary.With(
 		prometheus.Labels{
 			"condition": string(cptypes.FirmwareInstall),

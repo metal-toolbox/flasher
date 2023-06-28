@@ -150,15 +150,6 @@ func (a *ActionStateMachine) TransitionSuccess(action *model.Action, hctx *Handl
 }
 
 func (a *ActionStateMachine) registerTransitionMetrics(startTS time.Time, action *model.Action, transitionType, state string) {
-	metrics.ActionHandlerCounter.With(
-		prometheus.Labels{
-			"vendor":     action.Firmware.Vendor,
-			"component":  action.Firmware.Component,
-			"transition": transitionType,
-			"state":      state,
-		},
-	).Inc()
-
 	metrics.ActionHandlerRunTimeSummary.With(
 		prometheus.Labels{
 			"vendor":     action.Firmware.Vendor,

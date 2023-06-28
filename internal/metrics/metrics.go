@@ -17,13 +17,8 @@ const (
 var (
 	EventsCounter *prometheus.CounterVec
 
-	ConditionCounter        *prometheus.CounterVec
-	ConditionRunTimeSummary *prometheus.SummaryVec
-
-	ActionCounter        *prometheus.CounterVec
-	ActionRuntimeSummary *prometheus.SummaryVec
-
-	ActionHandlerCounter        *prometheus.CounterVec
+	ConditionRunTimeSummary     *prometheus.SummaryVec
+	ActionRuntimeSummary        *prometheus.SummaryVec
 	ActionHandlerRunTimeSummary *prometheus.SummaryVec
 
 	DownloadBytes          *prometheus.CounterVec

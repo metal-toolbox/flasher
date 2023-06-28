@@ -109,14 +109,6 @@ func (h *taskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bo
 }
 
 func (h *taskHandler) registerActionMetrics(startTS time.Time, action *model.Action, state string) {
-	metrics.ActionCounter.With(
-		prometheus.Labels{
-			"vendor":    action.Firmware.Vendor,
-			"component": action.Firmware.Component,
-			"state":     state,
-		},
-	).Inc()
-
 	metrics.ActionRuntimeSummary.With(
 		prometheus.Labels{
 			"vendor":    action.Firmware.Vendor,
