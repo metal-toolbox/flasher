@@ -180,4 +180,8 @@ func TestTaskInProgress(t *testing.T) {
 
 	val = worker.taskInProgress(conditionID.String())
 	require.Equal(t, orphaned, val, "no live workers")
+
+	// make sure that the Delete fired to clear the KV and make things clean for a new worker
+	_, err = writeHandle.Get(key)
+	require.ErrorIs(t, err, nats.ErrKeyNotFound)
 }
