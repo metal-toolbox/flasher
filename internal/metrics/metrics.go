@@ -110,8 +110,9 @@ func ListenAndServe() {
 // RegisterSpanEvent adds a span event along with the given attributes.
 //
 // event here is arbitrary and can be in the form of strings like - publishCondition, updateCondition etc
-func RegisterSpanEvent(span trace.Span, condition *cptypes.Condition, serverID, event string) {
+func RegisterSpanEvent(span trace.Span, condition *cptypes.Condition, workerID, serverID, event string) {
 	span.AddEvent(event, trace.WithAttributes(
+		attribute.String("workerID", workerID),
 		attribute.String("serverID", serverID),
 		attribute.String("conditionID", condition.ID.String()),
 		attribute.String("conditionKind", string(condition.Kind)),
