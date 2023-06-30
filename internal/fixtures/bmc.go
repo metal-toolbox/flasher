@@ -41,7 +41,7 @@ func (b *mockBMC) SessionActive(ctx context.Context) bool {
 }
 
 // Close logs out of the BMC
-func (b *mockBMC) Close() error {
+func (b *mockBMC) Close(ctx context.Context) error {
 	return nil
 }
 
