@@ -262,32 +262,32 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 	case inProgress:
 		o.logger.WithField("condition_id", condition.ID.String()).Info("condition is already in progress")
 		o.eventAckInProgress(e)
-		metrics.RegisterSpanEvent(span, condition, "", "ackInProgress")
+		metrics.RegisterSpanEvent(span, condition, o.id.String(), "", "ackInProgress")
 
 		return
 
 	case complete:
 		o.logger.WithField("condition_id", condition.ID.String()).Info("condition is complete")
 		o.eventAckComplete(e)
-		metrics.RegisterSpanEvent(span, condition, "", "ackComplete")
+		metrics.RegisterSpanEvent(span, condition, o.id.String(), "", "ackComplete")
 
 		return
 
 	case orphaned:
 		o.logger.WithField("condition_id", condition.ID.String()).Warn("restarting this condition")
-		metrics.RegisterSpanEvent(span, condition, "", "restarting condition")
+		metrics.RegisterSpanEvent(span, condition, o.id.String(), "", "restarting condition")
 
 		// we need to restart this event
 	case notStarted:
 		o.logger.WithField("condition_id", condition.ID.String()).Info("starting new condition")
-		metrics.RegisterSpanEvent(span, condition, "", "start new condition")
+		metrics.RegisterSpanEvent(span, condition, o.id.String(), "", "start new condition")
 
 		// break out here, this is a new event
 	case indeterminate:
 		o.logger.WithField("condition_id", condition.ID.String()).Warn("unable to determine state of this condition")
 		// send it back to NATS to try again
 		o.eventNak(e)
-		metrics.RegisterSpanEvent(span, condition, "", "sent nack, indeterminate state")
+		metrics.RegisterSpanEvent(span, condition, o.id.String(), "", "sent nack, indeterminate state")
 
 		return
 	}
@@ -298,7 +298,7 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 
 		o.registerEventCounter(false, "ack")
 		o.eventAckComplete(e)
-		metrics.RegisterSpanEvent(span, condition, "", "sent ack, error task init")
+		metrics.RegisterSpanEvent(span, condition, o.id.String(), "", "sent ack, error task init")
 
 		return
 	}
@@ -314,7 +314,13 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 
 		o.registerEventCounter(true, "nack")
 		o.eventNak(e) // have the message bus re-deliver the message
-		metrics.RegisterSpanEvent(span, condition, task.Parameters.AssetID.String(), "sent nack, store query error")
+		metrics.RegisterSpanEvent(
+			span,
+			condition,
+			o.id.String(),
+			task.Parameters.AssetID.String(),
+			"sent nack, store query error",
+		)
 
 		return
 	}
@@ -324,7 +330,13 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 
 	defer o.registerEventCounter(true, "ack")
 	defer o.eventAckComplete(e)
-	metrics.RegisterSpanEvent(span, condition, task.Parameters.AssetID.String(), "sent ack, condition fulfilled")
+	metrics.RegisterSpanEvent(
+		span,
+		condition,
+		o.id.String(),
+		task.Parameters.AssetID.String(),
+		"sent ack, condition fulfilled",
+	)
 
 	o.runTaskWithMonitor(taskCtx, task, asset, e)
 }
