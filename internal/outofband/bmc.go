@@ -82,11 +82,11 @@ func (b *bmc) Open(ctx context.Context) error {
 }
 
 // Close logs out of the BMC
-func (b *bmc) Close(ctx context.Context) error {
+func (b *bmc) Close(traceCtx context.Context) error {
 	// this context is not used for the close method further below
 	// since we want to make sure the BMC session is always closed and is not left open
 	// because of a context cancellation.
-	_, span := otel.Tracer(pkgName).Start(ctx, "bmclib.Close")
+	_, span := otel.Tracer(pkgName).Start(traceCtx, "bmclib.Close")
 	defer span.End()
 
 	if b.client == nil {
