@@ -14,6 +14,8 @@ type StatusValue struct {
 	UpdatedAt       time.Time       `json:"updated"`
 	WorkerID        string          `json:"worker"`
 	Target          string          `json:"target"`
+	TraceID         string          `json:"traceID"`
+	SpanID          string          `json:"spanID"`
 	State           string          `json:"state"`
 	Status          json.RawMessage `json:"status"`
 	ResourceVersion int64           `json:"resourceVersion"` // for updates to server-service

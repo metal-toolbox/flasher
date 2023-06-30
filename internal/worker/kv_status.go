@@ -81,6 +81,8 @@ func statusFromContext(hCtx *sm.HandlerContext) []byte {
 	sv := &types.StatusValue{
 		WorkerID: hCtx.WorkerID.String(),
 		Target:   hCtx.Asset.ID.String(),
+		TraceID:  trace.SpanFromContext(hCtx.Ctx).SpanContext().TraceID().String(),
+		SpanID:   trace.SpanFromContext(hCtx.Ctx).SpanContext().SpanID().String(),
 		State:    string(hCtx.Task.State()),
 		Status:   statusInfoJSON(hCtx.Task.Status),
 		// ResourceVersion:  XXX: the handler context has no concept of this! does this make

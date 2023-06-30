@@ -105,7 +105,7 @@ type DeviceQueryor interface {
 	Open(ctx context.Context) error
 
 	// Close closes the connection to the device.
-	Close() error
+	Close(ctx context.Context) error
 
 	PowerStatus(ctx context.Context) (status string, err error)
 

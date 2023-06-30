@@ -235,6 +235,16 @@ func (o *Worker) registerEventCounter(valid bool, response string) {
 }
 
 func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
+	// extract parent trace context from the event if any.
+	ctx = e.ExtractOtelTraceContext(ctx)
+
+	ctx, span := otel.Tracer(pkgName).Start(
+		ctx,
+		"worker.processSingleEvent",
+	//	trace.WithSpanKind(trace.SpanKindConsumer),
+	)
+	defer span.End()
+
 	condition, err := conditionFromEvent(e)
 	if err != nil {
 		o.logger.WithError(err).WithField(

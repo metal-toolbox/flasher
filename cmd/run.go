@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/equinix-labs/otel-init-go/otelinit"
 	"github.com/metal-toolbox/flasher/internal/app"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -55,6 +56,9 @@ func runWorker(ctx context.Context) {
 
 	// serve metrics endpoint
 	metrics.ListenAndServe()
+
+	ctx, otelShutdown := otelinit.InitOpenTelemetry(ctx, "flasher")
+	defer otelShutdown(ctx)
 
 	// Setup cancel context with cancel func.
 	ctx, cancelFunc := context.WithCancel(ctx)
