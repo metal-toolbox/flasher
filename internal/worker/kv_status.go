@@ -11,6 +11,8 @@ import (
 	"github.com/metal-toolbox/flasher/types"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"go.hollow.sh/toolbox/events"
 	"go.hollow.sh/toolbox/events/pkg/kv"
@@ -32,6 +34,13 @@ type statusKVPublisher struct {
 
 // Publish implements the statemachine Publisher interface.
 func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
+	_, span := otel.Tracer(pkgName).Start(
+		hCtx.Ctx,
+		"worker.Publish.KV",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+	)
+	defer span.End()
+
 	facility := "facility"
 	if hCtx.Asset.FacilityCode != "" {
 		facility = hCtx.Asset.FacilityCode

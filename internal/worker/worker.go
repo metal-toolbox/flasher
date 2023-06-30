@@ -22,10 +22,16 @@ import (
 	"go.hollow.sh/toolbox/events"
 	"go.hollow.sh/toolbox/events/pkg/kv"
 	"go.hollow.sh/toolbox/events/registry"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	cpv1types "github.com/metal-toolbox/conditionorc/pkg/api/v1/types"
 	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+)
+
+const (
+	pkgName = "internal/worker"
 )
 
 var (
@@ -246,21 +252,33 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 	case inProgress:
 		o.logger.WithField("condition_id", condition.ID.String()).Info("condition is already in progress")
 		o.eventAckInProgress(e)
+		metrics.RegisterSpanEvent(span, condition, "", "ackInProgress")
+
 		return
+
 	case complete:
 		o.logger.WithField("condition_id", condition.ID.String()).Info("condition is complete")
 		o.eventAckComplete(e)
+		metrics.RegisterSpanEvent(span, condition, "", "ackComplete")
+
 		return
+
 	case orphaned:
 		o.logger.WithField("condition_id", condition.ID.String()).Warn("restarting this condition")
+		metrics.RegisterSpanEvent(span, condition, "", "restarting condition")
+
 		// we need to restart this event
 	case notStarted:
 		o.logger.WithField("condition_id", condition.ID.String()).Info("starting new condition")
+		metrics.RegisterSpanEvent(span, condition, "", "start new condition")
+
 		// break out here, this is a new event
 	case indeterminate:
 		o.logger.WithField("condition_id", condition.ID.String()).Warn("unable to determine state of this condition")
 		// send it back to NATS to try again
 		o.eventNak(e)
+		metrics.RegisterSpanEvent(span, condition, "", "sent nack, indeterminate state")
+
 		return
 	}
 
@@ -270,6 +288,7 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 
 		o.registerEventCounter(false, "ack")
 		o.eventAckComplete(e)
+		metrics.RegisterSpanEvent(span, condition, "", "sent ack, error task init")
 
 		return
 	}
@@ -285,6 +304,7 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 
 		o.registerEventCounter(true, "nack")
 		o.eventNak(e) // have the message bus re-deliver the message
+		metrics.RegisterSpanEvent(span, condition, task.Parameters.AssetID.String(), "sent nack, store query error")
 
 		return
 	}
@@ -294,6 +314,7 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 
 	defer o.registerEventCounter(true, "ack")
 	defer o.eventAckComplete(e)
+	metrics.RegisterSpanEvent(span, condition, task.Parameters.AssetID.String(), "sent ack, condition fulfilled")
 
 	o.runTaskWithMonitor(taskCtx, task, asset, e)
 }
@@ -473,6 +494,13 @@ func statusInfoJSON(s string) json.RawMessage {
 }
 
 func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
+	ctx, span := otel.Tracer(pkgName).Start(
+		hCtx.Ctx,
+		"worker.Publish.Event",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+	)
+	defer span.End()
+
 	task := hCtx.Task
 	update := &cpv1types.ConditionUpdateEvent{
 		Kind: cptypes.FirmwareInstall,
@@ -492,7 +520,7 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 	}
 
 	if err := e.stream.Publish(
-		hCtx.Ctx,
+		ctx,
 		string(cptypes.ConditionUpdateEvent),
 		byt,
 	); err != nil {

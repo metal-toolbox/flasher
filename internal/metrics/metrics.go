@@ -8,6 +8,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
 )
 
 const (
@@ -101,4 +105,15 @@ func ListenAndServe() {
 			log.Println(err)
 		}
 	}()
+}
+
+// RegisterSpanEvent adds a span event along with the given attributes.
+//
+// event here is arbitrary and can be in the form of strings like - publishCondition, updateCondition etc
+func RegisterSpanEvent(span trace.Span, condition *cptypes.Condition, serverID, event string) {
+	span.AddEvent(event, trace.WithAttributes(
+		attribute.String("serverID", serverID),
+		attribute.String("conditionID", condition.ID.String()),
+		attribute.String("conditionKind", string(condition.Kind)),
+	))
 }

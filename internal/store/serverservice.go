@@ -9,6 +9,7 @@ import (
 
 	sservice "go.hollow.sh/serverservice/pkg/api/v1"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/oauth2/clientcredentials"
 
 	"github.com/coreos/go-oidc"
@@ -35,6 +36,8 @@ const (
 
 	// connectionTimeout is the maximum amount of time spent on each http connection to serverservice.
 	connectionTimeout = 30 * time.Second
+
+	pkgName = "internal/store"
 )
 
 var (
@@ -160,6 +163,9 @@ func (s *Serverservice) registerMetric(queryKind string) {
 
 // AssetByID returns an Asset object with various attributes populated.
 func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset, error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "Serverservice.AssetByID")
+	defer span.End()
+
 	deviceUUID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, errors.Wrap(ErrDeviceID, err.Error()+id)
@@ -225,6 +231,9 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 
 // FirmwareSetByID returns a list of firmwares part of a firmware set identified by the given id.
 func (s *Serverservice) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*model.Firmware, error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "Serverservice.FirmwareSetByID")
+	defer span.End()
+
 	firmwareset, _, err := s.client.GetServerComponentFirmwareSet(ctx, id)
 	if err != nil {
 		s.registerMetric("GetFirmwareSet")
