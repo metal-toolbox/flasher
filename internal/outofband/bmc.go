@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	bmclibv2 "github.com/bmc-toolbox/bmclib/v2"
 	bmclibv2consts "github.com/bmc-toolbox/bmclib/v2/constants"
@@ -14,6 +16,10 @@ import (
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	pkgName = "internal/outofband"
 )
 
 var (
@@ -62,6 +68,11 @@ func (e *ErrBmcQuery) Error() string {
 
 // Open creates a BMC session
 func (b *bmc) Open(ctx context.Context) error {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.Open")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
+
 	if b.client == nil {
 		return errors.Wrap(errBMCLogin, "bmclibv2 client not initialized")
 	}
@@ -71,15 +82,21 @@ func (b *bmc) Open(ctx context.Context) error {
 }
 
 // Close logs out of the BMC
-func (b *bmc) Close() error {
+func (b *bmc) Close(ctx context.Context) error {
+	// this context is not used for the close method further below
+	// since we want to make sure the BMC session is always closed and is not left open
+	// because of a context cancellation.
+	_, span := otel.Tracer(pkgName).Start(ctx, "bmclib.Close")
+	defer span.End()
+
 	if b.client == nil {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), logoutTimeout)
+	ctxClose, cancel := context.WithTimeout(context.Background(), logoutTimeout)
 	defer cancel()
 
-	if err := b.client.Close(ctx); err != nil {
+	if err := b.client.Close(ctxClose); err != nil {
 		return errors.Wrap(errBMCLogout, err.Error())
 	}
 
@@ -92,6 +109,9 @@ func (b *bmc) Close() error {
 
 // PowerStatus returns the device power status
 func (b *bmc) PowerStatus(ctx context.Context) (string, error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.PowerStatus")
+	defer span.End()
+
 	if err := b.Open(ctx); err != nil {
 		return "", err
 	}
@@ -106,6 +126,9 @@ func (b *bmc) PowerStatus(ctx context.Context) (string, error) {
 
 // SetPowerState sets the given power state on the device
 func (b *bmc) SetPowerState(ctx context.Context, state string) error {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.SetPowerState")
+	defer span.End()
+
 	if err := b.Open(ctx); err != nil {
 		return err
 	}
@@ -117,6 +140,9 @@ func (b *bmc) SetPowerState(ctx context.Context, state string) error {
 
 // ResetBMC cold resets the BMC
 func (b *bmc) ResetBMC(ctx context.Context) error {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.ResetBMC")
+	defer span.End()
+
 	if err := b.Open(ctx); err != nil {
 		return err
 	}
@@ -128,6 +154,9 @@ func (b *bmc) ResetBMC(ctx context.Context) error {
 
 // Inventory queries the BMC for the device inventory and returns an object with the device inventory.
 func (b *bmc) Inventory(ctx context.Context) (*common.Device, error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.Inventory")
+	defer span.End()
+
 	if err := b.Open(ctx); err != nil {
 		return nil, err
 	}
@@ -149,6 +178,9 @@ func (b *bmc) Inventory(ctx context.Context) (*common.Device, error) {
 }
 
 func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force bool, file *os.File) (bmcTaskID string, err error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.FirmwareInstall")
+	defer span.End()
+
 	if err := b.Open(ctx); err != nil {
 		return "", err
 	}
@@ -158,6 +190,9 @@ func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force b
 
 // FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameters
 func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (model.ComponentFirmwareInstallStatus, error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.FirmwareInstallStatus")
+	defer span.End()
+
 	if err := b.Open(ctx); err != nil {
 		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
 	}

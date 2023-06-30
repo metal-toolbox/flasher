@@ -170,7 +170,7 @@ func (h *taskHandler) TaskFailed(_ sw.StateSwitch, args sw.TransitionArgs) error
 	}
 
 	if tctx.DeviceQueryor != nil {
-		if err := tctx.DeviceQueryor.Close(); err != nil {
+		if err := tctx.DeviceQueryor.Close(tctx.Ctx); err != nil {
 			tctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 		}
 	}
@@ -185,7 +185,7 @@ func (h *taskHandler) TaskSuccessful(_ sw.StateSwitch, args sw.TransitionArgs) e
 	}
 
 	if tctx.DeviceQueryor != nil {
-		if err := tctx.DeviceQueryor.Close(); err != nil {
+		if err := tctx.DeviceQueryor.Close(tctx.Ctx); err != nil {
 			tctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 		}
 	}
