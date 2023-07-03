@@ -17,20 +17,23 @@ builds:
         -X "github.com/metal-toolbox/flasher/internal/version.GitBranch={{ .Branch }}"
         -X "github.com/metal-toolbox/flasher/internal/version.BuildDate={{ .Date }}"
 
-
 archives:
   - id: go
     format: tar.gz
-    name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}-{{.Arch}}"
-    replacements:
-      amd64: 64bit
-      darwin: macOS
-      linux: Linux
+    name_template: >-
+      {{ .ProjectName }}_
+      {{ .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}64bit
+      {{- else if eq .Arch "386" }}32bit
+      {{- else if eq .Arch "arm" }}ARM
+      {{- else if eq .Arch "arm64" }}ARM64
+      {{- else }}{{ .Arch }}{{ end }}
     files:
       - README.md
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 snapshot:
   name_template: "{{ .Tag }}-next"
@@ -39,12 +42,11 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - "^docs:"
+      - "^test:"
 
 dockers:
-  -
-    image_templates:
+  - image_templates:
       - "ghcr.io/metal-toolbox/{{.ProjectName}}:{{ .Tag }}"
       - "ghcr.io/metal-toolbox/{{.ProjectName}}:latest"
     dockerfile: Dockerfile
