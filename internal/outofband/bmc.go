@@ -92,6 +92,8 @@ func (b *bmc) Close(traceCtx context.Context) error {
 	_, span := otel.Tracer(pkgName).Start(traceCtx, "bmclib.Close")
 	defer span.End()
 
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
+
 	if b.client == nil {
 		return nil
 	}
@@ -115,6 +117,8 @@ func (b *bmc) PowerStatus(ctx context.Context) (string, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.PowerStatus")
 	defer span.End()
 
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
+
 	if err := b.Open(ctx); err != nil {
 		return "", err
 	}
@@ -131,6 +135,8 @@ func (b *bmc) PowerStatus(ctx context.Context) (string, error) {
 func (b *bmc) SetPowerState(ctx context.Context, state string) error {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.SetPowerState")
 	defer span.End()
+
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
 
 	if err := b.Open(ctx); err != nil {
 		return err
@@ -161,6 +167,8 @@ func (b *bmc) ResetBMC(ctx context.Context) error {
 func (b *bmc) Inventory(ctx context.Context) (*common.Device, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.Inventory")
 	defer span.End()
+
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
 
 	if err := b.Open(ctx); err != nil {
 		return nil, err
@@ -202,6 +210,8 @@ func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force b
 func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (model.ComponentFirmwareInstallStatus, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.FirmwareInstallStatus")
 	defer span.End()
+
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
 
 	if err := b.Open(ctx); err != nil {
 		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
