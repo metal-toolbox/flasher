@@ -452,15 +452,18 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 		return err
 	}
 
-	if !action.BMCPowerCycleRequired {
+	// proceed with reset only if these flags are set
+	if !action.BMCPowerCycleRequired && !tctx.Task.Parameters.ResetBMCBeforeInstall {
 		return nil
 	}
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.Component,
-			"bmc":       tctx.Asset.BmcAddress,
-		}).Info("resetting BMC for firmware install")
+			"component":                             action.Firmware.Component,
+			"bmc":                                   tctx.Asset.BmcAddress,
+			"task.Parameters.ResetBMCBeforeInstall": tctx.Task.Parameters.ResetBMCBeforeInstall,
+			"action.BMCPowerCycleRequired":          action.BMCPowerCycleRequired,
+		}).Info("resetting BMC")
 
 	if !tctx.Dryrun {
 		if err := tctx.DeviceQueryor.ResetBMC(tctx.Ctx); err != nil {
@@ -470,6 +473,14 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 		if err := sleepWithContext(tctx.Ctx, delayBMCReset); err != nil {
 			return err
 		}
+	}
+
+	// skip install status poll if this was a preinstall BMC reset
+	if tctx.Task.Parameters.ResetBMCBeforeInstall {
+		// set this to false to prevent the rest of the actions from attempting a preInstall BMC reset.
+		tctx.Task.Parameters.ResetBMCBeforeInstall = false
+
+		return nil
 	}
 
 	return h.pollFirmwareInstallStatus(a, c)
