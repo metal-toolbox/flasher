@@ -57,7 +57,7 @@ func Test_NewActionStateMachine(t *testing.T) {
 	// TODO(joel): at some point we'd want to test if the nodes and edges
 	// in the transition rules match whats expected
 	assert.Equal(t, transitionOrder(), m.TransitionOrder())
-	assert.Len(t, transitionRules(), 10)
+	assert.Len(t, transitionRules(), 11)
 }
 
 func serverMux(t *testing.T, serveblob []byte) *http.ServeMux {
@@ -208,6 +208,7 @@ func Test_ActionStateMachine_Run_Fails(t *testing.T) {
 		transitionTypePowerOnDevice,
 		transitionTypeCheckInstalledFirmware,
 		transitionTypeDownloadFirmware,
+		transitionTypePreInstallResetBMC,
 		transitionTypeInitiatingInstallFirmware,
 	}
 
