@@ -822,6 +822,10 @@ github.com/blang/semver v3.1.0+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnweb
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230622122705-0793b705a33b h1:ILNrrlcvzyXptVdKkCFf3bd6MDFXjj9Tbx9appUCff0=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230622122705-0793b705a33b/go.mod h1:a3Ra0ce/LV3wAj7AHuphlHNTx5Sg67iQqtLGr1zoqio=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230711102641-0869cade6525 h1:giOW+HPPJwR8GigttcrB/uYpvZx344zQQkgXAWjnlAA=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230711102641-0869cade6525/go.mod h1:a3Ra0ce/LV3wAj7AHuphlHNTx5Sg67iQqtLGr1zoqio=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230711131625-cbbab469ebb2 h1:YqOuVWhNpn+sOzLcWVYJehREN2z5xJsQBJxFpEEZK1Q=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230711131625-cbbab469ebb2/go.mod h1:a3Ra0ce/LV3wAj7AHuphlHNTx5Sg67iQqtLGr1zoqio=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d h1:cQ30Wa8mhLzK1TSOG+g3FlneIsXtFgun61mmPwVPmD0=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869/go.mod h1:Ekp36dRnpXw/yCqJaO+ZrUyxD+3VXMFFr56k5XYrpB4=
