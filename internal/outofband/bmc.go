@@ -25,8 +25,11 @@ const (
 var (
 	// logoutTimeout is the timeout value when logging out of a bmc
 	logoutTimeout = 1 * time.Minute
-	loginTimeout  = 1 * time.Minute
+	loginTimeout  = 3 * time.Minute
 	loginAttempts = 3
+
+	// firmwareInstallTimeout is set on the context when invoking the firmware install method
+	firmwareInstallTimeout = 15 * time.Minute
 
 	// login errors
 	errBMCLogin             = errors.New("bmc login error")
@@ -183,11 +186,16 @@ func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force b
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.FirmwareInstall")
 	defer span.End()
 
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
+
 	if err := b.Open(ctx); err != nil {
 		return "", err
 	}
 
-	return b.client.FirmwareInstall(ctx, componentSlug, bmclibv2consts.FirmwareApplyOnReset, force, file)
+	installCtx, cancel := context.WithTimeout(ctx, firmwareInstallTimeout)
+	defer cancel()
+
+	return b.client.FirmwareInstall(installCtx, componentSlug, bmclibv2consts.FirmwareApplyOnReset, force, file)
 }
 
 // FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameters
