@@ -143,11 +143,13 @@ func (b *bmc) ResetBMC(ctx context.Context) error {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.ResetBMC")
 	defer span.End()
 
+	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
+
 	if err := b.Open(ctx); err != nil {
 		return err
 	}
 
-	_, err := b.client.ResetBMC(ctx, "cold")
+	_, err := b.client.ResetBMC(ctx, "GracefulRestart")
 
 	return err
 }
