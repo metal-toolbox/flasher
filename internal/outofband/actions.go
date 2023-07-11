@@ -25,9 +25,10 @@ const (
 	statePoweredOnDevice             sw.State = "poweredOnDevice"
 	stateCheckedCurrentFirmware      sw.State = "checkedCurrentFirmware"
 	stateDownloadedFirmware          sw.State = "downloadedFirmware"
+	statePreInstallResetBMC          sw.State = "preInstallresetBMC"
 	stateInitiatedInstallFirmware    sw.State = "initiatedInstallFirmware"
 	statePolledFirmwareInstallStatus sw.State = "polledFirmwareInstallStatus"
-	stateResetBMC                    sw.State = "resetBMC"
+	statePostInstallResetBMC         sw.State = "postInstallResetBMC"
 	stateResetDevice                 sw.State = "resetDevice"
 	statePoweredOffDevice            sw.State = "poweredOffDevice"
 
@@ -38,9 +39,10 @@ const (
 	transitionTypePowerOnDevice             sw.TransitionType = "poweringOnDevice"
 	transitionTypeCheckInstalledFirmware    sw.TransitionType = "checkingInstalledFirmware"
 	transitionTypeDownloadFirmware          sw.TransitionType = "downloadingFirmware"
+	transitionTypePreInstallResetBMC        sw.TransitionType = "preInstallResettingBMC"
 	transitionTypeInitiatingInstallFirmware sw.TransitionType = "initiatingInstallFirmware"
 	transitionTypePollInstallStatus         sw.TransitionType = "pollingInstallStatus"
-	transitionTypeResetBMC                  sw.TransitionType = "resettingBMC"
+	transitionTypePostInstallResetBMC       sw.TransitionType = "postInstallResettingBMC"
 	transitionTypeResetDevice               sw.TransitionType = "resettingHost"
 	transitionTypePowerOffDevice            sw.TransitionType = "poweringOffDevice"
 )
@@ -51,9 +53,10 @@ func transitionOrder() []sw.TransitionType {
 		transitionTypePowerOnDevice,
 		transitionTypeCheckInstalledFirmware,
 		transitionTypeDownloadFirmware,
+		transitionTypePreInstallResetBMC,
 		transitionTypeInitiatingInstallFirmware,
 		transitionTypePollInstallStatus,
-		transitionTypeResetBMC,
+		transitionTypePostInstallResetBMC,
 		transitionTypeResetDevice,
 		transitionTypePowerOffDevice,
 	}
@@ -85,6 +88,11 @@ func actionDocumentation() ([]sw.StateDoc, []sw.TransitionTypeDoc) {
 				Description: "This action state indicates the component firmware to be installed has been downloaded and verified.",
 			},
 			{
+				Name:        string(statePreInstallResetBMC),
+				Description: "This action state indicates the BMC has been power cycled either as a pre-install step to make sure the BMC is in good health before proceeding.",
+			},
+
+			{
 				Name:        string(stateInitiatedInstallFirmware),
 				Description: "This action state indicates the component firmware has been uploaded to the target device for install, and the firmware install on the device has been initiated.",
 			},
@@ -93,8 +101,8 @@ func actionDocumentation() ([]sw.StateDoc, []sw.TransitionTypeDoc) {
 				Description: "This action state indicates the component firmware install status is in a finalized state (powerCycleDevice, powerCycleBMC, successful, failed).",
 			},
 			{
-				Name:        string(stateResetBMC),
-				Description: "This action state indicates the BMC has been (conditionally) power cycled to complete a component firmware install.",
+				Name:        string(statePostInstallResetBMC),
+				Description: "This action state indicates the BMC has been power cycled either as a post-install step to complete a component firmware install.",
 			},
 			{
 				Name:        string(stateResetDevice),
@@ -119,6 +127,10 @@ func actionDocumentation() ([]sw.StateDoc, []sw.TransitionTypeDoc) {
 				Description: "In this action transition the component firmware to be installed is being downloaded and verified.",
 			},
 			{
+				Name:        string(transitionTypePreInstallResetBMC),
+				Description: "In this action transition the BMC is power cycled before attempting to install any firmware.",
+			},
+			{
 				Name:        string(transitionTypeInitiatingInstallFirmware),
 				Description: "In this action transition the component firmware to be installed is being uploaded to the device and the component firmware install is being initated.",
 			},
@@ -127,7 +139,7 @@ func actionDocumentation() ([]sw.StateDoc, []sw.TransitionTypeDoc) {
 				Description: "In this action transition the component firmware install status is being polled until its in a finalized state (powerCycleDevice, powerCycleBMC, successful, failed).",
 			},
 			{
-				Name:        string(transitionTypeResetBMC),
+				Name:        string(transitionTypePostInstallResetBMC),
 				Description: "In this action transition the BMC is being power-cycled - if the component firmware install status requires a BMC reset to proceed/complete.",
 			},
 			{
@@ -192,8 +204,20 @@ func transitionRules() []sw.TransitionRule {
 			},
 		},
 		{
-			TransitionType:   transitionTypeInitiatingInstallFirmware,
+			TransitionType:   transitionTypePreInstallResetBMC,
 			SourceStates:     sw.States{stateDownloadedFirmware},
+			DestinationState: statePreInstallResetBMC,
+			Condition:        nil,
+			Transition:       handler.resetBMC,
+			PostTransition:   handler.PublishStatus,
+			Documentation: sw.TransitionRuleDoc{
+				Name:        "Powercycle BMC before install",
+				Description: "Powercycle BMC before installing any firmware as a precaution.",
+			},
+		},
+		{
+			TransitionType:   transitionTypeInitiatingInstallFirmware,
+			SourceStates:     sw.States{statePreInstallResetBMC},
 			DestinationState: stateInitiatedInstallFirmware,
 			Condition:        nil,
 			Transition:       handler.initiateInstallFirmware,
@@ -216,9 +240,9 @@ func transitionRules() []sw.TransitionRule {
 			},
 		},
 		{
-			TransitionType:   transitionTypeResetBMC,
+			TransitionType:   transitionTypePostInstallResetBMC,
 			SourceStates:     sw.States{statePolledFirmwareInstallStatus},
-			DestinationState: stateResetBMC,
+			DestinationState: statePostInstallResetBMC,
 			Condition:        nil,
 			Transition:       handler.resetBMC,
 			PostTransition:   handler.PublishStatus,
@@ -229,7 +253,7 @@ func transitionRules() []sw.TransitionRule {
 		},
 		{
 			TransitionType:   transitionTypeResetDevice,
-			SourceStates:     sw.States{stateResetBMC},
+			SourceStates:     sw.States{statePostInstallResetBMC},
 			DestinationState: stateResetDevice,
 			Condition:        nil,
 			Transition:       handler.resetDevice,
@@ -274,9 +298,10 @@ func transitionRules() []sw.TransitionRule {
 				statePoweredOnDevice,
 				stateCheckedCurrentFirmware,
 				stateDownloadedFirmware,
+				statePreInstallResetBMC,
 				stateInitiatedInstallFirmware,
 				statePolledFirmwareInstallStatus,
-				stateResetBMC,
+				statePostInstallResetBMC,
 				stateResetDevice,
 				statePoweredOffDevice,
 			},
