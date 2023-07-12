@@ -89,7 +89,7 @@ func actionDocumentation() ([]sw.StateDoc, []sw.TransitionTypeDoc) {
 			},
 			{
 				Name:        string(statePreInstallResetBMC),
-				Description: "This action state indicates the BMC has been power cycled either as a pre-install step to make sure the BMC is in good health before proceeding.",
+				Description: "This action state indicates the BMC has been power cycled as a pre-install step to make sure the BMC is in good health before proceeding.",
 			},
 
 			{
@@ -102,7 +102,7 @@ func actionDocumentation() ([]sw.StateDoc, []sw.TransitionTypeDoc) {
 			},
 			{
 				Name:        string(statePostInstallResetBMC),
-				Description: "This action state indicates the BMC has been power cycled either as a post-install step to complete a component firmware install.",
+				Description: "This action state indicates the BMC has been power cycled as a post-install step to complete a component firmware install.",
 			},
 			{
 				Name:        string(stateResetDevice),
