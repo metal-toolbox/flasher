@@ -68,8 +68,11 @@ push-image:
 
 
 ## generate statemachine graphs and docs
-docs: build
+gen-docs:
+	go build -o flasher
 	./docs/statemachine/generate.sh
+
+
 
 # https://gist.github.com/prwhite/8168133
 # COLORS

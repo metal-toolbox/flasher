@@ -27,8 +27,8 @@ graph TD;
 * [Active](#active)
 * [Failed](#failed)
 * [Initial](#initial)
-* [Queued](#queued)
-* [Success](#success)
+* [Pending](#pending)
+* [Succeeded](#succeeded)
 
 ### Transition Types
 Transition types are the events that can cause a state transition
@@ -113,8 +113,8 @@ The initial state of the state machine. This is a synthetic state that is not ac
 ![destination_initial](./media-task-sm/destination_initial.svg)
 
 
-### Queued
-In this state the task is being initialized (this is done outside of the state machine).
+### Pending
+In this state the task is being initialized.
 
 #### Transition types where this is the source state
 * [null](#null)
@@ -132,7 +132,7 @@ In this state the task is being initialized (this is done outside of the state m
 ![destination_pending](./media-task-sm/destination_pending.svg)
 
 
-### Success
+### Succeeded
 In this state the task execution has completed successfully.
 
 #### Transition types where this is the source state
@@ -156,11 +156,11 @@ In this state the task execution has completed successfully.
 Transition types are the events that can cause a state transition
 
 ### failed
-In this transition the task has failed and any post failure steps are being executed.
+In this transition the task has failed and any post-failure steps are being executed.
 
 #### Source states where this transition type applies
 * [Active](#active)
-* [Queued](#queued)
+* [Pending](#pending)
 
 #### Destination states where this transition type applies
 * [Failed](#failed)
@@ -199,19 +199,19 @@ In this transition the actions (sub state machines) for the firmware install are
 * [Active](#active)
 
 #### Destination states where this transition type applies
-* [Success](#success)
+* [Succeeded](#succeeded)
 #### Transition rules using this transition type
 ![transition_type_run](./media-task-sm/transition_type_run.svg)
 
 * [Run install actions](#run-install-actions)
 ### succeeded
-In this transition the task has completed successfully and any post failure steps are being executed.
+In this transition the task has completed successfully and any post-success steps are executed.
 
 #### Source states where this transition type applies
 * [Active](#active)
 
 #### Destination states where this transition type applies
-* [Success](#success)
+* [Succeeded](#succeeded)
 #### Transition rules using this transition type
 ![transition_type_succeeded](./media-task-sm/transition_type_succeeded.svg)
 
@@ -224,7 +224,7 @@ Transition rules are the rules that define the required source states and condit
 Performs any task initialization, and transitions the state from pending to active.
 
 #### Source states
-* [Queued](#queued)
+* [Pending](#pending)
 
 #### Destination state
 [Active](#active)
@@ -233,7 +233,7 @@ Performs any task initialization, and transitions the state from pending to acti
 Task execution has failed because of a failed task action or task handler.
 
 #### Source states
-* [Queued](#queued)
+* [Pending](#pending)
 * [Active](#active)
 
 #### Destination state
@@ -264,7 +264,7 @@ Run executes the planned Action (sub) state machines prepared in the Plan stage.
 * [Active](#active)
 
 #### Destination state
-[Success](#success)
+[Succeeded](#succeeded)
 
 ### Task successful
 Task execution completed successfully.
@@ -273,6 +273,6 @@ Task execution completed successfully.
 * [Active](#active)
 
 #### Destination state
-[Success](#success)
+[Succeeded](#succeeded)
 
 

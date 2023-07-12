@@ -26,9 +26,10 @@
         "poweredOnDevice",
         "checkedCurrentFirmware",
         "downloadedFirmware",
+        "preInstallresetBMC",
         "initiatedInstallFirmware",
         "polledFirmwareInstallStatus",
-        "resetBMC",
+        "postInstallResetBMC",
         "resetDevice",
         "poweredOffDevice"
       ],
@@ -39,7 +40,7 @@
     {
       "transition_type": "initiatingInstallFirmware",
       "source_states": [
-        "downloadedFirmware"
+        "preInstallresetBMC"
       ],
       "destination_state": "initiatedInstallFirmware",
       "name": "Initiate firmware install",
@@ -53,6 +54,15 @@
       "destination_state": "polledFirmwareInstallStatus",
       "name": "Poll firmware install status",
       "description": "Poll BMC with exponential backoff for firmware install status until firmware install status is in a finalized state (completed/powercyclehost/powercyclebmc/failed)."
+    },
+    {
+      "transition_type": "postInstallResettingBMC",
+      "source_states": [
+        "polledFirmwareInstallStatus"
+      ],
+      "destination_state": "postInstallResetBMC",
+      "name": "Powercycle BMC",
+      "description": "Powercycle BMC - only when pollFirmwareInstallStatus() identifies a BMC reset is required."
     },
     {
       "transition_type": "poweringOffDevice",
@@ -73,18 +83,18 @@
       "description": "Power on device - if its currently powered off."
     },
     {
-      "transition_type": "resettingBMC",
+      "transition_type": "preInstallResettingBMC",
       "source_states": [
-        "polledFirmwareInstallStatus"
+        "downloadedFirmware"
       ],
-      "destination_state": "resetBMC",
-      "name": "Powercycle BMC",
-      "description": "Powercycle BMC - only when pollFirmwareInstallStatus() identifies a BMC reset is required."
+      "destination_state": "preInstallresetBMC",
+      "name": "Powercycle BMC before install",
+      "description": "Powercycle BMC before installing any firmware as a precaution."
     },
     {
       "transition_type": "resettingHost",
       "source_states": [
-        "resetBMC"
+        "postInstallResetBMC"
       ],
       "destination_state": "resetDevice",
       "name": "Powercycle Device",
@@ -121,6 +131,10 @@
       "name": "polledFirmwareInstallStatus",
       "description": "This action state indicates the component firmware install status is in a finalized state (powerCycleDevice, powerCycleBMC, successful, failed)."
     },
+    "postInstallResetBMC": {
+      "name": "postInstallResetBMC",
+      "description": "This action state indicates the BMC has been power cycled as a post-install step to complete a component firmware install."
+    },
     "poweredOffDevice": {
       "name": "poweredOffDevice",
       "description": "This action state indicates the Device has been (conditionally) power off to complete a component firmware install."
@@ -129,9 +143,9 @@
       "name": "poweredOnDevice",
       "description": "This action state indicates the device has been (conditionally) powered on for a component firmware install."
     },
-    "resetBMC": {
-      "name": "resetBMC",
-      "description": "This action state indicates the BMC has been (conditionally) power cycled to complete a component firmware install."
+    "preInstallresetBMC": {
+      "name": "preInstallresetBMC",
+      "description": "This action state indicates the BMC has been power cycled as a pre-install step to make sure the BMC is in good health before proceeding."
     },
     "resetDevice": {
       "name": "resetDevice",
@@ -155,6 +169,10 @@
       "name": "pollingInstallStatus",
       "description": "In this action transition the component firmware install status is being polled until its in a finalized state (powerCycleDevice, powerCycleBMC, successful, failed)."
     },
+    "postInstallResettingBMC": {
+      "name": "postInstallResettingBMC",
+      "description": "In this action transition the BMC is being power-cycled - if the component firmware install status requires a BMC reset to proceed/complete."
+    },
     "poweringOffDevice": {
       "name": "poweringOffDevice",
       "description": "In this action transition the Device will be powered-off if the device was powered off when task started."
@@ -163,9 +181,9 @@
       "name": "poweringOnDevice",
       "description": "In this action transition the device is being powered on for a component firmware install - if it was powered-off."
     },
-    "resettingBMC": {
-      "name": "resettingBMC",
-      "description": "In this action transition the BMC is being power-cycled - if the component firmware install status requires a BMC reset to proceed/complete."
+    "preInstallResettingBMC": {
+      "name": "preInstallResettingBMC",
+      "description": "In this action transition the BMC is power cycled before attempting to install any firmware."
     },
     "resettingHost": {
       "name": "resettingHost",

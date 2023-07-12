@@ -70,18 +70,18 @@
       "description": "The initial state of the state machine. This is a synthetic state that is not actually part of the state machine. It appears in documentation when transition rules hold a single source state that is an empty string"
     },
     "pending": {
-      "name": "Queued",
-      "description": "In this state the task is being initialized (this is done outside of the state machine)."
+      "name": "Pending",
+      "description": "In this state the task is being initialized."
     },
     "succeeded": {
-      "name": "Success",
+      "name": "Succeeded",
       "description": "In this state the task execution has completed successfully."
     }
   },
   "transition_types": {
     "failed": {
       "name": "failed",
-      "description": "In this transition the task has failed and any post failure steps are being executed."
+      "description": "In this transition the task has failed and any post-failure steps are being executed."
     },
     "plan": {
       "name": "Plan",
@@ -97,7 +97,7 @@
     },
     "succeeded": {
       "name": "succeeded",
-      "description": "In this transition the task has completed successfully and any post failure steps are being executed."
+      "description": "In this transition the task has completed successfully and any post-success steps are executed."
     }
   }
 }

@@ -10,33 +10,36 @@ graph TD;
 	n1("checkedCurrentFirmware");
 	n3("downloadedFirmware");
 	n4("failed");
-	n7("initiatedInstallFirmware");
+	n8("initiatedInstallFirmware");
 	n5("pending");
-	n8("polledFirmwareInstallStatus");
-	n11("poweredOffDevice");
+	n9("polledFirmwareInstallStatus");
+	n10("postInstallResetBMC");
+	n12("poweredOffDevice");
 	n2("poweredOnDevice");
-	n9("resetBMC");
-	n10("resetDevice");
-	n12("succeeded");
+	n7("preInstallresetBMC");
+	n11("resetDevice");
+	n13("succeeded");
 	n6-->|"Failed"|n4;
 	n6-->|"Power on device"|n2;
 	n1-->|"Download and verify firmware"|n3;
 	n1-->|"Failed"|n4;
 	n3-->|"Failed"|n4;
-	n3-->|"Initiate firmware install"|n7;
-	n7-->|"Failed"|n4;
-	n7-->|"Poll firmware install status"|n8;
-	n5-->|"Failed"|n4;
+	n3-->|"Powercycle BMC before install"|n7;
 	n8-->|"Failed"|n4;
-	n8-->|"Powercycle BMC"|n9;
-	n11-->|"Failed"|n4;
-	n11-->|"Success"|n12;
+	n8-->|"Poll firmware install status"|n9;
+	n5-->|"Failed"|n4;
+	n9-->|"Failed"|n4;
+	n9-->|"Powercycle BMC"|n10;
+	n10-->|"Failed"|n4;
+	n10-->|"Powercycle Device"|n11;
+	n12-->|"Failed"|n4;
+	n12-->|"Success"|n13;
 	n2-->|"Check installed firmware"|n1;
 	n2-->|"Failed"|n4;
-	n9-->|"Failed"|n4;
-	n9-->|"Powercycle Device"|n10;
-	n10-->|"Failed"|n4;
-	n10-->|"Power off Device"|n11;
+	n7-->|"Failed"|n4;
+	n7-->|"Initiate firmware install"|n8;
+	n11-->|"Failed"|n4;
+	n11-->|"Power off Device"|n12;
 
 ```
 ## Task Action (sub-statemachine) transitions
@@ -49,9 +52,10 @@ graph TD;
 * [Initial](#initial)
 * [initiatedInstallFirmware](#initiatedinstallfirmware)
 * [polledFirmwareInstallStatus](#polledfirmwareinstallstatus)
+* [postInstallResetBMC](#postinstallresetbmc)
 * [poweredOffDevice](#poweredoffdevice)
 * [poweredOnDevice](#poweredondevice)
-* [resetBMC](#resetbmc)
+* [preInstallresetBMC](#preinstallresetbmc)
 * [resetDevice](#resetdevice)
 
 ### Transition Types
@@ -61,9 +65,10 @@ Transition types are the events that can cause a state transition
 * [downloadingFirmware](#downloadingfirmware)
 * [initiatingInstallFirmware](#initiatinginstallfirmware)
 * [pollingInstallStatus](#pollinginstallstatus)
+* [postInstallResettingBMC](#postinstallresettingbmc)
 * [poweringOffDevice](#poweringoffdevice)
 * [poweringOnDevice](#poweringondevice)
-* [resettingBMC](#resettingbmc)
+* [preInstallResettingBMC](#preinstallresettingbmc)
 * [resettingHost](#resettinghost)
 
 ### Transition Rules
@@ -74,9 +79,10 @@ Transition rules are the rules that define the required source states and condit
 * [Failed](#failed)
 * [Initiate firmware install](#initiate-firmware-install)
 * [Poll firmware install status](#poll-firmware-install-status)
+* [Powercycle BMC](#powercycle-bmc)
 * [Power off Device](#power-off-device)
 * [Power on device](#power-on-device)
-* [Powercycle BMC](#powercycle-bmc)
+* [Powercycle BMC before install](#powercycle-bmc-before-install)
 * [Powercycle Device](#powercycle-device)
 * [Success](#success)
 
@@ -107,7 +113,7 @@ This action state indicates the component firmware to be installed has been down
 
 #### Transition types where this is the source state
 * [null](#null)
-* [initiatingInstallFirmware](#initiatinginstallfirmware)
+* [preInstallResettingBMC](#preinstallresettingbmc)
 
 #### Transition types where this is the destination state
 * [downloadingFirmware](#downloadingfirmware)
@@ -116,7 +122,7 @@ This action state indicates the component firmware to be installed has been down
 ![source_downloadedFirmware](./media-action-sm/source_downloadedFirmware.svg)
 
 * [Failed](#failed)
-* [Initiate firmware install](#initiate-firmware-install)
+* [Powercycle BMC before install](#powercycle-bmc-before-install)
 
 #### Transition rules where this is the destination state
 ![destination_downloadedFirmware](./media-action-sm/destination_downloadedFirmware.svg)
@@ -164,7 +170,7 @@ This action state indicates the component firmware install status is in a finali
 
 #### Transition types where this is the source state
 * [null](#null)
-* [resettingBMC](#resettingbmc)
+* [postInstallResettingBMC](#postinstallresettingbmc)
 
 #### Transition types where this is the destination state
 * [pollingInstallStatus](#pollinginstallstatus)
@@ -179,6 +185,27 @@ This action state indicates the component firmware install status is in a finali
 ![destination_polledFirmwareInstallStatus](./media-action-sm/destination_polledFirmwareInstallStatus.svg)
 
 * [Poll firmware install status](#poll-firmware-install-status)
+
+### postInstallResetBMC
+This action state indicates the BMC has been power cycled as a post-install step to complete a component firmware install.
+
+#### Transition types where this is the source state
+* [null](#null)
+* [resettingHost](#resettinghost)
+
+#### Transition types where this is the destination state
+* [postInstallResettingBMC](#postinstallresettingbmc)
+
+#### Transition rules where this is the source state
+![source_postInstallResetBMC](./media-action-sm/source_postInstallResetBMC.svg)
+
+* [Failed](#failed)
+* [Powercycle Device](#powercycle-device)
+
+#### Transition rules where this is the destination state
+![destination_postInstallResetBMC](./media-action-sm/destination_postInstallResetBMC.svg)
+
+* [Powercycle BMC](#powercycle-bmc)
 
 ### poweredOffDevice
 This action state indicates the Device has been (conditionally) power off to complete a component firmware install.
@@ -222,26 +249,26 @@ This action state indicates the device has been (conditionally) powered on for a
 
 * [Power on device](#power-on-device)
 
-### resetBMC
-This action state indicates the BMC has been (conditionally) power cycled to complete a component firmware install.
+### preInstallresetBMC
+This action state indicates the BMC has been power cycled as a pre-install step to make sure the BMC is in good health before proceeding.
 
 #### Transition types where this is the source state
 * [null](#null)
-* [resettingHost](#resettinghost)
+* [initiatingInstallFirmware](#initiatinginstallfirmware)
 
 #### Transition types where this is the destination state
-* [resettingBMC](#resettingbmc)
+* [preInstallResettingBMC](#preinstallresettingbmc)
 
 #### Transition rules where this is the source state
-![source_resetBMC](./media-action-sm/source_resetBMC.svg)
+![source_preInstallresetBMC](./media-action-sm/source_preInstallresetBMC.svg)
 
 * [Failed](#failed)
-* [Powercycle Device](#powercycle-device)
+* [Initiate firmware install](#initiate-firmware-install)
 
 #### Transition rules where this is the destination state
-![destination_resetBMC](./media-action-sm/destination_resetBMC.svg)
+![destination_preInstallresetBMC](./media-action-sm/destination_preInstallresetBMC.svg)
 
-* [Powercycle BMC](#powercycle-bmc)
+* [Powercycle BMC before install](#powercycle-bmc-before-install)
 
 ### resetDevice
 This action state indicates the Device has been (conditionally) power cycled to complete a component firmware install.
@@ -296,7 +323,7 @@ In this action transition the component firmware to be installed is being downlo
 In this action transition the component firmware to be installed is being uploaded to the device and the component firmware install is being initated.
 
 #### Source states where this transition type applies
-* [downloadedFirmware](#downloadedfirmware)
+* [preInstallresetBMC](#preinstallresetbmc)
 
 #### Destination states where this transition type applies
 * [initiatedInstallFirmware](#initiatedinstallfirmware)
@@ -316,6 +343,18 @@ In this action transition the component firmware install status is being polled 
 ![transition_type_pollingInstallStatus](./media-action-sm/transition_type_pollingInstallStatus.svg)
 
 * [Poll firmware install status](#poll-firmware-install-status)
+### postInstallResettingBMC
+In this action transition the BMC is being power-cycled - if the component firmware install status requires a BMC reset to proceed/complete.
+
+#### Source states where this transition type applies
+* [polledFirmwareInstallStatus](#polledfirmwareinstallstatus)
+
+#### Destination states where this transition type applies
+* [postInstallResetBMC](#postinstallresetbmc)
+#### Transition rules using this transition type
+![transition_type_postInstallResettingBMC](./media-action-sm/transition_type_postInstallResettingBMC.svg)
+
+* [Powercycle BMC](#powercycle-bmc)
 ### poweringOffDevice
 In this action transition the Device will be powered-off if the device was powered off when task started.
 
@@ -340,23 +379,23 @@ In this action transition the device is being powered on for a component firmwar
 ![transition_type_poweringOnDevice](./media-action-sm/transition_type_poweringOnDevice.svg)
 
 * [Power on device](#power-on-device)
-### resettingBMC
-In this action transition the BMC is being power-cycled - if the component firmware install status requires a BMC reset to proceed/complete.
+### preInstallResettingBMC
+In this action transition the BMC is power cycled before attempting to install any firmware.
 
 #### Source states where this transition type applies
-* [polledFirmwareInstallStatus](#polledfirmwareinstallstatus)
+* [downloadedFirmware](#downloadedfirmware)
 
 #### Destination states where this transition type applies
-* [resetBMC](#resetbmc)
+* [preInstallresetBMC](#preinstallresetbmc)
 #### Transition rules using this transition type
-![transition_type_resettingBMC](./media-action-sm/transition_type_resettingBMC.svg)
+![transition_type_preInstallResettingBMC](./media-action-sm/transition_type_preInstallResettingBMC.svg)
 
-* [Powercycle BMC](#powercycle-bmc)
+* [Powercycle BMC before install](#powercycle-bmc-before-install)
 ### resettingHost
 In this action transition the Device will be power-cycled if the component firmware install status requires a Device reset to proceed/complete.
 
 #### Source states where this transition type applies
-* [resetBMC](#resetbmc)
+* [postInstallResetBMC](#postinstallresetbmc)
 
 #### Destination states where this transition type applies
 * [resetDevice](#resetdevice)
@@ -395,9 +434,10 @@ Firmware install on component failed.
 * [poweredOnDevice](#poweredondevice)
 * [checkedCurrentFirmware](#checkedcurrentfirmware)
 * [downloadedFirmware](#downloadedfirmware)
+* [preInstallresetBMC](#preinstallresetbmc)
 * [initiatedInstallFirmware](#initiatedinstallfirmware)
 * [polledFirmwareInstallStatus](#polledfirmwareinstallstatus)
-* [resetBMC](#resetbmc)
+* [postInstallResetBMC](#postinstallresetbmc)
 * [resetDevice](#resetdevice)
 * [poweredOffDevice](#poweredoffdevice)
 
@@ -408,7 +448,7 @@ Firmware install on component failed.
 Initiate firmware install for component.
 
 #### Source states
-* [downloadedFirmware](#downloadedfirmware)
+* [preInstallresetBMC](#preinstallresetbmc)
 
 #### Destination state
 [initiatedInstallFirmware](#initiatedinstallfirmware)
@@ -421,6 +461,15 @@ Poll BMC with exponential backoff for firmware install status until firmware ins
 
 #### Destination state
 [polledFirmwareInstallStatus](#polledfirmwareinstallstatus)
+
+### Powercycle BMC
+Powercycle BMC - only when pollFirmwareInstallStatus() identifies a BMC reset is required.
+
+#### Source states
+* [polledFirmwareInstallStatus](#polledfirmwareinstallstatus)
+
+#### Destination state
+[postInstallResetBMC](#postinstallresetbmc)
 
 ### Power off Device
 Powercycle Device - only if this is the final firmware (action statemachine) to be installed and the device was powered off earlier.
@@ -440,20 +489,20 @@ Power on device - if its currently powered off.
 #### Destination state
 [poweredOnDevice](#poweredondevice)
 
-### Powercycle BMC
-Powercycle BMC - only when pollFirmwareInstallStatus() identifies a BMC reset is required.
+### Powercycle BMC before install
+Powercycle BMC before installing any firmware as a precaution.
 
 #### Source states
-* [polledFirmwareInstallStatus](#polledfirmwareinstallstatus)
+* [downloadedFirmware](#downloadedfirmware)
 
 #### Destination state
-[resetBMC](#resetbmc)
+[preInstallresetBMC](#preinstallresetbmc)
 
 ### Powercycle Device
 Powercycle Device - only when pollFirmwareInstallStatus() identifies a Device power cycle is required.
 
 #### Source states
-* [resetBMC](#resetbmc)
+* [postInstallResetBMC](#postinstallresetbmc)
 
 #### Destination state
 [resetDevice](#resetdevice)
