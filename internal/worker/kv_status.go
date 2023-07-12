@@ -7,11 +7,13 @@ import (
 	"time"
 
 	cotyp "github.com/metal-toolbox/conditionorc/pkg/types"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/types"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.hollow.sh/toolbox/events"
@@ -57,6 +59,15 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 	}
 
 	if err != nil {
+		metrics.NATSError("publish-condition-status")
+		span.AddEvent("status publish failure",
+			trace.WithAttributes(
+				attribute.String("workerID", hCtx.WorkerID.String()),
+				attribute.String("serverID", hCtx.Asset.ID.String()),
+				attribute.String("conditionID", hCtx.Task.ID.String()),
+				attribute.String("error", err.Error()),
+			),
+		)
 		s.log.WithError(err).WithFields(logrus.Fields{
 			"assetID":           hCtx.Asset.ID.String(),
 			"assetFacilityCode": hCtx.Asset.FacilityCode,

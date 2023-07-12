@@ -31,6 +31,8 @@ var (
 	UploadRunTimeSummary   *prometheus.SummaryVec
 
 	StoreQueryErrorCount *prometheus.CounterVec
+
+	NATSErrors *prometheus.CounterVec
 )
 
 func init() {
@@ -89,6 +91,14 @@ func init() {
 		},
 		[]string{"storeKind", "queryKind"},
 	)
+
+	NATSErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "flasher_nats_errors",
+			Help: "A count of errors while trying to use NATS.",
+		},
+		[]string{"operation"},
+	)
 }
 
 // ListenAndServeMetrics exposes prometheus metrics as /metrics
@@ -117,4 +127,8 @@ func RegisterSpanEvent(span trace.Span, condition *cptypes.Condition, workerID, 
 		attribute.String("conditionID", condition.ID.String()),
 		attribute.String("conditionKind", string(condition.Kind)),
 	))
+}
+
+func NATSError(op string) {
+	NATSErrors.WithLabelValues(op).Inc()
 }
