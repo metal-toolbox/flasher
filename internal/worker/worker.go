@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -506,14 +504,6 @@ func newTaskFromCondition(condition *cptypes.Condition, faultInjection bool) (*m
 	}
 
 	return &task, nil
-}
-
-func sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
-	sort.Slice(firmwares, func(i, j int) bool {
-		slugi := strings.ToLower(firmwares[i].Component)
-		slugj := strings.ToLower(firmwares[j].Component)
-		return model.FirmwareInstallOrder[slugi] < model.FirmwareInstallOrder[slugj]
-	})
 }
 
 // statusEmitter implements the statemachine.Publisher interface
