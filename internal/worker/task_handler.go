@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/bmc-toolbox/common"
@@ -271,6 +273,8 @@ func (h *taskHandler) planInstall(_ *sm.HandlerContext, task *model.Task, firmwa
 	// final is set to true in the final action
 	var final bool
 
+	sortFirmwareByInstallOrder(firmwares)
+
 	// each firmware applicable results in an ActionPlan and an Action
 	for idx, firmware := range firmwares {
 		// set final bool when its the last firmware in the slice
@@ -324,4 +328,12 @@ func (h *taskHandler) planInstall(_ *sm.HandlerContext, task *model.Task, firmwa
 	}
 
 	return actionMachines, actions, nil
+}
+
+func sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
+	sort.Slice(firmwares, func(i, j int) bool {
+		slugi := strings.ToLower(firmwares[i].Component)
+		slugj := strings.ToLower(firmwares[j].Component)
+		return model.FirmwareInstallOrder[slugi] < model.FirmwareInstallOrder[slugj]
+	})
 }
