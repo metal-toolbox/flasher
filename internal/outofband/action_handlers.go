@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
 	"github.com/hashicorp/go-multierror"
 	"github.com/metal-toolbox/flasher/internal/metrics"
@@ -438,6 +439,21 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 
 		// return nil when install is complete
 		case model.StatusInstallComplete:
+			if strings.EqualFold(action.Firmware.Component, common.SlugBMC) {
+				tctx.Logger.WithFields(
+					logrus.Fields{
+						"bmc":   tctx.Asset.BmcAddress,
+						"delay": delayBMCReset.String(),
+					}).Debug("BMC firmware install completed, added delay to allow the BMC to complete its update process..")
+
+				if err := sleepWithContext(tctx.Ctx, delayBMCReset); err != nil {
+					return errors.Wrap(
+						ErrFirmwareInstallFailed,
+						err.Error(),
+					)
+				}
+			}
+
 			return nil
 
 		default:
