@@ -16,6 +16,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
+	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -149,10 +150,17 @@ Loop:
 func (o *Worker) processEvents(ctx context.Context) {
 	// XXX: consider having a separate context for message retrieval
 	msgs, err := o.stream.PullMsg(ctx, 1)
-	if err != nil {
+	switch {
+	case err == nil:
+	case errors.Is(err, nats.ErrTimeout):
 		o.logger.WithFields(
 			logrus.Fields{"err": err.Error()},
 		).Trace("no new events")
+	default:
+		o.logger.WithFields(
+			logrus.Fields{"err": err.Error()},
+		).Warn("retrieving new messages")
+		metrics.NATSError("pull-msg")
 	}
 
 	for _, msg := range msgs {
@@ -182,18 +190,21 @@ func (o *Worker) concurrencyLimit() bool {
 
 func (o *Worker) eventAckInProgress(event events.Message) {
 	if err := event.InProgress(); err != nil {
+		metrics.NATSError("ack-in-progress")
 		o.logger.WithError(err).Warn("event Ack Inprogress error")
 	}
 }
 
 func (o *Worker) eventAckComplete(event events.Message) {
 	if err := event.Ack(); err != nil {
+		metrics.NATSError("ack")
 		o.logger.WithError(err).Warn("event Ack error")
 	}
 }
 
 func (o *Worker) eventNak(event events.Message) {
 	if err := event.Nak(); err != nil {
+		metrics.NATSError("nak")
 		o.logger.WithError(err).Warn("event Nak error")
 	}
 }
