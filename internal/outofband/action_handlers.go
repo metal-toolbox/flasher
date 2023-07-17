@@ -191,6 +191,14 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 
 	component := components.BySlugVendorModel(action.Firmware.Component, action.Firmware.Vendor, action.Firmware.Models)
 	if component == nil {
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"component": action.Firmware.Component,
+				"vendor":    action.Firmware.Vendor,
+				"models":    action.Firmware.Models,
+				"err":       ErrComponentNotFound,
+			}).Error("none matched given slug, vendor, model attributes")
+
 		return errors.Wrap(ErrComponentNotFound, "no match based on given slug, vendor, model attributes")
 	}
 
