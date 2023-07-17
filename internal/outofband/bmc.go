@@ -29,7 +29,7 @@ var (
 	loginAttempts = 3
 
 	// firmwareInstallTimeout is set on the context when invoking the firmware install method
-	firmwareInstallTimeout = 15 * time.Minute
+	firmwareInstallTimeout = 20 * time.Minute
 
 	// login errors
 	errBMCLogin             = errors.New("bmc login error")

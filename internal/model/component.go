@@ -144,7 +144,7 @@ func (cc *ComponentConverter) newComponent(slug, cvendor, cmodel, cserial string
 
 	return &Component{
 		Vendor: common.FormatVendorName(cvendor),
-		Model:  cmodel,
+		Model:  common.FormatProductName(cmodel),
 		Serial: cserial,
 		Slug:   slug,
 	}, nil
