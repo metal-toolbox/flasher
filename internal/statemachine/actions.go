@@ -11,6 +11,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -166,6 +167,13 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		startTS := time.Now()
 
 		// publish task action running
+		tctx.Logger.WithFields(logrus.Fields{
+			"action":    action.ID,
+			"condition": action.TaskID,
+			"component": action.Firmware.Component,
+			"version":   action.Firmware.Version,
+		}).Info("running action")
+
 		tctx.Task.Status = fmt.Sprintf(
 			"component: %s, running action: %s ",
 			action.Firmware.Component,
@@ -182,7 +190,13 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		}
 
 		err := a.sm.Run(transitionType, action, tctx)
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrNoAction) {
+			tctx.Logger.WithError(err).WithFields(logrus.Fields{
+				"action":    action.ID,
+				"condition": action.TaskID,
+				"component": action.Firmware.Component,
+				"version":   action.Firmware.Version,
+			}).Info("action error")
 			a.registerTransitionMetrics(startTS, action, string(transitionType), "failed")
 
 			// When the condition returns false, run the next transition
@@ -218,12 +232,24 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 
 		// publish task action completion
 		if action.Final {
+			tctx.Logger.WithFields(logrus.Fields{
+				"action":    action.ID,
+				"condition": action.TaskID,
+				"component": action.Firmware.Component,
+				"version":   action.Firmware.Version,
+			}).Info("final action complete")
 			tctx.Task.Status = fmt.Sprintf(
 				"component: %s, completed firmware install, version: %s",
 				action.Firmware.Component,
 				action.Firmware.Version,
 			)
 		} else {
+			tctx.Logger.WithFields(logrus.Fields{
+				"action":    action.ID,
+				"condition": action.TaskID,
+				"component": action.Firmware.Component,
+				"version":   action.Firmware.Version,
+			}).Info("action complete")
 			tctx.Task.Status = fmt.Sprintf(
 				"component: %s, completed action: %s ",
 				action.Firmware.Component,

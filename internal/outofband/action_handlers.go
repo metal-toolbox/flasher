@@ -197,10 +197,24 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 				"vendor":    action.Firmware.Vendor,
 				"models":    action.Firmware.Models,
 				"err":       ErrComponentNotFound,
-			}).Error("none matched given slug, vendor, model attributes")
+			}).Error("no component found for given component/vendor/model")
 
-		return errors.Wrap(ErrComponentNotFound, "no match based on given slug, vendor, model attributes")
+		return errors.Wrap(ErrComponentNotFound,
+			fmt.Sprintf("component: %s, vendor: %s, model: %s", action.Firmware.Component,
+				action.Firmware.Vendor,
+				action.Firmware.Models,
+			),
+		)
 	}
+
+	tctx.Logger.WithFields(
+		logrus.Fields{
+			"component":        component.Slug,
+			"vendor":           component.Vendor,
+			"model":            component.Model,
+			"serial":           component.Serial,
+			"firmware.version": component.FirmwareInstalled,
+		}).Debug("found component")
 
 	if component.FirmwareInstalled == "" {
 		return errors.Wrap(ErrInstalledVersionUnknown, "set TaskParameters.Force=true to skip this check")
@@ -210,14 +224,15 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 	if equal {
 		tctx.Logger.WithFields(
 			logrus.Fields{
-				"component":        action.Firmware.Component,
-				"vendor":           action.Firmware.Vendor,
-				"models":           action.Firmware.Models,
-				"expectedVersion":  action.Firmware.Version,
-				"installedVersion": component.FirmwareInstalled,
-			}).Error("Installed firmware version equals expected - set TaskParameters.Force=true to disable this check")
+				"action id":       action.ID,
+				"condition id":    action.TaskID,
+				"component":       action.Firmware.Component,
+				"vendor":          action.Firmware.Vendor,
+				"models":          action.Firmware.Models,
+				"expectedVersion": action.Firmware.Version,
+			}).Info("Installed firmware version equals expected - set TaskParameters.Force=true to disable this check")
 
-		return ErrInstalledFirmwareEqual
+		return sm.ErrNoAction
 	}
 
 	return nil
