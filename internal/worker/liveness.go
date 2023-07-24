@@ -9,7 +9,9 @@ import (
 	"go.hollow.sh/toolbox/events/pkg/kv"
 	"go.hollow.sh/toolbox/events/registry"
 
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/nats-io/nats.go"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -38,6 +40,7 @@ func (w *Worker) startWorkerLivenessCheckin(ctx context.Context) {
 		}
 
 		if err := registry.InitializeRegistryWithOptions(natsJS, opts...); err != nil {
+			metrics.NATSError("initialize liveness registry")
 			w.logger.WithError(err).Error("unable to initialize active worker registry")
 			return
 		}
@@ -59,22 +62,35 @@ func (w *Worker) checkinRoutine(ctx context.Context) {
 		select {
 		case <-tick.C:
 			err := registry.ControllerCheckin(w.id)
-			switch err {
-			case nil:
-			case nats.ErrKeyNotFound: // generally means NATS reaped our entry on TTL
-				if err = registry.RegisterController(w.id); err != nil {
-					w.logger.WithError(err).
-						WithField("id", w.id.String()).
-						Warn("unable to re-register worker")
-				}
-			default:
+			if err != nil {
 				w.logger.WithError(err).
 					WithField("id", w.id.String()).
 					Warn("worker checkin failed")
+				metrics.NATSError("liveness checkin")
+				if err = refreshWorkerToken(w.id); err != nil {
+					w.logger.WithError(err).
+						WithField("id", w.id.String()).
+						Fatal("unable to refresh worker liveness token")
+				}
 			}
 		case <-ctx.Done():
 			w.logger.Info("liveness check-in stopping on done context")
 			stop = true
 		}
 	}
+}
+
+// try to de-register/re-register this id.
+func refreshWorkerToken(id registry.ControllerID) error {
+	err := registry.DeregisterController(id)
+	if err != nil && !errors.Is(err, nats.ErrKeyNotFound) {
+		metrics.NATSError("liveness refresh: de-register")
+		return err
+	}
+	err = registry.RegisterController(id)
+	if err != nil {
+		metrics.NATSError("liveness referesh: register")
+		return err
+	}
+	return nil
 }
