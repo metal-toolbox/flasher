@@ -168,7 +168,7 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 				logrus.Fields{
 					"attempt": attemptstr,
 					"err":     err,
-				}).Trace("bmc login error")
+				}).Debug("bmc login error")
 
 			// return if attempts match tries
 			if attempts >= tries {
@@ -180,7 +180,7 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 					err = multierror.Append(errBMCLoginUnAuthorized, err)
 				}
 
-				return errors.Wrapf(errBMCLogin, "attempts: %s", attemptstr)
+				return errors.Wrapf(errBMCLogin, "attempts: %s, last error: %s", attemptstr, err.Error())
 			}
 
 			attempts++
