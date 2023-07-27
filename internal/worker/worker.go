@@ -14,6 +14,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
+	"github.com/metal-toolbox/flasher/internal/version"
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -116,8 +117,12 @@ func (o *Worker) Run(ctx context.Context) {
 
 	o.startWorkerLivenessCheckin(ctx)
 
+	v := version.Current()
 	o.logger.WithFields(
 		logrus.Fields{
+			"version":         v.AppVersion,
+			"commit":          v.GitCommit,
+			"branch":          v.GitBranch,
 			"replica-count":   o.replicaCount,
 			"concurrency":     o.concurrency,
 			"dry-run":         o.dryrun,

@@ -86,27 +86,7 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 	}
 }
 
-func (h *taskHandler) ValidatePlan(t sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return false, sm.ErrInvalidtaskHandlerContext
-	}
-
-	task, ok := t.(*model.Task)
-	if !ok {
-		return false, errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
-	}
-
-	// validate task has action plans listed
-	if len(task.ActionsPlanned) == 0 {
-		return false, errors.Wrap(errTaskPlanValidate, "no task actions planned")
-	}
-
-	// validate task context has action statemachines for execution
-	if len(tctx.ActionStateMachines) == 0 {
-		return false, errors.Wrap(errTaskPlanValidate, "task action plan empty")
-	}
-
+func (h *taskHandler) ValidatePlan(_ sw.StateSwitch, _ sw.TransitionArgs) (bool, error) {
 	return true, nil
 }
 
@@ -131,6 +111,10 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
+	tctx.Logger.WithFields(logrus.Fields{
+		"condition.id": tctx.Task.ID.String(),
+		"worker.id":    tctx.WorkerID.String(),
+	}).Debug("running action state machines")
 	// each actionSM (state machine) corresponds to a firmware to be installed
 	for _, actionSM := range tctx.ActionStateMachines {
 		startTS := time.Now()
@@ -162,6 +146,10 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		h.registerActionMetrics(startTS, action, string(cptypes.Succeeded))
 	}
 
+	tctx.Logger.WithFields(logrus.Fields{
+		"condition.id": tctx.Task.ID.String(),
+		"worker.id":    tctx.WorkerID.String(),
+	}).Debug("finished action state machines")
 	return nil
 }
 
@@ -214,7 +202,8 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 	}
 
 	if len(applicable) == 0 {
-		return errors.Wrap(errTaskPlanActions, "planFromFirmwareSet(): no applicable firmware identified")
+		// XXX: why not just short-circuit success here on the GIGO theory?
+		return errors.Wrap(errTaskPlanActions, "planFromFirmwareSet(): firmware set lacks any members")
 	}
 
 	// plan actions based and update task action list
@@ -266,23 +255,32 @@ func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func (h *taskHandler) planInstall(_ *sm.HandlerContext, task *model.Task, firmwares []*model.Firmware) (sm.ActionStateMachines, model.Actions, error) {
+func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, firmwares []*model.Firmware) (sm.ActionStateMachines, model.Actions, error) {
 	actionMachines := make(sm.ActionStateMachines, 0)
 	actions := make(model.Actions, 0)
 
 	// final is set to true in the final action
 	var final bool
 
-	sortFirmwareByInstallOrder(firmwares)
+	toInstall := firmwares
+	if !task.Parameters.ForceInstall {
+		toInstall = removeFirmwareAlreadyAtDesiredVersion(hCtx, firmwares)
+	}
 
+	if len(toInstall) == 0 {
+		hCtx.Logger.WithFields(logrus.Fields{
+			"condition.id": task.ID,
+			"worker.id":    hCtx.WorkerID.String(),
+			"server.id":    hCtx.Asset.ID.String(),
+		}).Info("no action required for this task")
+		return actionMachines, actions, nil
+	}
+
+	sortFirmwareByInstallOrder(toInstall)
 	// each firmware applicable results in an ActionPlan and an Action
-	for idx, firmware := range firmwares {
+	for idx, firmware := range toInstall {
 		// set final bool when its the last firmware in the slice
-		if len(firmwares) > 1 {
-			final = (idx == len(firmwares)-1)
-		} else {
-			final = true
-		}
+		final = (idx == len(toInstall)-1)
 
 		// generate an action ID
 		actionID := sm.ActionID(task.ID.String(), firmware.Component, idx)
@@ -336,4 +334,42 @@ func sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
 		slugj := strings.ToLower(firmwares[j].Component)
 		return model.FirmwareInstallOrder[slugi] < model.FirmwareInstallOrder[slugj]
 	})
+}
+
+func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model.Firmware) []*model.Firmware {
+	var toInstall []*model.Firmware
+
+	// only iterate the inventory once
+	invMap := make(map[string]string)
+	for _, cmp := range hCtx.Asset.Components {
+		invMap[strings.ToLower(cmp.Slug)] = cmp.FirmwareInstalled
+	}
+
+	// XXX: this will drop firmware for components that are specified in
+	// the firmware set but not in the inventory. This is consistent with the
+	// desire of users to not require a force or a re-run to accomplish an
+	// attainable goal.
+	for _, fw := range fws {
+		currentVersion, ok := invMap[strings.ToLower(fw.Component)]
+		switch {
+		case !ok:
+			hCtx.Logger.WithFields(logrus.Fields{
+				"condition.id": hCtx.Task.ID,
+				"worker.id":    hCtx.WorkerID.String(),
+				"component":    fw.Component,
+				"server.id":    hCtx.Asset.ID.String(),
+			}).Warn("inventory missing component")
+		case currentVersion == fw.Version:
+			hCtx.Logger.WithFields(logrus.Fields{
+				"condition.id": hCtx.Task.ID,
+				"worker.id":    hCtx.WorkerID.String(),
+				"component":    fw.Component,
+				"server.id":    hCtx.Asset.ID.String(),
+				"version":      fw.Version,
+			}).Debug("inventory firmware version matches set")
+		default:
+			toInstall = append(toInstall, fw)
+		}
+	}
+	return toInstall
 }
