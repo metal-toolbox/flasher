@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -22,7 +23,6 @@ var (
 	ErrTaskTypeAssertion  = errors.New("error asserting Task type")
 	errTaskQueryInventory = errors.New("error in task query inventory for installed firmware")
 	errTaskPlanActions    = errors.New("error in task action planning")
-	errTaskPlanValidate   = errors.New("error in task plan validation")
 )
 
 // taskHandler implements the taskTransitionHandler methods
@@ -44,10 +44,10 @@ func (h *taskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
 		return errors.Wrap(errTaskQueryInventory, ErrTaskTypeAssertion.Error())
 	}
 
-	// asset has component inventory
-	if len(tctx.Asset.Components) > 0 {
-		return nil
-	}
+	tctx.Logger.WithFields(logrus.Fields{
+		"condition.id": tctx.Task.ID.String(),
+		"worker.id":    tctx.WorkerID.String(),
+	}).Debug("run query step")
 
 	// attempt to fetch component inventory from the device
 	components, err := h.queryFromDevice(tctx)
@@ -76,6 +76,10 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
+	tctx.Logger.WithFields(logrus.Fields{
+		"condition.id": tctx.Task.ID.String(),
+		"worker.id":    tctx.WorkerID.String(),
+	}).Debug("create the plan")
 	switch task.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
 		return h.planFromFirmwareSet(tctx, task)
@@ -86,7 +90,13 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 	}
 }
 
-func (h *taskHandler) ValidatePlan(_ sw.StateSwitch, _ sw.TransitionArgs) (bool, error) {
+func (h *taskHandler) ValidatePlan(_ sw.StateSwitch, args sw.TransitionArgs) (bool, error) {
+	tctx := args.(*sm.HandlerContext)
+
+	tctx.Logger.WithFields(logrus.Fields{
+		"condition.id": tctx.Task.ID.String(),
+		"worker.id":    tctx.WorkerID.String(),
+	}).Debug("validate the plan")
 	return true, nil
 }
 
@@ -114,9 +124,14 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx.Logger.WithFields(logrus.Fields{
 		"condition.id": tctx.Task.ID.String(),
 		"worker.id":    tctx.WorkerID.String(),
-	}).Debug("running action state machines")
+	}).Debug("running the plan")
 	// each actionSM (state machine) corresponds to a firmware to be installed
 	for _, actionSM := range tctx.ActionStateMachines {
+		tctx.Logger.WithFields(logrus.Fields{
+			"condition.id":     tctx.Task.ID.String(),
+			"worker.id":        tctx.WorkerID.String(),
+			"state.machine.id": actionSM.ActionID(),
+		}).Debug("state machine start")
 		startTS := time.Now()
 
 		// fetch action attributes from task
@@ -144,12 +159,17 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		}
 
 		h.registerActionMetrics(startTS, action, string(cptypes.Succeeded))
+		tctx.Logger.WithFields(logrus.Fields{
+			"condition.id":     tctx.Task.ID.String(),
+			"worker.id":        tctx.WorkerID.String(),
+			"state.machine.id": actionSM.ActionID(),
+		}).Debug("state machine end")
 	}
 
 	tctx.Logger.WithFields(logrus.Fields{
 		"condition.id": tctx.Task.ID.String(),
 		"worker.id":    tctx.WorkerID.String(),
-	}).Debug("finished action state machines")
+	}).Debug("plan finished")
 	return nil
 }
 
@@ -262,6 +282,10 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 	// final is set to true in the final action
 	var final bool
 
+	hCtx.Logger.WithFields(logrus.Fields{
+		"condition.id":             task.ID,
+		"requested.firmware.count": fmt.Sprintf("%d", len(firmwares)),
+	}).Info("checking against current inventory")
 	toInstall := firmwares
 	if !task.Parameters.ForceInstall {
 		toInstall = removeFirmwareAlreadyAtDesiredVersion(hCtx, firmwares)
@@ -368,6 +392,14 @@ func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model
 				"version":      fw.Version,
 			}).Debug("inventory firmware version matches set")
 		default:
+			hCtx.Logger.WithFields(logrus.Fields{
+				"condition.id":      hCtx.Task.ID,
+				"worker.id":         hCtx.WorkerID.String(),
+				"component":         fw.Component,
+				"server.id":         hCtx.Asset.ID.String(),
+				"installed.version": currentVersion,
+				"mandated.version":  fw.Version,
+			}).Debug("firmware queued for install")
 			toInstall = append(toInstall, fw)
 		}
 	}
