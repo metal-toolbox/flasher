@@ -31,11 +31,6 @@ var (
 	ErrInvalidtaskHandlerContext = errors.New("expected a HandlerContext{} type")
 	ErrTaskTransition            = errors.New("error in task transition")
 	errConditionFault            = errors.New("condition induced fault")
-	// ErrNoAction means we can stop running this state-machine, but the outcome is not an error
-	// and further transitions can be made. For example, when a firmware version is equal to the
-	// desired, we want to stop trying to install this firmware, but others in the set might need
-	// to be installed.
-	ErrNoAction = errors.New("nothing more to do")
 )
 
 // Publisher defines methods to publish task information.

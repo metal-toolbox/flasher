@@ -190,7 +190,7 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		}
 
 		err := a.sm.Run(transitionType, action, tctx)
-		if err != nil && !errors.Is(err, ErrNoAction) {
+		if err != nil {
 			tctx.Logger.WithError(err).WithFields(logrus.Fields{
 				"action":    action.ID,
 				"condition": action.TaskID,

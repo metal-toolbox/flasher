@@ -198,7 +198,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		dq.EXPECT().Inventory(gomock.Any()).Times(1).Return(&dev, nil)
 		err := hPtr.checkCurrentFirmware(act, ctx)
 		require.Error(t, err)
-		require.ErrorIs(t, err, sm.ErrNoAction)
+		require.ErrorIs(t, err, ErrInstalledFirmwareEqual)
 	})
 	t.Run("installed version does not match", func(t *testing.T) {
 		t.Parallel()

@@ -150,12 +150,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
-		switch {
-		case err == nil:
-			break
-		case errors.Is(err, sm.ErrNoAction):
-			break
-		default:
+		if err != nil {
 			h.registerActionMetrics(startTS, action, string(cptypes.Failed))
 
 			return errors.Wrap(
