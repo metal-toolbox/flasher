@@ -401,8 +401,8 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 		FacilityCode: o.facilityCode,
 		Logger: l.WithFields(
 			logrus.Fields{
-				"workerID":    o.id,
-				"conditionID": task.ID,
+				"workerID":    o.id.String(),
+				"conditionID": task.ID.String(),
 				"assetID":     asset.ID.String(),
 				"bmc":         asset.BmcAddress.String(),
 			},

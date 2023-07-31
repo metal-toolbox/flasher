@@ -104,9 +104,6 @@ type TaskTransitioner interface {
 	// Plan creates a set of task actions to be executed.
 	Plan(task sw.StateSwitch, args sw.TransitionArgs) error
 
-	// ValidatePlan is called before invoking Run.
-	ValidatePlan(task sw.StateSwitch, args sw.TransitionArgs) (bool, error)
-
 	// Run executes the task actions.
 	Run(task sw.StateSwitch, args sw.TransitionArgs) error
 
@@ -194,7 +191,7 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 		TransitionType:   TransitionTypeRun,
 		SourceStates:     sw.States{model.StateActive},
 		DestinationState: model.StateSucceeded,
-		Condition:        handler.ValidatePlan,
+		Condition:        nil,
 		Transition:       handler.Run,
 		PostTransition:   handler.PublishStatus,
 		Documentation: sw.TransitionRuleDoc{
