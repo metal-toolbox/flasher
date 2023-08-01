@@ -30,7 +30,7 @@ endif
 		"-X $(LDFLAG_LOCATION).GitCommit=$(GIT_COMMIT) \
          -X $(LDFLAG_LOCATION).GitBranch=$(GIT_BRANCH) \
          -X $(LDFLAG_LOCATION).GitSummary=$(GIT_SUMMARY) \
-         -X $(LDFLAG_LOCATION).Version=$(VERSION) \
+         -X $(LDFLAG_LOCATION).AppVersion=$(VERSION) \
          -X $(LDFLAG_LOCATION).BuildDate=$(BUILD_DATE)"
 
 
@@ -44,7 +44,7 @@ endif
 		"-X $(LDFLAG_LOCATION).GitCommit=$(GIT_COMMIT) \
          -X $(LDFLAG_LOCATION).GitBranch=$(GIT_BRANCH) \
          -X $(LDFLAG_LOCATION).GitSummary=$(GIT_SUMMARY) \
-         -X $(LDFLAG_LOCATION).Version=$(VERSION) \
+         -X $(LDFLAG_LOCATION).AppVersion=$(VERSION) \
          -X $(LDFLAG_LOCATION).BuildDate=$(BUILD_DATE)"
 
 

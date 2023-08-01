@@ -188,7 +188,7 @@ func transitionRules() []sw.TransitionRule {
 			PostTransition:   handler.PublishStatus,
 			Documentation: sw.TransitionRuleDoc{
 				Name:        "Check installed firmware",
-				Description: "Check firmware installed on component - if its equal - returns error, unless Task.Parameters.Force=true.",
+				Description: "Check firmware installed on component",
 			},
 		},
 		{
