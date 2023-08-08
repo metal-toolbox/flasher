@@ -21,6 +21,7 @@ var (
 
 	ErrDownload = errors.New("error downloading file")
 	ErrChecksum = errors.New("error validating file checksum")
+	ErrFormat   = errors.New("bad checksum format")
 )
 
 // download fetches the file into dst
@@ -65,23 +66,21 @@ func download(ctx context.Context, fileURL, dst string) error {
 }
 
 func checksumValidate(filename, checksum string) error {
-	errChecksumPrefix := errors.New("checksum prefix error")
-
 	// no checksum prefix, default to md5sum
 	if !strings.Contains(checksum, ":") {
 		return checksumValidateMD5(filename, checksum)
 	}
 
 	parts := strings.Split(checksum, ":")
-	if len(parts) < 2 {
-		return errors.Wrap(errChecksumPrefix, checksum)
+	if len(parts) != 2 {
+		return errors.Wrap(ErrFormat, "invalid checksum: "+checksum)
 	}
 
 	switch parts[0] {
 	case "md5sum":
-		return checksumValidateMD5(filename, checksum)
+		return checksumValidateMD5(filename, parts[1])
 	default:
-		return errors.Wrap(errChecksumPrefix, "unsupported checksum: "+parts[0])
+		return errors.Wrap(ErrFormat, "unsupported digest: "+parts[0])
 	}
 }
 
