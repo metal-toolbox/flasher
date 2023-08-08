@@ -269,10 +269,7 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 	}
 
 	// validate checksum
-	//
-	// This assumes the checksum is of type MD5
-	// it would be ideal if the firmware object indicated the type of checksum.
-	if err := checksumValidateMD5(file, action.Firmware.Checksum); err != nil {
+	if err := checksumValidate(file, action.Firmware.Checksum); err != nil {
 		os.RemoveAll(filepath.Dir(file))
 		return err
 	}
