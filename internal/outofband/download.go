@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
@@ -61,6 +62,27 @@ func download(ctx context.Context, fileURL, dst string) error {
 	_, err = io.Copy(fileHandle, resp.Body)
 
 	return err
+}
+
+func checksumValidate(filename, checksum string) error {
+	errChecksumPrefix := errors.New("checksum prefix error")
+
+	// no checksum prefix, default to md5sum
+	if !strings.Contains(checksum, ":") {
+		return checksumValidateMD5(filename, checksum)
+	}
+
+	parts := strings.Split(checksum, ":")
+	if len(parts) < 2 {
+		return errors.Wrap(errChecksumPrefix, checksum)
+	}
+
+	switch parts[0] {
+	case "md5sum":
+		return checksumValidateMD5(filename, checksum)
+	default:
+		return errors.Wrap(errChecksumPrefix, "unsupported checksum: "+parts[0])
+	}
 }
 
 // TODO: firmware-syncer needs to prefix firmware checksums values with the type of checksum
