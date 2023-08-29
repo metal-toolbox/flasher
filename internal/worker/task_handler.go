@@ -306,7 +306,7 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 			InstallMethod: model.InstallMethodOutofband,
 
 			// Firmware is the firmware to be installed
-			Firmware: *firmwares[idx],
+			Firmware: *firmware,
 
 			// VerifyCurrentFirmware is disabled when ForceInstall is true.
 			VerifyCurrentFirmware: !task.Parameters.ForceInstall,
