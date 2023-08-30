@@ -136,3 +136,63 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 	require.Equal(t, 1, len(got))
 	require.Equal(t, expected[0], got[0])
 }
+
+func TestPlanInstall(t *testing.T) {
+	t.Parallel()
+	fwSet := []*model.Firmware{
+		{
+			Version:   "5.10.00.00",
+			URL:       "https://downloads.dell.com/FOLDER06303849M/1/BMC_5_10_00_00.EXE",
+			FileName:  "BMC_5_10_00_00.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
+			Component: "bmc",
+		},
+		{
+			Version:   "2.19.6",
+			URL:       "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.19.6.EXE",
+			FileName:  "BIOS_C4FT0_WN64_2.19.6.EXE",
+			Models:    []string{"r6515"},
+			Checksum:  "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4",
+			Component: "bios",
+		},
+	}
+	serverID := uuid.MustParse("fa125199-e9dd-47d4-8667-ce1d26f58c4a")
+	taskID := uuid.MustParse("05c3296d-be5d-473a-b90c-4ce66cfdec65")
+	ctx := &sm.HandlerContext{
+		Logger: logrus.NewEntry(logrus.New()),
+		Asset: &model.Asset{
+			ID: serverID,
+			Components: model.Components{
+				{
+					Slug:              "BiOs",
+					FirmwareInstalled: "2.6.6",
+				},
+				{
+					Slug:              "bmc",
+					FirmwareInstalled: "5.10.00.00",
+				},
+			},
+		},
+		Task: &model.Task{
+			ID: taskID,
+		},
+		WorkerID: registry.GetID("test-app"),
+	}
+
+	h := &taskHandler{}
+
+	taskParam := &model.Task{
+		ID: uuid.MustParse("95ccb1c5-d807-4078-bb22-facc3045a49a"),
+		Parameters: model.TaskParameters{
+			AssetID: serverID,
+		},
+	}
+
+	sms, actions, err := h.planInstall(ctx, taskParam, fwSet)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(sms))
+	require.Equal(t, 1, len(actions))
+	require.True(t, actions[0].Final)
+	require.Equal(t, "bios", actions[0].Firmware.Component)
+}

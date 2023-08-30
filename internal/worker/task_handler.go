@@ -106,12 +106,13 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
-	tctx.Logger.Debug("running the plan")
+	tctx.Logger.WithField("plan.steps", len(tctx.ActionStateMachines)).Debug("running the plan")
 
 	// each actionSM (state machine) corresponds to a firmware to be installed
-	for _, actionSM := range tctx.ActionStateMachines {
+	for i, actionSM := range tctx.ActionStateMachines {
 		tctx.Logger.WithFields(logrus.Fields{
 			"statemachineID": actionSM.ActionID(),
+			"step":           i,
 		}).Debug("state machine start")
 		startTS := time.Now()
 
@@ -261,7 +262,7 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 	hCtx.Logger.WithFields(logrus.Fields{
 		"condition.id":             task.ID,
 		"requested.firmware.count": fmt.Sprintf("%d", len(firmwares)),
-	}).Info("checking against current inventory")
+	}).Debug("checking against current inventory")
 
 	toInstall := firmwares
 
@@ -306,7 +307,7 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 			InstallMethod: model.InstallMethodOutofband,
 
 			// Firmware is the firmware to be installed
-			Firmware: *firmwares[idx],
+			Firmware: *firmware,
 
 			// VerifyCurrentFirmware is disabled when ForceInstall is true.
 			VerifyCurrentFirmware: !task.Parameters.ForceInstall,
@@ -315,9 +316,8 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 			Final: final,
 		}
 
-		if err := newAction.SetState(model.StatePending); err != nil {
-			return nil, nil, err
-		}
+		//nolint:errcheck  // SetState never returns an error
+		newAction.SetState(model.StatePending)
 
 		// create action thats added to the task
 		actions = append(actions, &newAction)
