@@ -189,7 +189,7 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 		return err
 	}
 
-	component := components.BySlugVendorModel(action.Firmware.Component, action.Firmware.Models)
+	component := components.BySlugModel(action.Firmware.Component, action.Firmware.Models)
 	if component == nil {
 		tctx.Logger.WithFields(
 			logrus.Fields{
