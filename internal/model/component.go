@@ -21,15 +21,10 @@ type Component struct {
 type Components []*Component
 
 // BySlug returns a component that matches the slug value.
-func (c Components) BySlugVendorModel(cSlug, cVendor string, cModels []string) *Component {
+func (c Components) BySlugVendorModel(cSlug, _ string, cModels []string) *Component {
 	for idx, component := range c {
 		// skip non matching component slug
 		if !strings.EqualFold(cSlug, component.Slug) {
-			continue
-		}
-
-		// skip non matching component vendor
-		if !strings.EqualFold(component.Vendor, cVendor) {
 			continue
 		}
 
