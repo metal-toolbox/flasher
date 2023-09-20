@@ -12,6 +12,7 @@ import (
 
 	bmclibv2 "github.com/bmc-toolbox/bmclib/v2"
 	bmclibv2consts "github.com/bmc-toolbox/bmclib/v2/constants"
+	bmclibv2errs "github.com/bmc-toolbox/bmclib/v2/errors"
 
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -220,6 +221,11 @@ func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, compone
 
 	status, err := b.client.FirmwareInstallStatus(ctx, installVersion, componentSlug, bmcTaskID)
 	if err != nil {
+		// If BMC has rebooted, task won't be found, we assume success (failure don't reboot)
+		if strings.EqualFold(componentSlug, "bmc") && errors.Is(err, bmclibv2errs.ErrTaskNotFound) {
+			return model.StatusInstallComplete, nil
+		}
+
 		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
 	}
 
