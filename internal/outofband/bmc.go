@@ -43,6 +43,7 @@ var (
 
 	ErrBMCQuery                        = errors.New("error occurred in bmc query")
 	ErrMaxBMCQueryAttempts             = errors.New("reached maximum BMC query attempts")
+	ErrTaskNotFound                    = errors.New("task not found")
 	ErrFirmwareInstallFailed           = errors.New("firmware install failed")
 	ErrFirmwareInstallStatusUnexpected = errors.New("firmware install status unexpected")
 )
