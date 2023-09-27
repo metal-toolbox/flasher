@@ -26,6 +26,19 @@ var (
 	errTaskPlanActions    = errors.New("error in task action planning")
 )
 
+// installSkippedReasons is map of component names to a reason for why a firmware version was removed from the install list.
+type installSkippedReasons map[string]string
+
+func (f installSkippedReasons) String() string {
+	s := ""
+
+	for component, cause := range f {
+		s += fmt.Sprintf("[%s] %s; ", component, cause)
+	}
+
+	return s
+}
+
 // taskHandler implements the taskTransitionHandler methods
 type taskHandler struct{}
 
@@ -266,13 +279,19 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 	}).Debug("checking against current inventory")
 
 	toInstall := firmwares
+	skippedReasons := installSkippedReasons{}
 
 	if !task.Parameters.ForceInstall {
-		toInstall = removeFirmwareAlreadyAtDesiredVersion(hCtx, firmwares)
+		toInstall, skippedReasons = removeFirmwareAlreadyAtDesiredVersion(hCtx, firmwares)
 	}
 
 	if len(toInstall) == 0 {
-		hCtx.Logger.Info("no action required for this task")
+		info := "no action required for this task"
+
+		task.Status = fmt.Sprintf("%s: %s", info, skippedReasons.String())
+		hCtx.Publisher.Publish(hCtx)
+		hCtx.Logger.Info(info)
+
 		return actionMachines, actions, nil
 	}
 
@@ -335,8 +354,11 @@ func sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
 	})
 }
 
-func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model.Firmware) []*model.Firmware {
+// returns a list of firmware applicable and a list of causes for firmwares that were removed from the install list.
+func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model.Firmware) ([]*model.Firmware, installSkippedReasons) {
 	var toInstall []*model.Firmware
+
+	causes := installSkippedReasons{}
 
 	// only iterate the inventory once
 	invMap := make(map[string]string)
@@ -353,22 +375,32 @@ func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model
 
 		switch {
 		case !ok:
+			cause := "component not found in inventory"
 			hCtx.Logger.WithFields(logrus.Fields{
 				"component": fw.Component,
-			}).Warn("inventory missing component")
+			}).Warn(cause)
+
+			causes[fw.Component] = cause
+
 		case strings.EqualFold(currentVersion, fw.Version):
+			cause := "component inventory firmware version matches set"
 			hCtx.Logger.WithFields(logrus.Fields{
 				"component": fw.Component,
 				"version":   fw.Version,
-			}).Debug("inventory firmware version matches set")
+			}).Debug(cause)
+
+			causes[fw.Component] = cause
+
 		default:
 			hCtx.Logger.WithFields(logrus.Fields{
 				"component":         fw.Component,
 				"installed.version": currentVersion,
 				"mandated.version":  fw.Version,
 			}).Debug("firmware queued for install")
+
 			toInstall = append(toInstall, fw)
 		}
 	}
-	return toInstall
+
+	return toInstall, causes
 }
