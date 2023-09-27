@@ -223,6 +223,7 @@ func newTask(conditionID uuid.UUID, params *rctypes.FirmwareInstallTaskParameter
 	task.Parameters.AssetID = params.AssetID
 	task.Parameters.ForceInstall = params.ForceInstall
 	task.Parameters.ResetBMCBeforeInstall = params.ResetBMCBeforeInstall
+	task.Parameters.DryRun = params.DryRun
 
 	if len(params.Firmwares) > 0 {
 		task.Parameters.Firmwares = params.Firmwares
@@ -392,7 +393,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 
 	handlerCtx := &sm.HandlerContext{
 		WorkerID:     o.id,
-		Dryrun:       o.dryrun,
+		Dryrun:       o.dryrun || task.Parameters.DryRun,
 		Task:         task,
 		Publisher:    o.getStatusPublisher(),
 		Ctx:          ctx,
