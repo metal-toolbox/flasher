@@ -5,7 +5,8 @@ import (
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
-	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 // InstallMethod is one of 'outofband' OR 'inband'
@@ -32,10 +33,10 @@ const (
 	// task states
 	//
 	// states the task state machine transitions through
-	StatePending   sw.State = sw.State(cptypes.Pending)
-	StateActive    sw.State = sw.State(cptypes.Active)
-	StateSucceeded sw.State = sw.State(cptypes.Succeeded)
-	StateFailed    sw.State = sw.State(cptypes.Failed)
+	StatePending   sw.State = sw.State(rctypes.Pending)
+	StateActive    sw.State = sw.State(rctypes.Active)
+	StateSucceeded sw.State = sw.State(rctypes.Succeeded)
+	StateFailed    sw.State = sw.State(rctypes.Failed)
 )
 
 // Action holds attributes of a Task sub-statemachine
@@ -54,7 +55,7 @@ type Action struct {
 	InstallMethod InstallMethod
 
 	// status indicates the action state
-	state cptypes.ConditionState
+	state rctypes.State
 
 	// Firmware to be installed, this is set in the Task Plan phase.
 	Firmware Firmware
@@ -79,7 +80,7 @@ type Action struct {
 }
 
 func (a *Action) SetState(state sw.State) error {
-	a.state = cptypes.ConditionState(state)
+	a.state = rctypes.State(state)
 
 	return nil
 }
@@ -112,7 +113,7 @@ type Task struct {
 	ID uuid.UUID
 
 	// state is the state of the install
-	state cptypes.ConditionState
+	state rctypes.State
 
 	// status holds informational data on the state
 	Status string
@@ -125,11 +126,11 @@ type Task struct {
 	ActionsPlanned Actions
 
 	// Parameters for this task
-	Parameters TaskParameters
+	Parameters rctypes.FirmwareInstallTaskParameters
 
 	// Fault is a field to inject failures into a flasher task execution,
 	// this is set from the Condition only when the worker is run with fault-injection enabled.
-	Fault *cptypes.Fault `json:"fault,omitempty"`
+	Fault *rctypes.Fault `json:"fault,omitempty"`
 
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -138,40 +139,11 @@ type Task struct {
 
 // SetState implements the stateswitch statemachine interface
 func (t *Task) SetState(state sw.State) error {
-	t.state = cptypes.ConditionState(state)
+	t.state = rctypes.State(state)
 	return nil
 }
 
 // State implements the stateswitch statemachine interface
 func (t *Task) State() sw.State {
 	return sw.State(t.state)
-}
-
-// TaskParameters are the parameters set for each task
-//
-// nolint:govet // fieldalignment struct is easier to read in the current format
-type TaskParameters struct {
-	// Inventory identifier for the asset to install firmware on.
-	AssetID uuid.UUID `json:"assetID"`
-
-	// Reset device BMC before firmware install
-	ResetBMCBeforeInstall bool `json:"resetBMCBeforeInstall,omitempty"`
-
-	// Force install given firmware regardless of current firmware version.
-	ForceInstall bool `json:"forceInstall,omitempty"`
-
-	// Task priority is the task priority between 0 and 3
-	// where 0 is the default and 3 is the max.
-	//
-	// Tasks are picked from the `queued` state based on the priority.
-	//
-	// When there are multiple tasks with the same priority,
-	// the task CreatedAt attribute is considered.
-	Priority int `json:"priority,omitempty"`
-
-	// Firmwares is the list of firmwares to be installed.
-	Firmwares []Firmware `json:"firmwares,omitempty"`
-
-	// FirmwareSetID specifies the firmware set to be applied.
-	FirmwareSetID uuid.UUID `json:"firmwareSetID,omitempty"`
 }

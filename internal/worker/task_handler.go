@@ -8,7 +8,6 @@ import (
 
 	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
-	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
@@ -16,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 var (
@@ -124,7 +125,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 		// return on context cancellation
 		if tctx.Ctx.Err() != nil {
-			h.registerActionMetrics(startTS, action, string(cptypes.Failed))
+			h.registerActionMetrics(startTS, action, string(rctypes.Failed))
 
 			return tctx.Ctx.Err()
 		}
@@ -132,7 +133,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
-			h.registerActionMetrics(startTS, action, string(cptypes.Failed))
+			h.registerActionMetrics(startTS, action, string(rctypes.Failed))
 
 			return errors.Wrap(
 				err,
@@ -140,7 +141,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 			)
 		}
 
-		h.registerActionMetrics(startTS, action, string(cptypes.Succeeded))
+		h.registerActionMetrics(startTS, action, string(rctypes.Succeeded))
 		tctx.Logger.WithFields(logrus.Fields{
 			"statemachineID": actionSM.ActionID(),
 		}).Debug("state machine end")

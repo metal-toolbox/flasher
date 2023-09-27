@@ -10,10 +10,11 @@ import (
 
 	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
-	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 var (
@@ -61,7 +62,7 @@ var (
 	}
 )
 
-func newTaskFixture(t *testing.T, state string, fault *cptypes.Fault) *model.Task {
+func newTaskFixture(t *testing.T, state string, fault *rctypes.Fault) *model.Task {
 	t.Helper()
 
 	task := &model.Task{Fault: fault}
@@ -208,7 +209,7 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 	}{
 		{
 			"condition induced error",
-			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{FailAt: "plan"}),
+			newTaskFixture(t, string(model.StateActive), &rctypes.Fault{FailAt: "plan"}),
 			[]sw.TransitionType{TransitionTypePlan},
 			string(model.StateFailed),
 			true,
@@ -217,7 +218,7 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 		},
 		{
 			"condition induced panic",
-			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{Panic: true}),
+			newTaskFixture(t, string(model.StateActive), &rctypes.Fault{Panic: true}),
 			[]sw.TransitionType{TransitionTypePlan},
 			string(model.StateFailed),
 			true,
@@ -226,7 +227,7 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 		},
 		{
 			"condition induced delay",
-			newTaskFixture(t, string(model.StateActive), &cptypes.Fault{DelayDuration: "33ms"}),
+			newTaskFixture(t, string(model.StateActive), &rctypes.Fault{DelayDuration: "33ms"}),
 			[]sw.TransitionType{TransitionTypePlan},
 			string(model.StateActive),
 			false,
