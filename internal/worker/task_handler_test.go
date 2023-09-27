@@ -134,7 +134,8 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		},
 	}
 
-	got := removeFirmwareAlreadyAtDesiredVersion(ctx, fwSet)
+	got, reasons := removeFirmwareAlreadyAtDesiredVersion(ctx, fwSet)
+	require.Equal(t, 2, len(reasons))
 	require.Equal(t, 1, len(got))
 	require.Equal(t, expected[0], got[0])
 }
