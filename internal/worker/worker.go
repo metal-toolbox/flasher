@@ -26,8 +26,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	cpv1types "github.com/metal-toolbox/conditionorc/pkg/api/v1/types"
-	cptypes "github.com/metal-toolbox/conditionorc/pkg/types"
+	cptypes "github.com/metal-toolbox/conditionorc/pkg/types" // The condition types package being deprecated for rivets
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 const (
@@ -212,7 +213,7 @@ func (o *Worker) eventNak(event events.Message) {
 	}
 }
 
-func newTask(conditionID uuid.UUID, params *model.TaskParameters) (model.Task, error) {
+func newTask(conditionID uuid.UUID, params *rctypes.FirmwareInstallTaskParameters) (model.Task, error) {
 	task := model.Task{
 		ID: conditionID,
 	}
@@ -428,7 +429,7 @@ func (o *Worker) getStatusPublisher() sm.Publisher {
 func (o *Worker) registerConditionMetrics(startTS time.Time, state string) {
 	metrics.ConditionRunTimeSummary.With(
 		prometheus.Labels{
-			"condition": string(cptypes.FirmwareInstall),
+			"condition": string(rctypes.FirmwareInstall),
 			"state":     state,
 		},
 	).Observe(time.Since(startTS).Seconds())
@@ -449,7 +450,7 @@ func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Handle
 	if err != nil {
 		o.logger.Error(err)
 
-		o.registerConditionMetrics(startTS, string(cptypes.Failed))
+		o.registerConditionMetrics(startTS, string(rctypes.Failed))
 
 		return
 	}
@@ -464,12 +465,12 @@ func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Handle
 			},
 		).Warn("task for device failed")
 
-		o.registerConditionMetrics(startTS, string(cptypes.Failed))
+		o.registerConditionMetrics(startTS, string(rctypes.Failed))
 
 		return
 	}
 
-	o.registerConditionMetrics(startTS, string(cptypes.Succeeded))
+	o.registerConditionMetrics(startTS, string(rctypes.Succeeded))
 
 	o.logger.WithFields(logrus.Fields{
 		"deviceID":    handlerCtx.Task.Parameters.AssetID.String(),
@@ -478,13 +479,13 @@ func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Handle
 	}).Info("task for device completed")
 }
 
-func conditionFromEvent(e events.Message) (*cptypes.Condition, error) {
+func conditionFromEvent(e events.Message) (*rctypes.Condition, error) {
 	data := e.Data()
 	if data == nil {
 		return nil, errors.New("data field empty")
 	}
 
-	condition := &cptypes.Condition{}
+	condition := &rctypes.Condition{}
 	if err := json.Unmarshal(data, condition); err != nil {
 		return nil, errors.Wrap(errConditionDeserialize, err.Error())
 	}
@@ -493,10 +494,10 @@ func conditionFromEvent(e events.Message) (*cptypes.Condition, error) {
 }
 
 // newTaskFromMsg returns a new task object with the given parameters
-func newTaskFromCondition(condition *cptypes.Condition, faultInjection bool) (*model.Task, error) {
-	parameters := &model.TaskParameters{}
+func newTaskFromCondition(condition *rctypes.Condition, faultInjection bool) (*model.Task, error) {
+	parameters := &rctypes.FirmwareInstallTaskParameters{}
 	if err := json.Unmarshal(condition.Parameters, parameters); err != nil {
-		return nil, errors.Wrap(errInitTask, "Task parameters error: "+err.Error())
+		return nil, errors.Wrap(errInitTask, "Firmware install task parameters error: "+err.Error())
 	}
 
 	task, err := newTask(condition.ID, parameters)
@@ -531,7 +532,8 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 
 	task := hCtx.Task
 	update := &cpv1types.ConditionUpdateEvent{
-		Kind: cptypes.FirmwareInstall,
+		// remove type coercion once conditionorc uses rivets for the condition type
+		Kind: cptypes.ConditionKind(rctypes.FirmwareInstall),
 		ConditionUpdate: cpv1types.ConditionUpdate{
 			ConditionID: task.ID,
 			ServerID:    task.Parameters.AssetID,
@@ -549,7 +551,7 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 
 	if err := e.stream.Publish(
 		ctx,
-		string(cptypes.ConditionUpdateEvent),
+		string(rctypes.ConditionUpdateEvent),
 		byt,
 	); err != nil {
 		e.logger.WithError(err).Error("error publishing condition update")

@@ -1,11 +1,9 @@
 package fixtures
 
-import (
-	"github.com/metal-toolbox/flasher/internal/model"
-)
+import rctypes "github.com/metal-toolbox/rivets/condition"
 
 var (
-	TaskParametersA = model.TaskParameters{
+	TaskParametersA = rctypes.FirmwareInstallTaskParameters{
 		Priority:              0,
 		ResetBMCBeforeInstall: false,
 		ForceInstall:          false,

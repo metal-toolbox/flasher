@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.hollow.sh/toolbox/events/registry"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 func Test_sortFirmwareByInstallOrde(t *testing.T) {
@@ -184,7 +186,7 @@ func TestPlanInstall(t *testing.T) {
 
 	taskParam := &model.Task{
 		ID: uuid.MustParse("95ccb1c5-d807-4078-bb22-facc3045a49a"),
-		Parameters: model.TaskParameters{
+		Parameters: rctypes.FirmwareInstallTaskParameters{
 			AssetID: serverID,
 		},
 	}

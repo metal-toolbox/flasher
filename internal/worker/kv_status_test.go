@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	cotyp "github.com/metal-toolbox/conditionorc/pkg/types"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/types"
@@ -21,6 +20,8 @@ import (
 	"go.hollow.sh/toolbox/events"
 	"go.hollow.sh/toolbox/events/pkg/kv"
 	"go.hollow.sh/toolbox/events/registry"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 func startJetStreamServer(t *testing.T) *server.Server {
@@ -118,7 +119,7 @@ func TestTaskInProgress(t *testing.T) {
 
 	// set up the fake status KV
 	cfg := &nats.KeyValueConfig{
-		Bucket: string(cotyp.FirmwareInstall),
+		Bucket: string(rctypes.FirmwareInstall),
 	}
 	writeHandle, err := js.CreateKeyValue(cfg)
 	require.NoError(t, err, "creating KV")

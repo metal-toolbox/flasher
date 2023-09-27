@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	cotyp "github.com/metal-toolbox/conditionorc/pkg/types"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/types"
@@ -19,10 +18,13 @@ import (
 	"go.hollow.sh/toolbox/events"
 	"go.hollow.sh/toolbox/events/pkg/kv"
 	"go.hollow.sh/toolbox/events/registry"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
+	rkv "github.com/metal-toolbox/rivets/kv"
 )
 
 var (
-	statusKVName  = string(cotyp.FirmwareInstall)
+	statusKVName  = string(rctypes.FirmwareInstall)
 	defaultKVOpts = []kv.Option{
 		kv.WithDescription("flasher condition status tracking"),
 		kv.WithTTL(10 * 24 * time.Hour),
@@ -89,7 +91,7 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 }
 
 func statusFromContext(hCtx *sm.HandlerContext) []byte {
-	sv := &types.StatusValue{
+	sv := &rkv.StatusValue{
 		WorkerID: hCtx.WorkerID.String(),
 		Target:   hCtx.Asset.ID.String(),
 		TraceID:  trace.SpanFromContext(hCtx.Ctx).SpanContext().TraceID().String(),
@@ -172,8 +174,8 @@ func (o *Worker) taskInProgress(cID string) taskState {
 		return indeterminate
 	}
 
-	if cotyp.ConditionState(sv.State) == cotyp.Failed ||
-		cotyp.ConditionState(sv.State) == cotyp.Succeeded {
+	if rctypes.State(sv.State) == rctypes.Failed ||
+		rctypes.State(sv.State) == rctypes.Succeeded {
 		o.logger.WithFields(logrus.Fields{
 			"conditionID":    cID,
 			"conditionState": sv.State,
