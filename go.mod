@@ -13,7 +13,7 @@ require (
 	github.com/equinix-labs/otel-init-go v0.0.9
 	github.com/filanov/stateswitch v1.0.1-0.20221115122927-775ae5822fad
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/jacobweinstock/registrar v0.4.7
@@ -30,7 +30,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
-	go.hollow.sh/serverservice v0.16.0
+	go.hollow.sh/serverservice v0.16.1
 	go.hollow.sh/toolbox v0.6.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.42.0
 	go.opentelemetry.io/otel v1.18.0
@@ -119,7 +119,7 @@ require (
 	github.com/volatiletech/null/v8 v8.1.2 // indirect
 	github.com/volatiletech/randomize v0.0.1 // indirect
 	github.com/volatiletech/sqlboiler v3.7.1+incompatible // indirect
-	github.com/volatiletech/sqlboiler/v4 v4.14.2 // indirect
+	github.com/volatiletech/sqlboiler/v4 v4.15.0 // indirect
 	github.com/volatiletech/strmangle v0.0.5 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.18.0 // indirect
