@@ -7,7 +7,6 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230825151635-6cf01686c513
 	github.com/bmc-toolbox/common v0.0.0-20230717085817-bf797049f697
 	github.com/bombsimon/logrusr/v2 v2.0.1
-	github.com/bombsimon/logrusr/v4 v4.0.0
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/emicklei/dot v1.6.0
 	github.com/equinix-labs/otel-init-go v0.0.9
@@ -32,7 +31,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	go.hollow.sh/serverservice v0.16.1
 	go.hollow.sh/toolbox v0.6.1
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.42.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.44.0
 	go.opentelemetry.io/otel v1.18.0
 	go.opentelemetry.io/otel/trace v1.18.0
 	golang.org/x/net v0.15.0
