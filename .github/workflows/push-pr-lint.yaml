@@ -38,7 +38,7 @@ jobs:
 
       - name: Build flasher Docker image - no push
         id: dockerbuild-flasher
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
            context: .
            push: false
