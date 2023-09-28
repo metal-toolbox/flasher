@@ -7,13 +7,12 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230825151635-6cf01686c513
 	github.com/bmc-toolbox/common v0.0.0-20230717085817-bf797049f697
 	github.com/bombsimon/logrusr/v2 v2.0.1
-	github.com/bombsimon/logrusr/v4 v4.0.0
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/emicklei/dot v1.6.0
 	github.com/equinix-labs/otel-init-go v0.0.9
 	github.com/filanov/stateswitch v1.0.1-0.20221115122927-775ae5822fad
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/jacobweinstock/registrar v0.4.7
