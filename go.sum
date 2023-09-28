@@ -531,8 +531,8 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/matttproud/golang_protobuf_extensions v1.0.4 h1:mmDVorXM7PCGKw94cs5zkfA9PSy5pEvNWRP0ET0TIVo=
 github.com/matttproud/golang_protobuf_extensions v1.0.4/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
-github.com/metal-toolbox/conditionorc v0.0.2 h1:PYPcC8oSm9xRuhnoSKGpjn0+/HfedDQ2peRQjzwXe0o=
-github.com/metal-toolbox/conditionorc v0.0.2/go.mod h1:CsPzWR1nIWLgOk6VuYm7NEKQN2XVxQncZQCrlxMw68Q=
+github.com/metal-toolbox/conditionorc v0.1.7 h1:hK1ZjIkomZlqWCqu0qVZ0YQffjvaaH7ykAsanNTDrrs=
+github.com/metal-toolbox/conditionorc v0.1.7/go.mod h1:G8zFEBNhtOSGaY+Oalmo5SO6/eXGpGuzwA6bJirc1fU=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=
 github.com/miekg/dns v1.1.26/go.mod h1:bPDLeHnStXmXAq1m/Ch/hvfNHr14JKNPMBo3VZKjuso=
 github.com/miekg/dns v1.1.41/go.mod h1:p6aan82bvRIyn+zDIv9xYNUpwa73JcSh9BKwknJysuI=
