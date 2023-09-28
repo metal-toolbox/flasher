@@ -34,7 +34,7 @@ jobs:
         run: make build-linux
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Build flasher Docker image - no push
         id: dockerbuild-flasher
