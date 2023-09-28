@@ -8,7 +8,7 @@ require (
 	github.com/bmc-toolbox/common v0.0.0-20230717085817-bf797049f697
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/emicklei/dot v1.5.0
+	github.com/emicklei/dot v1.6.0
 	github.com/equinix-labs/otel-init-go v0.0.9
 	github.com/filanov/stateswitch v1.0.1-0.20221115122927-775ae5822fad
 	github.com/golang/mock v1.6.0
