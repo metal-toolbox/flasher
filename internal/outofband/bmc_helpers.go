@@ -74,6 +74,7 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 		bmclibv2.WithLogger(logruslogr),
 		bmclibv2.WithHTTPClient(newHTTPClient()),
 		bmclibv2.WithPerProviderTimeout(loginTimeout),
+		bmclibv2.WithRedfishEtagMatchDisabled(true),
 	)
 
 	// set bmclibv2 driver
