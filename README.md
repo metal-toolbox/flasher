@@ -1,10 +1,8 @@
 ## Flasher - Server fleet firmware install automation.
 
-Flasher is a vendor agnostic tool to automate firmware installats on a server fleet.
+Flasher is a vendor agnostic tool to automate firmware installs across a server fleet.
 
-flasher currently supports is Out of band component firmware installs, that is - firmware installs through the server BMC.
-
-As of this release flasher depends on serverservice for the inventory and firmware information.
+Flasher is currently limited to installing firmware `Out of band` - through the host BMC.
 
 ```mermaid
 graph TB
@@ -14,6 +12,9 @@ graph TB
   a((Flasher))-- 4. install firmware -->sb(ServerA BMC)
 ```
 
+Flasher currently depends on various services to accept work and have it
+completed, check out the [sandbox](https://github.com/metal-toolbox/sandbox)
+for steps to have the dependencies running and install firmware on a server.
 
 ## build
 
