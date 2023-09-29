@@ -408,7 +408,7 @@ In this action transition the Device will be power-cycled if the component firmw
 Transition rules are the rules that define the required source states and conditions needed to move to a particular destination state when a particular transition type happens
 
 ### Check installed firmware
-Check firmware installed on component - if its equal - returns error, unless Task.Parameters.Force=true.
+Check firmware installed on component
 
 #### Source states
 * [poweredOnDevice](#poweredondevice)
