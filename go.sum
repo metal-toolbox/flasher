@@ -540,6 +540,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.4 h1:mmDVorXM7PCGKw94cs5zk
 github.com/matttproud/golang_protobuf_extensions v1.0.4/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
 github.com/metal-toolbox/conditionorc v0.1.8-0.20230929065454-5db8bd0295f4 h1:7UmtDusAghGMSYQC/itY7YU0arbVbQeszPGOLUQDP4Y=
 github.com/metal-toolbox/conditionorc v0.1.8-0.20230929065454-5db8bd0295f4/go.mod h1:fj66UNyDwpo6AXGqhrv+NRPgD2r2yXQK3g9/wv6lbz0=
+github.com/metal-toolbox/conditionorc v1.0.0 h1:sc5eEQ6F5swCQ5bQDh4yDp9zlmnMkSJIZs+TSHspd8I=
+github.com/metal-toolbox/conditionorc v1.0.0/go.mod h1:S+xFRw3Baw5FW8TXDNnSSQthiwKwizyUz5fxOvTbimQ=
 github.com/metal-toolbox/rivets v0.0.0-20230928160846-e4c2952b8cb4 h1:+Z1eePVN8vAsscrK23XPrOOhCyCzpCRq3owa0ldx7nA=
 github.com/metal-toolbox/rivets v0.0.0-20230928160846-e4c2952b8cb4/go.mod h1:QlGp4NUmXkSa8lhm/fFlH845kamwiOM7kiIsigVxWlg=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=

@@ -19,7 +19,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/jpillora/backoff v1.0.0
-	github.com/metal-toolbox/conditionorc v0.1.8-0.20230929065454-5db8bd0295f4
+	github.com/metal-toolbox/conditionorc v1.0.0
 	github.com/metal-toolbox/rivets v0.0.0-20230928160846-e4c2952b8cb4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nats-io/nats-server/v2 v2.10.1
