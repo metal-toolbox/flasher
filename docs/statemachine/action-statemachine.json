@@ -7,7 +7,7 @@
       ],
       "destination_state": "checkedCurrentFirmware",
       "name": "Check installed firmware",
-      "description": "Check firmware installed on component - if its equal - returns error, unless Task.Parameters.Force=true."
+      "description": "Check firmware installed on component"
     },
     {
       "transition_type": "downloadingFirmware",
