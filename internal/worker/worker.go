@@ -26,7 +26,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	cpv1types "github.com/metal-toolbox/conditionorc/pkg/api/v1/types"
-	cptypes "github.com/metal-toolbox/conditionorc/pkg/types" // The condition types package being deprecated for rivets
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	rctypes "github.com/metal-toolbox/rivets/condition"
 )
@@ -533,12 +532,11 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 
 	task := hCtx.Task
 	update := &cpv1types.ConditionUpdateEvent{
-		// remove type coercion once conditionorc uses rivets for the condition type
-		Kind: cptypes.ConditionKind(rctypes.FirmwareInstall),
+		Kind: rctypes.FirmwareInstall,
 		ConditionUpdate: cpv1types.ConditionUpdate{
 			ConditionID: task.ID,
 			ServerID:    task.Parameters.AssetID,
-			State:       cptypes.ConditionState(task.State()),
+			State:       rctypes.State(task.State()),
 			Status:      statusInfoJSON(task.Status),
 		},
 	}
