@@ -174,6 +174,12 @@ func Test_Transitions(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			// skip success handler so we can step through transitions,
+			// except when the test expects a succeeded state
+			if tc.expectedState != string(model.StateSucceeded) {
+				m.skipSuccessHandler = true
+			}
+
 			// set transition to perform based on test case
 			if len(tc.runTransition) > 0 {
 				m.SetTransitionOrder(tc.runTransition)
@@ -247,6 +253,9 @@ func Test_ConditionalFaultWithTransitions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			// skip success handler so we can step through transitions
+			m.skipSuccessHandler = true
 
 			// set transition to perform based on test case
 			if len(tc.runTransition) > 0 {

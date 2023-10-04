@@ -119,9 +119,10 @@ type TaskTransitioner interface {
 
 // TaskStateMachine drives the task
 type TaskStateMachine struct {
-	sm sw.StateMachine
-
+	sm          sw.StateMachine
 	transitions []sw.TransitionType
+	// skip success handler execution - for tests
+	skipSuccessHandler bool
 }
 
 // NewTaskStateMachine declares, initializes and returns a TaskStateMachine object to execute flasher tasks.
@@ -190,7 +191,7 @@ func NewTaskStateMachine(handler TaskTransitioner) (*TaskStateMachine, error) {
 	m.sm.AddTransition(sw.TransitionRule{
 		TransitionType:   TransitionTypeRun,
 		SourceStates:     sw.States{model.StateActive},
-		DestinationState: model.StateSucceeded,
+		DestinationState: model.StateActive,
 		Condition:        nil,
 		Transition:       handler.Run,
 		PostTransition:   handler.PublishStatus,
@@ -332,20 +333,23 @@ func (m *TaskStateMachine) ConditionalFault(handlerCtx *HandlerContext, task *mo
 func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 	var err error
 
-	var finalTransition sw.TransitionType
+	// task failure handler
+	taskFailed := func(err error) error {
+		// include error in task
+		task.Status = err.Error()
+
+		// run transition failed handler
+		if txErr := m.TransitionFailed(task, tctx); txErr != nil {
+			err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
+		}
+
+		return err
+	}
 
 	for _, transitionType := range m.transitions {
 		// conditionally fault
 		if errFault := m.ConditionalFault(tctx, task, transitionType); errFault != nil {
-			// include error in task
-			task.Status = errFault.Error()
-
-			// run transition failed handler
-			if txErr := m.TransitionFailed(task, tctx); txErr != nil {
-				err = errors.Wrap(errFault, string(TransitionTypeActionFailed)+": "+txErr.Error())
-			}
-
-			return err
+			return taskFailed(errFault)
 		}
 
 		// execute transition
@@ -364,23 +368,18 @@ func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 				)
 			}
 
-			// include error in task
-			task.Status = err.Error()
-
-			// run transition failed handler
-			if txErr := m.TransitionFailed(task, tctx); txErr != nil {
-				err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
-			}
-
-			return err
+			return taskFailed(err)
 		}
 	}
 
-	// run transition success handler when the final successful transition is as expected
-	if finalTransition == TransitionTypeRun {
-		if err := m.TransitionSuccess(task, tctx); err != nil {
-			return errors.Wrap(err, string(TransitionTypeActionSuccess)+": "+err.Error())
-		}
+	// skip success handler flag for testing purposes
+	if m.skipSuccessHandler {
+		return nil
+	}
+
+	// task success handler
+	if err := m.TransitionSuccess(task, tctx); err != nil {
+		return errors.Wrap(err, string(TransitionTypeActionSuccess)+": "+err.Error())
 	}
 
 	return nil
