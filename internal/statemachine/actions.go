@@ -189,36 +189,36 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			return ctx.Err()
 		}
 
+		// run step
 		err := a.sm.Run(transitionType, action, tctx)
-		if err != nil {
-			tctx.Logger.WithError(err).WithFields(logrus.Fields{
-				"action":    action.ID,
-				"condition": action.TaskID,
-				"component": action.Firmware.Component,
-				"version":   action.Firmware.Version,
-			}).Info("action error")
-			a.registerTransitionMetrics(startTS, action, string(transitionType), "failed")
+		if err == nil {
+			a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
+			a.registerTransitionMetrics(startTS, action, string(transitionType), "succeeded")
 
-			// When the condition returns false, run the next transition
-			if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
-				return newErrAction(
-					string(transitionType),
-					action.Firmware.Component,
-					string(action.State()),
-					err.Error(),
-				)
-			}
+			tctx.Task.Status = fmt.Sprintf(
+				"component: %s, install version: %s, completed step %s",
+				action.Firmware.Component,
+				action.Firmware.Version,
+				string(transitionType),
+			)
 
-			// run transition failed handler
-			if txErr := a.TransitionFailed(action, tctx); txErr != nil {
-				return newErrAction(
-					string(transitionType),
-					action.Firmware.Component,
-					string(action.State()),
-					txErr.Error(),
-				)
-			}
+			tctx.Publisher.Publish(tctx)
 
+			continue
+		}
+
+		// error occurred
+		tctx.Logger.WithError(err).WithFields(logrus.Fields{
+			"action":    action.ID,
+			"condition": action.TaskID,
+			"component": action.Firmware.Component,
+			"version":   action.Firmware.Version,
+			"step":      transitionType,
+		}).Info("action step error")
+		a.registerTransitionMetrics(startTS, action, string(transitionType), "failed")
+
+		// When the condition returns false, run the next transition
+		if errors.Is(err, sw.NoConditionPassedToRunTransaction) {
 			return newErrAction(
 				string(transitionType),
 				action.Firmware.Component,
@@ -227,38 +227,31 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			)
 		}
 
-		a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
-		a.registerTransitionMetrics(startTS, action, string(transitionType), "succeeded")
-
-		// publish task action completion
-		if action.Final {
-			tctx.Logger.WithFields(logrus.Fields{
-				"action":    action.ID,
-				"condition": action.TaskID,
-				"component": action.Firmware.Component,
-				"version":   action.Firmware.Version,
-			}).Info("final action complete")
-			tctx.Task.Status = fmt.Sprintf(
-				"component: %s, completed firmware install, version: %s",
-				action.Firmware.Component,
-				action.Firmware.Version,
-			)
-		} else {
-			tctx.Logger.WithFields(logrus.Fields{
-				"action":    action.ID,
-				"condition": action.TaskID,
-				"component": action.Firmware.Component,
-				"version":   action.Firmware.Version,
-			}).Info("action complete")
-			tctx.Task.Status = fmt.Sprintf(
-				"component: %s, completed action: %s ",
-				action.Firmware.Component,
+		// run transition failed handler
+		if txErr := a.TransitionFailed(action, tctx); txErr != nil {
+			return newErrAction(
 				string(transitionType),
+				action.Firmware.Component,
+				string(action.State()),
+				txErr.Error(),
 			)
 		}
 
-		tctx.Publisher.Publish(tctx)
+		return newErrAction(
+			string(transitionType),
+			action.Firmware.Component,
+			string(action.State()),
+			err.Error(),
+		)
 	}
+
+	tctx.Task.Status = fmt.Sprintf(
+		"component: %s, completed firmware install, version: %s",
+		action.Firmware.Component,
+		action.Firmware.Version,
+	)
+
+	tctx.Publisher.Publish(tctx)
 
 	// run transition success handler
 	if err := a.TransitionSuccess(action, tctx); err != nil {
