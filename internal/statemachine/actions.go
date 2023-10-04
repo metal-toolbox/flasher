@@ -184,6 +184,11 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 
 		tctx.Publisher.Publish(tctx)
 
+		// purposefully introduced fault
+		if err := a.ConditionalFault(tctx.Task, transitionType); err != nil {
+			return err
+		}
+
 		// return on context cancellation
 		if ctx.Err() != nil {
 			a.registerTransitionMetrics(startTS, action, string(transitionType), "failed")
@@ -258,6 +263,19 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 	// run transition success handler
 	if err := a.TransitionSuccess(action, tctx); err != nil {
 		return errors.Wrap(err, err.Error())
+	}
+
+	return nil
+}
+
+// ConditionalFault is invoked before each transition to induce a fault if specified.
+func (a *ActionStateMachine) ConditionalFault(task *model.Task, transitionType sw.TransitionType) error {
+	if task.Fault == nil {
+		return nil
+	}
+
+	if task.Fault.FailAt == string(transitionType) {
+		return errors.Wrap(errConditionFault, string(transitionType))
 	}
 
 	return nil
