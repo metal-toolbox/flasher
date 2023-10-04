@@ -120,14 +120,10 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
 	}
 
-	tctx.Logger.WithField("plan.steps", len(tctx.ActionStateMachines)).Debug("running the plan")
+	tctx.Logger.WithField("plan.actions", len(tctx.ActionStateMachines)).Debug("running the plan")
 
 	// each actionSM (state machine) corresponds to a firmware to be installed
-	for i, actionSM := range tctx.ActionStateMachines {
-		tctx.Logger.WithFields(logrus.Fields{
-			"statemachineID": actionSM.ActionID(),
-			"step":           i,
-		}).Debug("state machine start")
+	for _, actionSM := range tctx.ActionStateMachines {
 		startTS := time.Now()
 
 		// fetch action attributes from task
@@ -143,6 +139,10 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 			return tctx.Ctx.Err()
 		}
 
+		tctx.Logger.WithFields(logrus.Fields{
+			"statemachineID": actionSM.ActionID(),
+		}).Debug("action state machine start")
+
 		// run the action state machine
 		err := actionSM.Run(tctx.Ctx, action, tctx)
 		if err != nil {
@@ -152,6 +152,17 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 				err,
 				"while running action to install firmware on component "+action.Firmware.Component,
 			)
+		}
+
+		tctx.Logger.WithFields(logrus.Fields{
+			"action":    action.ID,
+			"condition": action.TaskID,
+			"component": action.Firmware.Component,
+			"version":   action.Firmware.Version,
+		}).Info("action for component completed successfully")
+
+		if !action.Final {
+			continue
 		}
 
 		h.registerActionMetrics(startTS, action, string(rctypes.Succeeded))
