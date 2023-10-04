@@ -172,11 +172,13 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			"condition": action.TaskID,
 			"component": action.Firmware.Component,
 			"version":   action.Firmware.Version,
-		}).Info("running action")
+			"step":      transitionType,
+		}).Info("running action step")
 
 		tctx.Task.Status = fmt.Sprintf(
-			"component: %s, running action: %s ",
+			"component: %s, install version: %s, running step %s",
 			action.Firmware.Component,
+			action.Firmware.Version,
 			string(transitionType),
 		)
 
