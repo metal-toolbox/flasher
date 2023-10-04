@@ -190,11 +190,32 @@ func (h *taskHandler) TaskFailed(_ sw.StateSwitch, args sw.TransitionArgs) error
 	return nil
 }
 
-func (h *taskHandler) TaskSuccessful(_ sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) TaskSuccessful(t sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
 	}
+
+	task, ok := t.(*model.Task)
+	if !ok {
+		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
+	}
+
+	// summarize task status
+	statuses := []string{}
+	for _, actionSM := range tctx.ActionStateMachines {
+		action := task.ActionsPlanned.ByID(actionSM.ActionID())
+		s := fmt.Sprintf(
+			"[%s] install firmware: %s, state: %s",
+			action.Firmware.Component,
+			action.Firmware.Version,
+			action.State(),
+		)
+
+		statuses = append(statuses, s)
+	}
+
+	tctx.Task.Status = strings.Join(statuses, "; ")
 
 	if tctx.DeviceQueryor != nil {
 		if err := tctx.DeviceQueryor.Close(tctx.Ctx); err != nil {
