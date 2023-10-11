@@ -23,6 +23,7 @@ import (
 	"go.hollow.sh/toolbox/events/pkg/kv"
 	"go.hollow.sh/toolbox/events/registry"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	cpv1types "github.com/metal-toolbox/conditionorc/pkg/api/v1/types"
@@ -268,8 +269,12 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 		o.registerEventCounter(false, "ack")
 		o.eventAckComplete(e)
 
+		span.SetAttributes(attribute.KeyValue{Key: "conditionKind", Value: attribute.StringValue("nil")})
+
 		return
 	}
+
+	span.SetAttributes(attribute.KeyValue{Key: "conditionKind", Value: attribute.StringValue(condition.ID.String())})
 
 	// check and see if the task is or has-been handled by another worker
 	currentState := o.taskInProgress(condition.ID.String())
