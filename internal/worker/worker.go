@@ -269,8 +269,6 @@ func (o *Worker) processSingleEvent(ctx context.Context, e events.Message) {
 		o.registerEventCounter(false, "ack")
 		o.eventAckComplete(e)
 
-		span.SetAttributes(attribute.KeyValue{Key: "conditionKind", Value: attribute.StringValue("nil")})
-
 		return
 	}
 
