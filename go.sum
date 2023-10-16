@@ -738,8 +738,8 @@ go.etcd.io/etcd/api/v3 v3.5.4/go.mod h1:5GB2vv4A4AOn3yk7MftYGHkUfGtDHnEraIjym4dY
 go.etcd.io/etcd/client/pkg/v3 v3.5.4/go.mod h1:IJHfcCEKxYu1Os13ZdwCwIUTUVGYTSAM3YSwc9/Ac1g=
 go.etcd.io/etcd/client/v2 v2.305.4/go.mod h1:Ud+VUwIi9/uQHOMA+4ekToJ12lTxlv0zB/+DHwTGEbU=
 go.etcd.io/etcd/client/v3 v3.5.4/go.mod h1:ZaRkVgBZC+L+dLCjTcF1hRXpgZXQPOvnA/Ak/gq3kiY=
-go.hollow.sh/serverservice v0.16.1 h1:BlrwKOPim+RGqJ2Efz/CZvD/W2pvFkDfg9XI1AaQSWs=
-go.hollow.sh/serverservice v0.16.1/go.mod h1:Zr99vSFO++ZlDjEf9rtPWi3TiMgMswJCW3D6LIFmMDM=
+go.hollow.sh/serverservice v0.16.2 h1:0wt0XJC/rm4OdovB6g8Fsx7BT2X71pG0keJiiLZaY+w=
+go.hollow.sh/serverservice v0.16.2/go.mod h1:Zr99vSFO++ZlDjEf9rtPWi3TiMgMswJCW3D6LIFmMDM=
 go.hollow.sh/toolbox v0.6.1 h1:3E6JofImSCe63XayczbGfDxIXUjmBziMBBmbwook8WA=
 go.hollow.sh/toolbox v0.6.1/go.mod h1:nl+5RDDyYY/+wukOUzHHX2mOyWKRjlTOXUcGxny+tns=
 go.infratographer.com/x v0.3.7 h1:kkykoVtC8XrmvC4oZwHWa/15+dv9RhQHgSm8KoEb/Nc=

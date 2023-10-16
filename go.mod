@@ -30,7 +30,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
-	go.hollow.sh/serverservice v0.16.1
+	go.hollow.sh/serverservice v0.16.2
 	go.hollow.sh/toolbox v0.6.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.44.0
 	go.opentelemetry.io/otel v1.18.0
