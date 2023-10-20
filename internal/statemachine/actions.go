@@ -175,12 +175,12 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			"step":      transitionType,
 		}).Info("running action step")
 
-		tctx.Task.Status = fmt.Sprintf(
+		tctx.Task.Status.Append(fmt.Sprintf(
 			"component: %s, install version: %s, running step %s",
 			action.Firmware.Component,
 			action.Firmware.Version,
 			string(transitionType),
-		)
+		))
 
 		tctx.Publisher.Publish(tctx)
 
@@ -202,12 +202,12 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			a.transitionsCompleted = append(a.transitionsCompleted, transitionType)
 			a.registerTransitionMetrics(startTS, action, string(transitionType), "succeeded")
 
-			tctx.Task.Status = fmt.Sprintf(
+			tctx.Task.Status.Append(fmt.Sprintf(
 				"component: %s, install version: %s, completed step %s",
 				action.Firmware.Component,
 				action.Firmware.Version,
 				string(transitionType),
-			)
+			))
 
 			tctx.Publisher.Publish(tctx)
 
@@ -252,11 +252,11 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		)
 	}
 
-	tctx.Task.Status = fmt.Sprintf(
-		"component: %s, completed firmware install, version: %s",
+	tctx.Task.Status.Append(fmt.Sprintf(
+		"[%s] component, completed firmware install, version: %s",
 		action.Firmware.Component,
 		action.Firmware.Version,
-	)
+	))
 
 	tctx.Publisher.Publish(tctx)
 

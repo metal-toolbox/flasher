@@ -336,7 +336,7 @@ func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 	// task failure handler
 	taskFailed := func(err error) error {
 		// include error in task
-		task.Status = err.Error()
+		task.Status.Append(err.Error())
 
 		// run transition failed handler
 		if txErr := m.TransitionFailed(task, tctx); txErr != nil {

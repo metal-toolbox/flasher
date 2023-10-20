@@ -97,7 +97,7 @@ func statusFromContext(hCtx *sm.HandlerContext) []byte {
 		TraceID:  trace.SpanFromContext(hCtx.Ctx).SpanContext().TraceID().String(),
 		SpanID:   trace.SpanFromContext(hCtx.Ctx).SpanContext().SpanID().String(),
 		State:    string(hCtx.Task.State()),
-		Status:   statusInfoJSON(hCtx.Task.Status),
+		Status:   json.RawMessage(hCtx.Task.Status.String()),
 		// ResourceVersion:  XXX: the handler context has no concept of this! does this make
 		// sense at the controller-level?
 		UpdatedAt: time.Now(),

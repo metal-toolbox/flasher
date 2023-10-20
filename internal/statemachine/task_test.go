@@ -77,7 +77,7 @@ func newTaskFixture(t *testing.T, state string, fault *rctypes.Fault) *model.Tas
 
 func Test_NewTaskStateMachine(t *testing.T) {
 	task := &model.Task{}
-	task.Status = string(model.StatePending)
+	task.Status.Append(string(model.StatePending))
 
 	tests := []struct {
 		name string

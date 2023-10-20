@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"strconv"
 	"sync"
@@ -215,15 +214,13 @@ func (o *Worker) eventNak(event events.Message) {
 
 func newTask(conditionID uuid.UUID, params *rctypes.FirmwareInstallTaskParameters) (model.Task, error) {
 	task := model.Task{
-		ID: conditionID,
+		ID:         conditionID,
+		Parameters: *params,
+		Status:     model.NewTaskStatusRecord("initialized task"),
 	}
+
 	//nolint:errcheck // this method returns nil unconditionally
 	task.SetState(model.StatePending)
-
-	task.Parameters.AssetID = params.AssetID
-	task.Parameters.ForceInstall = params.ForceInstall
-	task.Parameters.ResetBMCBeforeInstall = params.ResetBMCBeforeInstall
-	task.Parameters.DryRun = params.DryRun
 
 	if len(params.Firmwares) > 0 {
 		task.Parameters.Firmwares = params.Firmwares
@@ -521,10 +518,6 @@ type statusEmitter struct {
 	logger *logrus.Logger
 }
 
-func statusInfoJSON(s string) json.RawMessage {
-	return []byte(fmt.Sprintf("{%q: %q}", "msg", s))
-}
-
 func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 	ctx, span := otel.Tracer(pkgName).Start(
 		hCtx.Ctx,
@@ -540,7 +533,7 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 			ConditionID: task.ID,
 			ServerID:    task.Parameters.AssetID,
 			State:       rctypes.State(task.State()),
-			Status:      statusInfoJSON(task.Status),
+			Status:      json.RawMessage(task.Status.String()),
 		},
 	}
 

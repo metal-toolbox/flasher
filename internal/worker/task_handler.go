@@ -26,19 +26,6 @@ var (
 	errTaskPlanActions    = errors.New("error in task action planning")
 )
 
-// installSkippedReasons is map of component names to a reason for why a firmware version was removed from the install list.
-type installSkippedReasons map[string]string
-
-func (f installSkippedReasons) String() string {
-	s := ""
-
-	for component, cause := range f {
-		s += fmt.Sprintf("[%s] %s; ", component, cause)
-	}
-
-	return s
-}
-
 // taskHandler implements the taskTransitionHandler methods
 type taskHandler struct{}
 
@@ -181,6 +168,8 @@ func (h *taskHandler) TaskFailed(_ sw.StateSwitch, args sw.TransitionArgs) error
 		return sm.ErrInvalidTransitionHandler
 	}
 
+	tctx.Task.Status.Append("task failed")
+
 	if tctx.DeviceQueryor != nil {
 		if err := tctx.DeviceQueryor.Close(tctx.Ctx); err != nil {
 			tctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
@@ -190,32 +179,13 @@ func (h *taskHandler) TaskFailed(_ sw.StateSwitch, args sw.TransitionArgs) error
 	return nil
 }
 
-func (h *taskHandler) TaskSuccessful(t sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) TaskSuccessful(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
 	}
 
-	task, ok := t.(*model.Task)
-	if !ok {
-		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
-	}
-
-	// summarize task status
-	statuses := []string{}
-	for _, actionSM := range tctx.ActionStateMachines {
-		action := task.ActionsPlanned.ByID(actionSM.ActionID())
-		s := fmt.Sprintf(
-			"[%s] install firmware: %s, state: %s",
-			action.Firmware.Component,
-			action.Firmware.Version,
-			action.State(),
-		)
-
-		statuses = append(statuses, s)
-	}
-
-	tctx.Task.Status = strings.Join(statuses, "; ")
+	tctx.Task.Status.Append("task completed successfully")
 
 	if tctx.DeviceQueryor != nil {
 		if err := tctx.DeviceQueryor.Close(tctx.Ctx); err != nil {
@@ -269,14 +239,14 @@ func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components
 		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
 	}
 
-	tctx.Task.Status = "connecting to device BMC"
+	tctx.Task.Status.Append("connecting to device BMC")
 	tctx.Publisher.Publish(tctx)
 
 	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
 		return nil, err
 	}
 
-	tctx.Task.Status = "collecting inventory from device BMC"
+	tctx.Task.Status.Append("collecting inventory from device BMC")
 	tctx.Publisher.Publish(tctx)
 
 	deviceCommon, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
@@ -311,16 +281,14 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 	}).Debug("checking against current inventory")
 
 	toInstall := firmwares
-	skippedReasons := installSkippedReasons{}
 
 	if !task.Parameters.ForceInstall {
-		toInstall, skippedReasons = removeFirmwareAlreadyAtDesiredVersion(hCtx, firmwares)
+		toInstall = removeFirmwareAlreadyAtDesiredVersion(hCtx, firmwares)
 	}
 
 	if len(toInstall) == 0 {
-		info := "no action required for this task"
+		info := "no actions required for this task"
 
-		task.Status = fmt.Sprintf("%s: %s", info, skippedReasons.String())
 		hCtx.Publisher.Publish(hCtx)
 		hCtx.Logger.Info(info)
 
@@ -387,15 +355,20 @@ func sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
 }
 
 // returns a list of firmware applicable and a list of causes for firmwares that were removed from the install list.
-func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model.Firmware) ([]*model.Firmware, installSkippedReasons) {
+func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model.Firmware) []*model.Firmware {
 	var toInstall []*model.Firmware
 
-	causes := installSkippedReasons{}
-
-	// only iterate the inventory once
 	invMap := make(map[string]string)
 	for _, cmp := range hCtx.Asset.Components {
 		invMap[strings.ToLower(cmp.Slug)] = cmp.FirmwareInstalled
+	}
+
+	fmtCause := func(component, cause, currentV, requestedV string) string {
+		if currentV != "" && requestedV != "" {
+			return fmt.Sprintf("[%s] %s, current=%s, requested=%s", component, cause, currentV, requestedV)
+		}
+
+		return fmt.Sprintf("[%s] %s", component, cause)
 	}
 
 	// XXX: this will drop firmware for components that are specified in
@@ -412,16 +385,16 @@ func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model
 				"component": fw.Component,
 			}).Warn(cause)
 
-			causes[fw.Component] = cause
+			hCtx.Task.Status.Append(fmtCause(fw.Component, cause, "", ""))
 
 		case strings.EqualFold(currentVersion, fw.Version):
-			cause := "component inventory firmware version matches set"
+			cause := "component firmware version equal"
 			hCtx.Logger.WithFields(logrus.Fields{
 				"component": fw.Component,
 				"version":   fw.Version,
 			}).Debug(cause)
 
-			causes[fw.Component] = cause
+			hCtx.Task.Status.Append(fmtCause(fw.Component, cause, currentVersion, fw.Version))
 
 		default:
 			hCtx.Logger.WithFields(logrus.Fields{
@@ -431,8 +404,12 @@ func removeFirmwareAlreadyAtDesiredVersion(hCtx *sm.HandlerContext, fws []*model
 			}).Debug("firmware queued for install")
 
 			toInstall = append(toInstall, fw)
+
+			hCtx.Task.Status.Append(
+				fmtCause(fw.Component, "firmware queued for install", currentVersion, fw.Version),
+			)
 		}
 	}
 
-	return toInstall, causes
+	return toInstall
 }

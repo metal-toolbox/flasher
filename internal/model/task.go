@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 
 	sw "github.com/filanov/stateswitch"
@@ -116,7 +117,7 @@ type Task struct {
 	state rctypes.State
 
 	// status holds informational data on the state
-	Status string
+	Status StatusRecord
 
 	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
 	FirmwarePlanMethod FirmwarePlanMethod
@@ -146,4 +147,41 @@ func (t *Task) SetState(state sw.State) error {
 // State implements the stateswitch statemachine interface
 func (t *Task) State() sw.State {
 	return sw.State(t.state)
+}
+
+func NewTaskStatusRecord(s string) StatusRecord {
+	sr := StatusRecord{}
+	sr.Append(s)
+
+	return sr
+}
+
+type StatusRecord struct {
+	StatusMsgs []StatusMsg `json:"records"`
+}
+
+type StatusMsg struct {
+	Timestamp time.Time `json:"ts,omitempty"`
+	Msg       string    `json:"msg,omitempty"`
+}
+
+func (sr *StatusRecord) Append(s string) {
+	for _, r := range sr.StatusMsgs {
+		if r.Msg == s {
+			return
+		}
+	}
+
+	n := StatusMsg{Timestamp: time.Now(), Msg: s}
+
+	sr.StatusMsgs = append(sr.StatusMsgs, n)
+}
+
+func (sr *StatusRecord) String() string {
+	b, err := json.Marshal(sr)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(b)
 }

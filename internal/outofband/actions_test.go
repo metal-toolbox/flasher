@@ -19,7 +19,7 @@ import (
 
 func newTaskFixture(status string) *model.Task {
 	task := &model.Task{}
-	task.Status = string(status)
+	task.Status.Append(status)
 
 	// task.Parameters.Device =
 	return task
