@@ -11,7 +11,7 @@ import (
 	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
-func Test_newTaskFromCondition(t *testing.T) {
+func TestNewTaskFromCondition(t *testing.T) {
 	tests := []struct {
 		name      string
 		condition *rctypes.Condition
@@ -50,7 +50,10 @@ func Test_newTaskFromCondition(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want.ID, got.ID)
+			assert.Equal(t, tt.want.State(), got.State())
+			assert.Equal(t, tt.want.Parameters, got.Parameters)
+			assert.Contains(t, got.Status.String(), "initialized task")
 		})
 	}
 }

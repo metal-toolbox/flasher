@@ -151,6 +151,10 @@ func (t *Task) State() sw.State {
 
 func NewTaskStatusRecord(s string) StatusRecord {
 	sr := StatusRecord{}
+	if s == "" {
+		return sr
+	}
+
 	sr.Append(s)
 
 	return sr
@@ -166,6 +170,10 @@ type StatusMsg struct {
 }
 
 func (sr *StatusRecord) Append(s string) {
+	if s == "" {
+		return
+	}
+
 	for _, r := range sr.StatusMsgs {
 		if r.Msg == s {
 			return
