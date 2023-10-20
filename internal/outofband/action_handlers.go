@@ -66,6 +66,7 @@ var (
 	ErrInstalledFirmwareEqual  = errors.New("installed and expected firmware equal")
 	ErrInstalledVersionUnknown = errors.New("installed version unknown")
 	ErrComponentNotFound       = errors.New("component not found for firmware install")
+	ErrRequireHostPoweredOff   = errors.New("expected host to be powered off")
 )
 
 // actionHandler implements the actionTransitionHandler methods
@@ -99,7 +100,7 @@ func sleepWithContext(ctx context.Context, t time.Duration) error {
 	}
 }
 
-func (h *actionHandler) conditionPowerOnDevice(_ *model.Action, tctx *sm.HandlerContext) (bool, error) {
+func (h *actionHandler) hostPoweredOff(_ *model.Action, tctx *sm.HandlerContext) (bool, error) {
 	// init out of band device queryor - if one isn't already initialized
 	// this is done conditionally to enable tests to pass in a device queryor
 	if tctx.DeviceQueryor == nil {
@@ -129,12 +130,16 @@ func (h *actionHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) err
 		return err
 	}
 
-	powerOnRequired, err := h.conditionPowerOnDevice(action, tctx)
+	hostPoweredOff, err := h.hostPoweredOff(action, tctx)
 	if err != nil {
 		return err
 	}
 
-	if !powerOnRequired {
+	if !hostPoweredOff {
+		if tctx.Task.Parameters.RequireHostPoweredOff {
+			return ErrRequireHostPoweredOff
+		}
+
 		return nil
 	}
 
