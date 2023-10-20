@@ -80,7 +80,7 @@ func TestPublisher(t *testing.T) {
 		Ctx: context.TODO(),
 		Task: &model.Task{
 			ID:     taskID,
-			Status: "some-status",
+			Status: model.NewTaskStatusRecord("some-status"),
 		},
 		WorkerID: registry.GetID("kvtest"),
 		Asset: &model.Asset{
