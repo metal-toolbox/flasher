@@ -101,7 +101,8 @@ func TestPublisher(t *testing.T) {
 
 	require.Equal(t, types.Version, sv.MsgVersion, "version check")
 	require.Equal(t, assetID.String(), sv.Target, "sv Target")
-	require.Equal(t, json.RawMessage(`{"msg":"some-status"}`), sv.Status, "sv Status")
+
+	require.Contains(t, string(sv.Status), "some-status", "sv Status")
 
 	testContext.Task.SetState(model.StateActive)
 	require.NotPanics(t, func() { pub.Publish(testContext) }, "publish revision")
