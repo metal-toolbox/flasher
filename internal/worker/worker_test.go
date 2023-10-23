@@ -53,7 +53,7 @@ func TestNewTaskFromCondition(t *testing.T) {
 			assert.Equal(t, tt.want.ID, got.ID)
 			assert.Equal(t, tt.want.State(), got.State())
 			assert.Equal(t, tt.want.Parameters, got.Parameters)
-			assert.Contains(t, got.Status.String(), "initialized task")
+			assert.Contains(t, string(got.Status.MustMarshal()), "initialized task")
 		})
 	}
 }
