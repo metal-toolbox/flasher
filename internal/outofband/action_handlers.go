@@ -130,12 +130,13 @@ func (h *actionHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) err
 		return err
 	}
 
-	hostPoweredOff, err := h.hostPoweredOff(action, tctx)
+	hostIsPoweredOff, err := h.hostPoweredOff(action, tctx)
 	if err != nil {
 		return err
 	}
 
-	if !hostPoweredOff {
+	// host is currently powered on and it wasn't powered on by flasher
+	if !hostIsPoweredOff && tctx.Data[devicePoweredOn] != "true" {
 		if tctx.Task.Parameters.RequireHostPoweredOff {
 			return ErrRequireHostPoweredOff
 		}
