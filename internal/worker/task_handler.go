@@ -128,6 +128,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 		tctx.Logger.WithFields(logrus.Fields{
 			"statemachineID": actionSM.ActionID(),
+			"final":          action.Final,
 		}).Debug("action state machine start")
 
 		// run the action state machine
