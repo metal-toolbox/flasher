@@ -185,11 +185,11 @@ func (sr *StatusRecord) Append(s string) {
 	sr.StatusMsgs = append(sr.StatusMsgs, n)
 }
 
-func (sr *StatusRecord) String() string {
+func (sr *StatusRecord) MustMarshal() json.RawMessage {
 	b, err := json.Marshal(sr)
 	if err != nil {
 		panic(err)
 	}
 
-	return string(b)
+	return b
 }

@@ -533,7 +533,7 @@ func (e *statusEmitter) Publish(hCtx *sm.HandlerContext) {
 			ConditionID: task.ID,
 			ServerID:    task.Parameters.AssetID,
 			State:       rctypes.State(task.State()),
-			Status:      json.RawMessage(task.Status.String()),
+			Status:      task.Status.MustMarshal(),
 		},
 	}
 
