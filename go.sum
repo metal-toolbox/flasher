@@ -103,6 +103,8 @@ github.com/bmc-toolbox/bmclib/v2 v2.1.0 h1:4zC8/ODEeO8uWiBJGUO8u2HgGJWtoDZfSEBFY
 github.com/bmc-toolbox/bmclib/v2 v2.1.0/go.mod h1:hRe0RhyHbyQDFULc6HQFBIwdBOFYnm+8rHeO9UBnxAU=
 github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231017114451-153e11d62a71 h1:Dd76cvKu9/bRl6MKFASf+UmqyqwTdApmvgCvdab078w=
 github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231017114451-153e11d62a71/go.mod h1:hRe0RhyHbyQDFULc6HQFBIwdBOFYnm+8rHeO9UBnxAU=
+github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231103151819-643a35b7f0cc h1:1rUCwHba1fmcudx+tdB2x5OEct0qd4LIwwFYKRoDOrI=
+github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231103151819-643a35b7f0cc/go.mod h1:6zmmt8sLmcBGdiKY/+YAfxXjmLCAoVNMjLurBO3uhYw=
 github.com/bmc-toolbox/common v0.0.0-20230717121556-5eb9915a8a5a h1:SjtoU9dE3bYfYnPXODCunMztjoDgnE3DVJCPLBqwz6Q=
 github.com/bmc-toolbox/common v0.0.0-20230717121556-5eb9915a8a5a/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
@@ -214,10 +216,13 @@ github.com/go-kit/log v0.1.0/go.mod h1:zbhenjAZHb184qTLMA9ZjW7ThYL0H2mk7Q6pNt4vb
 github.com/go-logfmt/logfmt v0.3.0/go.mod h1:Qt1PoO58o5twSAckw1HlFXLmHsOX5/0LbT9GBnD5lWE=
 github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V4qmtdjCk=
 github.com/go-logfmt/logfmt v0.5.0/go.mod h1:wCYkCAKZfumFQihp8CzCvQ3paCTfi41vtzG1KdI/P7A=
+github.com/go-logfmt/logfmt v0.5.1/go.mod h1:WYhtIu8zTZfxdn5+rREduYbwxfcBr/Vr6KEVveWlfTs=
 github.com/go-logr/logr v1.0.0/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.2.4 h1:g01GSCwiDw2xSZfjJ2/T9M+S6pFdcNtFYsp+Y43HYDQ=
 github.com/go-logr/logr v1.2.4/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
+github.com/go-logr/logr v1.3.0 h1:2y3SDp0ZXuc6/cjLSZ+Q3ir+QB9T/iG5yYRXqsagWSY=
+github.com/go-logr/logr v1.3.0/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
 github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre4VKE=
 github.com/go-logr/zerologr v1.2.3 h1:up5N9vcH9Xck3jJkXzgyOxozT14R47IyDODz8LM1KSs=
