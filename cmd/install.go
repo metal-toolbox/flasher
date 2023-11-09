@@ -18,6 +18,8 @@ var cmdInstall = &cobra.Command{
 }
 
 var (
+	fwvendor  string
+	fwmodel   string
 	fwversion string
 	component string
 	file      string
@@ -30,8 +32,22 @@ var (
 func runInstall(ctx context.Context) {
 	l := logrus.New()
 	l.Level = logrus.TraceLevel + 1
+
+	p := &install.Params{
+		DryRun:    dryrun,
+		Version:   fwversion,
+		File:      file,
+		Component: component,
+		Model:     fwmodel,
+		Vendor:    fwvendor,
+		User:      user,
+		Pass:      pass,
+		BmcAddr:   addr,
+	}
+
 	installer := install.New(l)
-	installer.Install(ctx, addr, user, pass, component, file, fwversion, dryrun)
+
+	installer.Install(ctx, p)
 }
 
 func init() {
@@ -40,6 +56,8 @@ func init() {
 	cmdInstall.PersistentFlags().StringVar(&file, "file", "", "The firmware file")
 	cmdInstall.PersistentFlags().StringVar(&addr, "addr", "", "BMC host address")
 	cmdInstall.PersistentFlags().StringVar(&user, "user", "", "BMC user")
+	cmdInstall.PersistentFlags().StringVar(&fwvendor, "vendor", "", "Component vendor")
+	cmdInstall.PersistentFlags().StringVar(&fwmodel, "model", "", "Component model")
 	cmdInstall.PersistentFlags().StringVar(&pass, "pass", "", "BMC user password")
 	cmdInstall.PersistentFlags().StringVar(&component, "component", "", "The component slug the firmware applies to")
 

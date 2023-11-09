@@ -25,6 +25,8 @@ type taskHandler struct {
 	fwFile      string
 	fwComponent string
 	fwVersion   string
+	model       string
+	vendor      string
 }
 
 func (h *taskHandler) Init(_ sw.StateSwitch, _ sw.TransitionArgs) error {
@@ -194,6 +196,8 @@ func (h *taskHandler) planInstallFile(taskID string, forceInstall bool) (sm.Acti
 	firmware := &model.Firmware{
 		Component: h.fwComponent,
 		Version:   h.fwVersion,
+		Models:    []string{h.model},
+		Vendor:    h.vendor,
 	}
 
 	actionMachines := make(sm.ActionStateMachines, 0)

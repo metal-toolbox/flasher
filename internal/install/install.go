@@ -20,7 +20,19 @@ func New(logger *logrus.Logger) *Installer {
 	return &Installer{logger: logger}
 }
 
-func (i *Installer) Install(ctx context.Context, bmcAddr, user, pass, component, file, version string, dryRun bool) {
+type Params struct {
+	DryRun    bool
+	BmcAddr   string
+	User      string
+	Pass      string
+	Component string
+	File      string
+	Version   string
+	Vendor    string
+	Model     string
+}
+
+func (i *Installer) Install(ctx context.Context, params *Params) {
 	task := &model.Task{
 		ID:         uuid.New(),
 		Parameters: rctypes.FirmwareInstallTaskParameters{},
@@ -29,28 +41,32 @@ func (i *Installer) Install(ctx context.Context, bmcAddr, user, pass, component,
 
 	// setup state machine task handler
 	handler := &taskHandler{
-		fwFile:      file,
-		fwVersion:   version,
-		fwComponent: component,
+		fwFile:      params.File,
+		fwVersion:   params.Version,
+		fwComponent: params.Component,
+		model:       params.Model,
+		vendor:      params.Vendor,
 	}
 
 	le := i.logger.WithFields(
 		logrus.Fields{
-			"dry-run":   dryRun,
-			"bmc":       bmcAddr,
-			"component": component,
+			"dry-run":   params.DryRun,
+			"bmc":       params.BmcAddr,
+			"component": params.Component,
 		})
 
 	handlerCtx := &sm.HandlerContext{
-		Dryrun:    dryRun,
+		Dryrun:    params.DryRun,
 		Task:      task,
 		Ctx:       ctx,
 		Publisher: &publisher{logger: *le},
 		Data:      make(map[string]string),
 		Asset: &model.Asset{
-			BmcAddress:  net.ParseIP(bmcAddr),
-			BmcUsername: user,
-			BmcPassword: pass,
+			BmcAddress:  net.ParseIP(params.BmcAddr),
+			BmcUsername: params.User,
+			BmcPassword: params.Pass,
+			Model:       params.Model,
+			Vendor:      params.Vendor,
 		},
 		Logger: le,
 	}
