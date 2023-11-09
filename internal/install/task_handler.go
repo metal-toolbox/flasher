@@ -76,12 +76,12 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 	tctx.Logger.Debug("create the plan")
 
-	sm, actions, err := h.planInstallFile(task.ID.String(), task.Parameters.ForceInstall)
+	actionSMs, actions, err := h.planInstallFile(task.ID.String(), task.Parameters.ForceInstall)
 	if err != nil {
 		return err
 	}
 
-	tctx.ActionStateMachines = sm
+	tctx.ActionStateMachines = actionSMs
 	task.ActionsPlanned = actions
 
 	return nil
