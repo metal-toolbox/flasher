@@ -1,9 +1,6 @@
 package install
 
 import (
-	"sort"
-	"strings"
-
 	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -17,7 +14,6 @@ var (
 	ErrSaveTask           = errors.New("error in saveTask transition handler")
 	ErrTaskTypeAssertion  = errors.New("error asserting Task type")
 	errTaskQueryInventory = errors.New("error in task query inventory for installed firmware")
-	errTaskPlanActions    = errors.New("error in task action planning")
 )
 
 // taskHandler implements the taskTransitionHandler methods
@@ -242,14 +238,6 @@ func (h *taskHandler) planInstallFile(taskID string, forceInstall bool) (sm.Acti
 	actions = append(actions, &newAction)
 
 	return actionMachines, actions, nil
-}
-
-func sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
-	sort.Slice(firmwares, func(i, j int) bool {
-		slugi := strings.ToLower(firmwares[i].Component)
-		slugj := strings.ToLower(firmwares[j].Component)
-		return model.FirmwareInstallOrder[slugi] < model.FirmwareInstallOrder[slugj]
-	})
 }
 
 // query device components inventory from the device itself.
