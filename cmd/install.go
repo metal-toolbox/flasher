@@ -43,6 +43,7 @@ func runInstall(ctx context.Context) {
 		User:      user,
 		Pass:      pass,
 		BmcAddr:   addr,
+		Force:     force,
 	}
 
 	installer := install.New(l)
