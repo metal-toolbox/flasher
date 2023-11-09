@@ -52,6 +52,7 @@ func runInstall(ctx context.Context) {
 
 func init() {
 	cmdInstall.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "dry run install")
+	cmdInstall.PersistentFlags().BoolVarP(&force, "force", "", false, "force install, skip checking existing version")
 	cmdInstall.PersistentFlags().StringVar(&fwversion, "version", "", "The version of the firmware being installed")
 	cmdInstall.PersistentFlags().StringVar(&file, "file", "", "The firmware file")
 	cmdInstall.PersistentFlags().StringVar(&addr, "addr", "", "BMC host address")
@@ -61,28 +62,11 @@ func init() {
 	cmdInstall.PersistentFlags().StringVar(&pass, "pass", "", "BMC user password")
 	cmdInstall.PersistentFlags().StringVar(&component, "component", "", "The component slug the firmware applies to")
 
-	if err := cmdInstall.MarkPersistentFlagRequired("version"); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := cmdInstall.MarkPersistentFlagRequired("file"); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := cmdInstall.MarkPersistentFlagRequired("component"); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := cmdInstall.MarkPersistentFlagRequired("addr"); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := cmdInstall.MarkPersistentFlagRequired("user"); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := cmdInstall.MarkPersistentFlagRequired("pass"); err != nil {
-		log.Fatal(err)
+	required := []string{"version", "file", "component", "addr", "user", "pass", "vendor", "model"}
+	for _, r := range required {
+		if err := cmdInstall.MarkPersistentFlagRequired(r); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	rootCmd.AddCommand(cmdInstall)
