@@ -249,6 +249,16 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 		return err
 	}
 
+	if action.FirmwareTempFile != "" {
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"component": action.Firmware.Component,
+				"file":      action.FirmwareTempFile,
+			}).Info("firmware to be installed")
+
+		return nil
+	}
+
 	// create a temp download directory
 	dir, err := os.MkdirTemp(downloadDir, "")
 	if err != nil {
