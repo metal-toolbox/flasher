@@ -22,6 +22,7 @@ func New(logger *logrus.Logger) *Installer {
 
 type Params struct {
 	DryRun    bool
+	Force     bool
 	BmcAddr   string
 	User      string
 	Pass      string
@@ -34,9 +35,12 @@ type Params struct {
 
 func (i *Installer) Install(ctx context.Context, params *Params) {
 	task := &model.Task{
-		ID:         uuid.New(),
-		Parameters: rctypes.FirmwareInstallTaskParameters{},
-		Status:     model.NewTaskStatusRecord("initialized task"),
+		ID: uuid.New(),
+		Parameters: rctypes.FirmwareInstallTaskParameters{
+			ForceInstall: params.Force,
+			DryRun:       params.DryRun,
+		},
+		Status: model.NewTaskStatusRecord("initialized task"),
 	}
 
 	// setup state machine task handler
