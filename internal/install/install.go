@@ -21,8 +21,6 @@ func New(logger *logrus.Logger) *Installer {
 }
 
 type Params struct {
-	DryRun    bool
-	Force     bool
 	BmcAddr   string
 	User      string
 	Pass      string
@@ -31,6 +29,8 @@ type Params struct {
 	Version   string
 	Vendor    string
 	Model     string
+	DryRun    bool
+	Force     bool
 }
 
 func (i *Installer) Install(ctx context.Context, params *Params) {
@@ -80,7 +80,7 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 
 type publisher struct{ logger logrus.Entry }
 
-func (f *publisher) Publish(hCtx *sm.HandlerContext) {}
+func (f *publisher) Publish(_ *sm.HandlerContext) {}
 
 func (i *Installer) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.HandlerContext) {
 	startTS := time.Now()
@@ -95,7 +95,7 @@ func (i *Installer) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Han
 		return
 	}
 
-	handlerCtx.Task.SetState(model.StatePending)
+	_ = handlerCtx.Task.SetState(model.StatePending)
 
 	// run task state machine
 	if err := stateMachine.Run(handlerCtx.Task, handlerCtx); err != nil {
