@@ -34,33 +34,38 @@ func (i *Installer) Install(ctx context.Context, bmcAddr, user, pass, component,
 		fwComponent: component,
 	}
 
+	le := i.logger.WithFields(
+		logrus.Fields{
+			"dry-run":   dryRun,
+			"bmc":       bmcAddr,
+			"component": component,
+		})
+
 	handlerCtx := &sm.HandlerContext{
-		Dryrun: dryRun,
-		Task:   task,
-		Ctx:    ctx,
-		Data:   make(map[string]string),
+		Dryrun:    dryRun,
+		Task:      task,
+		Ctx:       ctx,
+		Publisher: &publisher{logger: *le},
+		Data:      make(map[string]string),
 		Asset: &model.Asset{
-			BmcAddress:  net.IP(bmcAddr),
+			BmcAddress:  net.ParseIP(bmcAddr),
 			BmcUsername: user,
 			BmcPassword: pass,
 		},
-		Logger: i.logger.WithFields(
-			logrus.Fields{
-				"bmc":       bmcAddr,
-				"component": component,
-			},
-		),
+		Logger: le,
 	}
 
 	i.runTaskStatemachine(handler, handlerCtx)
 }
 
+type publisher struct{ logger logrus.Entry }
+
+func (f *publisher) Publish(hCtx *sm.HandlerContext) {}
+
 func (i *Installer) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.HandlerContext) {
 	startTS := time.Now()
 
-	i.logger.WithFields(logrus.Fields{
-		"bmc-ip": handlerCtx.Asset.BmcAddress,
-	}).Info("running task for device")
+	i.logger.Info("running task for device")
 
 	// init state machine for task
 	stateMachine, err := sm.NewTaskStateMachine(handler)
@@ -70,11 +75,13 @@ func (i *Installer) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Han
 		return
 	}
 
+	handlerCtx.Task.SetState(model.StatePending)
+
 	// run task state machine
 	if err := stateMachine.Run(handlerCtx.Task, handlerCtx); err != nil {
 		i.logger.WithFields(
 			logrus.Fields{
-				"bmc-ip": handlerCtx.Asset.BmcAddress,
+				"bmc-ip": handlerCtx.Asset.BmcAddress.String(),
 				"err":    err.Error(),
 			},
 		).Warn("task for device failed")

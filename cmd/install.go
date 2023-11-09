@@ -28,7 +28,9 @@ var (
 )
 
 func runInstall(ctx context.Context) {
-	installer := install.New(logrus.New())
+	l := logrus.New()
+	l.Level = logrus.TraceLevel + 1
+	installer := install.New(l)
 	installer.Install(ctx, addr, user, pass, component, file, fwversion, dryrun)
 }
 

@@ -100,7 +100,6 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 	// each actionSM (state machine) corresponds to a firmware to be installed
 	for _, actionSM := range tctx.ActionStateMachines {
-
 		// fetch action attributes from task
 		action := task.ActionsPlanned.ByID(actionSM.ActionID())
 		if err := action.SetState(model.StateActive); err != nil {
