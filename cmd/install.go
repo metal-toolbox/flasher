@@ -52,20 +52,20 @@ func runInstall(ctx context.Context) {
 }
 
 func init() {
-	cmdInstall.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "dry run install")
-	cmdInstall.PersistentFlags().BoolVarP(&force, "force", "", false, "force install, skip checking existing version")
-	cmdInstall.PersistentFlags().StringVar(&fwversion, "version", "", "The version of the firmware being installed")
-	cmdInstall.PersistentFlags().StringVar(&file, "file", "", "The firmware file")
-	cmdInstall.PersistentFlags().StringVar(&addr, "addr", "", "BMC host address")
-	cmdInstall.PersistentFlags().StringVar(&user, "user", "", "BMC user")
-	cmdInstall.PersistentFlags().StringVar(&fwvendor, "vendor", "", "Component vendor")
-	cmdInstall.PersistentFlags().StringVar(&fwmodel, "model", "", "Component model")
-	cmdInstall.PersistentFlags().StringVar(&pass, "pass", "", "BMC user password")
-	cmdInstall.PersistentFlags().StringVar(&component, "component", "", "The component slug the firmware applies to")
+	cmdInstall.Flags().BoolVarP(&dryrun, "dry-run", "", false, "dry run install")
+	cmdInstall.Flags().BoolVarP(&force, "force", "", false, "force install, skip checking existing version")
+	cmdInstall.Flags().StringVar(&fwversion, "version", "", "The version of the firmware being installed")
+	cmdInstall.Flags().StringVar(&file, "file", "", "The firmware file")
+	cmdInstall.Flags().StringVar(&addr, "addr", "", "BMC host address")
+	cmdInstall.Flags().StringVar(&user, "user", "", "BMC user")
+	cmdInstall.Flags().StringVar(&fwvendor, "vendor", "", "Component vendor")
+	cmdInstall.Flags().StringVar(&fwmodel, "model", "", "Component model")
+	cmdInstall.Flags().StringVar(&pass, "pass", "", "BMC user password")
+	cmdInstall.Flags().StringVar(&component, "component", "", "The component slug the firmware applies to")
 
 	required := []string{"version", "file", "component", "addr", "user", "pass", "vendor", "model"}
 	for _, r := range required {
-		if err := cmdInstall.MarkPersistentFlagRequired(r); err != nil {
+		if err := cmdInstall.MarkFlagRequired(r); err != nil {
 			log.Fatal(err)
 		}
 	}
