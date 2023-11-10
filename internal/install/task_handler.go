@@ -30,7 +30,7 @@ func (h *taskHandler) Init(_ sw.StateSwitch, _ sw.TransitionArgs) error {
 }
 
 // Query looks up the device component inventory and sets it in the task handler context.
-func (h *taskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *taskHandler) Query(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidtaskHandlerContext
