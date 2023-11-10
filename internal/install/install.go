@@ -63,7 +63,7 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		Dryrun:    params.DryRun,
 		Task:      task,
 		Ctx:       ctx,
-		Publisher: &publisher{logger: *le},
+		Publisher: &publisher{},
 		Data:      make(map[string]string),
 		Asset: &model.Asset{
 			BmcAddress:  net.ParseIP(params.BmcAddr),
@@ -78,7 +78,7 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 	i.runTaskStatemachine(handler, handlerCtx)
 }
 
-type publisher struct{ logger logrus.Entry }
+type publisher struct{}
 
 func (f *publisher) Publish(_ *sm.HandlerContext) {}
 

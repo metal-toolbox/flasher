@@ -36,11 +36,6 @@ func (h *taskHandler) Query(t sw.StateSwitch, args sw.TransitionArgs) error {
 		return sm.ErrInvalidtaskHandlerContext
 	}
 
-	_, ok = t.(*model.Task)
-	if !ok {
-		return errors.Wrap(errTaskQueryInventory, ErrTaskTypeAssertion.Error())
-	}
-
 	tctx.Logger.Debug("run query step")
 
 	// attempt to fetch component inventory from the device
