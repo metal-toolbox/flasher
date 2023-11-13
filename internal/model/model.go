@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	"github.com/bmc-toolbox/common"
 	"github.com/google/uuid"
 )
@@ -119,5 +120,11 @@ type DeviceQueryor interface {
 	// FirmwareInstall initiates the firmware install process returning a taskID for the install if any.
 	FirmwareInstall(ctx context.Context, componentSlug string, force bool, file *os.File) (taskID string, err error)
 
-	FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (ComponentFirmwareInstallStatus, error)
+	FirmwareInstallSteps(ctx context.Context, component string) ([]bconsts.FirmwareInstallStep, error)
+
+	FirmwareUpload(ctx context.Context, component string, reader *os.File) (uploadVerifyTaskID string, err error)
+
+	FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string) (state, status string, err error)
+
+	FirmwareInstallUploaded(ctx context.Context, component, uploadVerifyTaskID string) (installTaskID string, err error)
 }
