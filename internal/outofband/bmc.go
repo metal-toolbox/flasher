@@ -229,28 +229,8 @@ func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, compone
 		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
 	}
 
-	switch status {
-	case bmclibv2consts.FirmwareInstallInitializing, bmclibv2consts.FirmwareInstallQueued, bmclibv2consts.FirmwareInstallRunning:
-		return model.StatusInstallRunning, nil
-	case bmclibv2consts.FirmwareInstallPowerCyleHost:
-		// if the host is under reset (this is the final state only for queueing updates)
-		//	if hostWasReset {
-		//		return false, nil
-		//	}
-		return model.StatusInstallPowerCycleHostRequired, nil
-	case bmclibv2consts.FirmwareInstallPowerCycleBMC:
-		// if BMC is under reset return false (this is the final state only for queuing the update)
-		//	if bmcWasReset {
-		//		return false, nil
-		//	}
-		return model.StatusInstallPowerCycleBMCRequired, nil
-	case bmclibv2consts.FirmwareInstallComplete:
-		return model.StatusInstallComplete, nil
-	case bmclibv2consts.FirmwareInstallFailed:
-		return model.StatusInstallFailed, nil
-	case bmclibv2consts.FirmwareInstallUnknown:
-		return model.StatusInstallUnknown, nil
-	default:
-		return model.StatusInstallUnknown, errors.Wrap(ErrFirmwareInstallStatusUnexpected, status)
+func (b *bmc) FirmwareInstallUploaded(ctx context.Context, component, uploadVerifyTaskID string) (installTaskID string, err error) {
+	if err := b.Open(ctx); err != nil {
+		return "", err
 	}
 }
