@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	bmclibv2 "github.com/bmc-toolbox/bmclib/v2"
+	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	logrusrv2 "github.com/bombsimon/logrusr/v2"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
@@ -48,8 +48,8 @@ func newHTTPClient() *http.Client {
 	}
 }
 
-// newBmclibv2Client initializes a bmclibv2 client with the given credentials
-func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *bmclibv2.Client {
+// newBmclibv2Client initializes a bmclib client with the given credentials
+func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *bmclib.Client {
 	logger := logrus.New()
 	logger.Formatter = l.Logger.Formatter
 
@@ -67,17 +67,17 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 
 	logruslogr := logrusrv2.New(logger)
 
-	bmcClient := bmclibv2.NewClient(
+	bmcClient := bmclib.NewClient(
 		asset.BmcAddress.String(),
 		asset.BmcUsername,
 		asset.BmcPassword,
-		bmclibv2.WithLogger(logruslogr),
-		bmclibv2.WithHTTPClient(newHTTPClient()),
-		bmclibv2.WithPerProviderTimeout(loginTimeout),
-		bmclibv2.WithRedfishEtagMatchDisabled(true),
+		bmclib.WithLogger(logruslogr),
+		bmclib.WithHTTPClient(newHTTPClient()),
+		bmclib.WithPerProviderTimeout(loginTimeout),
+		bmclib.WithRedfishEtagMatchDisabled(true),
 	)
 
-	// set bmclibv2 driver
+	// set bmclib driver
 	//
 	// The bmclib drivers here are limited to the HTTPS means of connection,
 	// that is, drivers like ipmi are excluded.
@@ -107,7 +107,7 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 
 func (b *bmc) sessionActive(ctx context.Context) error {
 	if b.client == nil {
-		return errors.Wrap(errBMCSession, "bmclibv2 client not initialized")
+		return errors.Wrap(errBMCSession, "bmclib client not initialized")
 	}
 
 	// check if we're able to query the power state
@@ -186,7 +186,7 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 
 			attempts++
 
-			time.Sleep(delay.Duration())
+			sleepWithContext(ctx, delay.ForAttempt(float64(attempts)))
 
 			continue
 		}
