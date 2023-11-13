@@ -13,12 +13,16 @@ REPO := "https://github.com/metal-toolbox/flasher.git"
 .DEFAULT_GOAL := help
 
 ## lint
-lint:
+lint: gen-mock
 	golangci-lint run --config .golangci.yml
 
 ## Go test
-test:
+test: lint
 	CGO_ENABLED=0 go test -timeout 1m -v -covermode=atomic ./...
+
+## Generate mocks
+gen-mock:
+	mockgen -source internal/model/model.go -destination internal/fixtures/mock.go -package fixtures
 
 ## build-osx
 build-osx:
