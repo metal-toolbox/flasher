@@ -49,7 +49,8 @@ type Action struct {
 	TaskID string
 
 	// BMCTaskID is the task identifier to track a BMC job
-	// these are returned whent he firmware install is initiated on the BMC.
+	// these are returned when the firmware is uploaded and is being verified
+	// or an install was initiated on the BMC .
 	BMCTaskID string
 
 	// Method of install
@@ -60,6 +61,8 @@ type Action struct {
 
 	// Firmware to be installed, this is set in the Task Plan phase.
 	Firmware Firmware
+
+	FirmwareInstallStep string
 
 	// FirwareTempFile is the temporary file downloaded to be installed.
 	//
