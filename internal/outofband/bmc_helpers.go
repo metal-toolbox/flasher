@@ -186,7 +186,9 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 
 			attempts++
 
-			sleepWithContext(ctx, delay.ForAttempt(float64(attempts)))
+			if err := sleepWithContext(ctx, delay.ForAttempt(float64(attempts))); err != nil {
+				return err
+			}
 
 			continue
 		}
