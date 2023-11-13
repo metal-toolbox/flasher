@@ -25,7 +25,21 @@ type taskHandler struct {
 	vendor      string
 }
 
-func (h *taskHandler) Init(_ sw.StateSwitch, _ sw.TransitionArgs) error {
+func (h *taskHandler) Init(_ sw.StateSwitch, args sw.TransitionArgs) error {
+	tctx, ok := args.(*sm.HandlerContext)
+	if !ok {
+		return sm.ErrInvalidtaskHandlerContext
+	}
+
+	if tctx.DeviceQueryor == nil {
+		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
+		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
+		// so this DeviceQueryor would have to be extended
+		//
+		// For this to work with both inband and out of band, the firmware set data should include the install method.
+		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
+	}
+
 	return nil
 }
 
@@ -67,7 +81,7 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 
 	tctx.Logger.Debug("create the plan")
 
-	actionSMs, actions, err := h.planInstallFile(task.ID.String(), task.Parameters.ForceInstall)
+	actionSMs, actions, err := h.planInstallFile(tctx, task.ID.String(), task.Parameters.ForceInstall)
 	if err != nil {
 		return err
 	}
@@ -183,7 +197,7 @@ func (h *taskHandler) PublishStatus(_ sw.StateSwitch, args sw.TransitionArgs) er
 	return nil
 }
 
-func (h *taskHandler) planInstallFile(taskID string, forceInstall bool) (sm.ActionStateMachines, model.Actions, error) {
+func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, forceInstall bool) (sm.ActionStateMachines, model.Actions, error) {
 	firmware := &model.Firmware{
 		Component: h.fwComponent,
 		Version:   h.fwVersion,
@@ -191,11 +205,21 @@ func (h *taskHandler) planInstallFile(taskID string, forceInstall bool) (sm.Acti
 		Vendor:    h.vendor,
 	}
 
+	steps, err := tctx.DeviceQueryor.FirmwareInstallSteps(tctx.Ctx, firmware.Component)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	errFirmwareInstallSteps := errors.New("no firmware install steps identified for component")
+	if len(steps) == 0 {
+		return nil, nil, errors.Wrap(errFirmwareInstallSteps, firmware.Component)
+	}
+
 	actionMachines := make(sm.ActionStateMachines, 0)
 	actions := make(model.Actions, 0)
 
 	actionID := sm.ActionID(taskID, firmware.Component, 1)
-	m, err := outofband.NewActionStateMachine(actionID)
+	m, err := outofband.NewActionStateMachine(actionID, steps)
 	if err != nil {
 		return nil, nil, err
 	}
