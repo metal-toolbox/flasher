@@ -17,14 +17,9 @@ import (
 const (
 
 	// state for successful actions
-	StateActionSuccessful sw.State = model.StateSucceeded
+	StateActionSuccessful sw.State = sw.State(TransitionTypeTaskSuccess)
 	// state for failed actions
-	StateActionFailed sw.State = model.StateFailed
-
-	// transition for successful actions
-	TransitionTypeActionSuccess sw.TransitionType = "succeeded"
-	// transition for failed actions
-	TransitionTypeActionFailed sw.TransitionType = "failed"
+	StateActionFailed sw.State = sw.State(TransitionTypeTaskFail)
 )
 
 var (
@@ -110,14 +105,15 @@ func ActionID(taskID, componentSlug string, idx int) string {
 }
 
 // NewActionStateMachine initializes an action state machine to install firmware on a component.
-func NewActionStateMachine(actionID string, transitions []sw.TransitionType, transitionRules []sw.TransitionRule) (*ActionStateMachine, error) {
+func NewActionStateMachine(actionID string, transitionRules []sw.TransitionRule) (*ActionStateMachine, error) {
 	m := &ActionStateMachine{
 		actionID:    actionID,
 		sm:          sw.NewStateMachine(),
-		transitions: transitions,
+		transitions: []sw.TransitionType{},
 	}
 
 	for _, transitionRule := range transitionRules {
+		m.transitions = append(m.transitions, transitionRule.TransitionType)
 		m.sm.AddTransition(transitionRule)
 	}
 
@@ -138,16 +134,6 @@ func (a *ActionStateMachine) AddStateTransitionDocumentation(stateDocumentation 
 // DescribeAsJSON returns a JSON output describing the action statemachine.
 func (a *ActionStateMachine) DescribeAsJSON() ([]byte, error) {
 	return a.sm.AsJSON()
-}
-
-// TransitionFailed is the action statemachine handler that runs when an action fails.
-func (a *ActionStateMachine) TransitionFailed(action *model.Action, hctx *HandlerContext) error {
-	return a.sm.Run(TransitionTypeActionFailed, action, hctx)
-}
-
-// TransitionSuccess is the action statemachine handler that runs when an action succeeds.
-func (a *ActionStateMachine) TransitionSuccess(action *model.Action, hctx *HandlerContext) error {
-	return a.sm.Run(TransitionTypeActionSuccess, action, hctx)
 }
 
 func (a *ActionStateMachine) registerTransitionMetrics(startTS time.Time, action *model.Action, transitionType, state string) {
@@ -214,6 +200,8 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			continue
 		}
 
+		_ = action.SetState(StateActionFailed)
+
 		// error occurred
 		tctx.Logger.WithError(err).WithFields(logrus.Fields{
 			"action":    action.ID,
@@ -234,16 +222,6 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 			)
 		}
 
-		// run transition failed handler
-		if txErr := a.TransitionFailed(action, tctx); txErr != nil {
-			return newErrAction(
-				string(transitionType),
-				action.Firmware.Component,
-				string(action.State()),
-				txErr.Error(),
-			)
-		}
-
 		return newErrAction(
 			string(transitionType),
 			action.Firmware.Component,
@@ -252,6 +230,8 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 		)
 	}
 
+	_ = action.SetState(StateActionSuccessful)
+
 	tctx.Task.Status.Append(fmt.Sprintf(
 		"[%s] component, completed firmware install, version: %s",
 		action.Firmware.Component,
@@ -259,11 +239,6 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 	))
 
 	tctx.Publisher.Publish(tctx)
-
-	// run transition success handler
-	if err := a.TransitionSuccess(action, tctx); err != nil {
-		return errors.Wrap(err, err.Error())
-	}
 
 	return nil
 }

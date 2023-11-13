@@ -340,7 +340,7 @@ func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 
 		// run transition failed handler
 		if txErr := m.TransitionFailed(task, tctx); txErr != nil {
-			err = errors.Wrap(err, string(TransitionTypeActionFailed)+": "+txErr.Error())
+			err = errors.Wrap(err, string(model.StateFailed)+": "+txErr.Error())
 		}
 
 		return err
@@ -379,7 +379,7 @@ func (m *TaskStateMachine) Run(task *model.Task, tctx *HandlerContext) error {
 
 	// task success handler
 	if err := m.TransitionSuccess(task, tctx); err != nil {
-		return errors.Wrap(err, string(TransitionTypeActionSuccess)+": "+err.Error())
+		return errors.Wrap(err, string(model.StateSucceeded)+": "+err.Error())
 	}
 
 	return nil
