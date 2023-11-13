@@ -7,20 +7,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 
-	bmclibv2 "github.com/bmc-toolbox/bmclib/v2"
-	bmclibv2consts "github.com/bmc-toolbox/bmclib/v2/constants"
-	bmclibv2errs "github.com/bmc-toolbox/bmclib/v2/errors"
+	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	pkgName = "internal/outofband"
 )
 
 var (
@@ -42,16 +35,16 @@ var (
 
 	errBMCLogout = errors.New("bmc logout error")
 
-	ErrBMCQuery                        = errors.New("error occurred in bmc query")
-	ErrMaxBMCQueryAttempts             = errors.New("reached maximum BMC query attempts")
-	ErrTaskNotFound                    = errors.New("task not found")
-	ErrFirmwareInstallFailed           = errors.New("firmware install failed")
-	ErrFirmwareInstallStatusUnexpected = errors.New("firmware install status unexpected")
+	ErrBMCQuery                    = errors.New("error occurred in bmc query")
+	ErrMaxBMCQueryAttempts         = errors.New("reached maximum BMC query attempts")
+	ErrTaskNotFound                = errors.New("task not found")
+	ErrFirmwareInstallFailed       = errors.New("firmware install failed")
+	ErrFirmwareTaskStateUnexpected = errors.New("BMC returned unexpected firmware task state")
 )
 
 // bmc wraps the bmclib client and implements the bmcQueryor interface
 type bmc struct {
-	client *bmclibv2.Client
+	client *bmclib.Client
 	logger *logrus.Entry
 }
 
@@ -73,13 +66,8 @@ func (e *ErrBmcQuery) Error() string {
 
 // Open creates a BMC session
 func (b *bmc) Open(ctx context.Context) error {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.Open")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
 	if b.client == nil {
-		return errors.Wrap(errBMCLogin, "bmclibv2 client not initialized")
+		return errors.Wrap(errBMCLogin, "bmclib client not initialized")
 	}
 
 	// login to the bmc with retries
@@ -88,19 +76,11 @@ func (b *bmc) Open(ctx context.Context) error {
 
 // Close logs out of the BMC
 func (b *bmc) Close(traceCtx context.Context) error {
-	// this context is not used for the close method further below
-	// since we want to make sure the BMC session is always closed and is not left open
-	// because of a context cancellation.
-	_, span := otel.Tracer(pkgName).Start(traceCtx, "bmclib.Close")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
 	if b.client == nil {
 		return nil
 	}
 
-	ctxClose, cancel := context.WithTimeout(context.Background(), logoutTimeout)
+	ctxClose, cancel := context.WithTimeout(traceCtx, logoutTimeout)
 	defer cancel()
 
 	if err := b.client.Close(ctxClose); err != nil {
@@ -116,30 +96,15 @@ func (b *bmc) Close(traceCtx context.Context) error {
 
 // PowerStatus returns the device power status
 func (b *bmc) PowerStatus(ctx context.Context) (string, error) {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.PowerStatus")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
 	if err := b.Open(ctx); err != nil {
 		return "", err
 	}
 
-	status, err := b.client.GetPowerState(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return status, nil
+	return b.client.GetPowerState(ctx)
 }
 
 // SetPowerState sets the given power state on the device
 func (b *bmc) SetPowerState(ctx context.Context, state string) error {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.SetPowerState")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
 	if err := b.Open(ctx); err != nil {
 		return err
 	}
@@ -151,11 +116,6 @@ func (b *bmc) SetPowerState(ctx context.Context, state string) error {
 
 // ResetBMC cold resets the BMC
 func (b *bmc) ResetBMC(ctx context.Context) error {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.ResetBMC")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
 	if err := b.Open(ctx); err != nil {
 		return err
 	}
@@ -167,11 +127,6 @@ func (b *bmc) ResetBMC(ctx context.Context) error {
 
 // Inventory queries the BMC for the device inventory and returns an object with the device inventory.
 func (b *bmc) Inventory(ctx context.Context) (*common.Device, error) {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.Inventory")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
 	if err := b.Open(ctx); err != nil {
 		return nil, err
 	}
@@ -192,12 +147,15 @@ func (b *bmc) Inventory(ctx context.Context) (*common.Device, error) {
 	return inventory, nil
 }
 
+func (b *bmc) FirmwareInstallSteps(ctx context.Context, component string) ([]bconsts.FirmwareInstallStep, error) {
+	if err := b.Open(ctx); err != nil {
+		return nil, err
+	}
+
+	return b.client.FirmwareInstallSteps(ctx, component)
+}
+
 func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force bool, file *os.File) (bmcTaskID string, err error) {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.FirmwareInstall")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
 	if err := b.Open(ctx); err != nil {
 		return "", err
 	}
@@ -205,32 +163,36 @@ func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force b
 	installCtx, cancel := context.WithTimeout(ctx, firmwareInstallTimeout)
 	defer cancel()
 
-	return b.client.FirmwareInstall(installCtx, componentSlug, bmclibv2consts.FirmwareApplyOnReset, force, file)
+	return b.client.FirmwareInstall(installCtx, componentSlug, string(bconsts.OnReset), force, file)
 }
 
-// FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameters
-func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (model.ComponentFirmwareInstallStatus, error) {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.FirmwareInstallStatus")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
-
+// FirmwareTaskStatus looks up the firmware upload/install state and status values
+func (b *bmc) FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string) (state, status string, err error) {
 	if err := b.Open(ctx); err != nil {
-		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
+		return "", "", errors.Wrap(ErrBMCQuery, err.Error())
 	}
 
-	status, err := b.client.FirmwareInstallStatus(ctx, installVersion, componentSlug, bmcTaskID)
-	if err != nil {
-		// If BMC has rebooted, task won't be found, we assume success (failure don't reboot)
-		if strings.EqualFold(componentSlug, "bmc") && errors.Is(err, bmclibv2errs.ErrTaskNotFound) {
-			return model.StatusInstallComplete, nil
-		}
+	return b.client.FirmwareTaskStatus(ctx, kind, component, taskID, installVersion)
+}
 
-		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
+func (b *bmc) FirmwareUpload(ctx context.Context, component string, file *os.File) (uploadTaskID string, err error) {
+	if err := b.Open(ctx); err != nil {
+		return "", err
 	}
+
+	installCtx, cancel := context.WithTimeout(ctx, firmwareInstallTimeout)
+	defer cancel()
+
+	return b.client.FirmwareUpload(installCtx, component, file)
+}
 
 func (b *bmc) FirmwareInstallUploaded(ctx context.Context, component, uploadVerifyTaskID string) (installTaskID string, err error) {
 	if err := b.Open(ctx); err != nil {
 		return "", err
 	}
+
+	installCtx, cancel := context.WithTimeout(ctx, firmwareInstallTimeout)
+	defer cancel()
+
+	return b.client.FirmwareInstallUploaded(installCtx, component, uploadVerifyTaskID)
 }
