@@ -3,7 +3,9 @@ package worker
 import (
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/sirupsen/logrus"
@@ -11,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.hollow.sh/toolbox/events/registry"
 
+	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
@@ -160,6 +163,11 @@ func TestPlanInstall(t *testing.T) {
 			Component: "bios",
 		},
 	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	q := fixtures.NewMockDeviceQueryor(ctrl)
+
 	serverID := uuid.MustParse("fa125199-e9dd-47d4-8667-ce1d26f58c4a")
 	taskID := uuid.MustParse("05c3296d-be5d-473a-b90c-4ce66cfdec65")
 	ctx := &sm.HandlerContext{
@@ -180,7 +188,8 @@ func TestPlanInstall(t *testing.T) {
 		Task: &model.Task{
 			ID: taskID,
 		},
-		WorkerID: registry.GetID("test-app"),
+		WorkerID:      registry.GetID("test-app"),
+		DeviceQueryor: q,
 	}
 
 	h := &taskHandler{}
@@ -191,6 +200,13 @@ func TestPlanInstall(t *testing.T) {
 			AssetID: serverID,
 		},
 	}
+
+	q.EXPECT().FirmwareInstallSteps(gomock.Any(), gomock.Any()).
+		Times(1).
+		Return([]bconsts.FirmwareInstallStep{
+			bconsts.FirmwareInstallStepUploadInitiateInstall,
+			bconsts.FirmwareInstallStepInstallStatus,
+		}, nil)
 
 	sms, actions, err := h.planInstall(ctx, taskParam, fwSet)
 	require.NoError(t, err)

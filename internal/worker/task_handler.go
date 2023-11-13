@@ -29,7 +29,21 @@ var (
 // taskHandler implements the taskTransitionHandler methods
 type taskHandler struct{}
 
-func (h *taskHandler) Init(_ sw.StateSwitch, _ sw.TransitionArgs) error {
+func (h *taskHandler) Init(_ sw.StateSwitch, args sw.TransitionArgs) error {
+	tctx, ok := args.(*sm.HandlerContext)
+	if !ok {
+		return sm.ErrInvalidtaskHandlerContext
+	}
+
+	if tctx.DeviceQueryor == nil {
+		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
+		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
+		// so this DeviceQueryor would have to be extended
+		//
+		// For this to work with both inband and out of band, the firmware set data should include the install method.
+		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
+	}
+
 	return nil
 }
 
@@ -231,15 +245,6 @@ func (h *taskHandler) planFromFirmwareSet(tctx *sm.HandlerContext, task *model.T
 
 // query device components inventory from the device itself.
 func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components, error) {
-	if tctx.DeviceQueryor == nil {
-		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
-		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
-		// so this DeviceQueryor would have to be extended
-		//
-		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
-	}
-
 	tctx.Task.Status.Append("connecting to device BMC")
 	tctx.Publisher.Publish(tctx)
 
@@ -305,11 +310,21 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 		// generate an action ID
 		actionID := sm.ActionID(task.ID.String(), firmware.Component, idx)
 
+		steps, err := hCtx.DeviceQueryor.FirmwareInstallSteps(hCtx.Ctx, firmware.Component)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		errFirmwareInstallSteps := errors.New("no firmware install steps identified for component")
+		if len(steps) == 0 {
+			return nil, nil, errors.Wrap(errFirmwareInstallSteps, firmware.Component)
+		}
+
 		// TODO: The firmware is to define the preferred install method
 		// based on that the action plan is setup.
 		//
 		// For now this is hardcoded to outofband.
-		m, err := outofband.NewActionStateMachine(actionID)
+		m, err := outofband.NewActionStateMachine(actionID, steps)
 		if err != nil {
 			return nil, nil, err
 		}
