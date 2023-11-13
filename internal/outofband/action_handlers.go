@@ -17,13 +17,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 )
 
 const (
 	// delayHostPowerStatusChange is the delay after the host has been power cycled or powered on
 	// this delay ensures that any existing pending updates are applied and that the
 	// the host components are initialized properly before inventory and other actions are attempted.
-	delayHostPowerStatusChange = 10 * time.Minute
+	delayHostPowerStatusChange = 5 * time.Minute
 
 	// delay after when the BMC was reset
 	delayBMCReset = 5 * time.Minute
@@ -58,15 +60,16 @@ var (
 	// nolint:gosec // no gosec, this isn't a credential
 	envTesting = "ENV_TESTING"
 
-	ErrFirmwareTempFile        = errors.New("error firmware temp file")
-	ErrSaveAction              = errors.New("error occurred in action state save")
-	ErrActionTypeAssertion     = errors.New("error occurred in action object type assertion")
-	ErrContextCancelled        = errors.New("context canceled")
-	ErrUnexpected              = errors.New("unexpected error occurred")
-	ErrInstalledFirmwareEqual  = errors.New("installed and expected firmware equal")
-	ErrInstalledVersionUnknown = errors.New("installed version unknown")
-	ErrComponentNotFound       = errors.New("component not found for firmware install")
-	ErrRequireHostPoweredOff   = errors.New("expected host to be powered off")
+	ErrFirmwareTempFile          = errors.New("error firmware temp file")
+	ErrSaveAction                = errors.New("error occurred in action state save")
+	ErrActionTypeAssertion       = errors.New("error occurred in action object type assertion")
+	ErrContextCancelled          = errors.New("context canceled")
+	ErrUnexpected                = errors.New("unexpected error occurred")
+	ErrInstalledFirmwareNotEqual = errors.New("installed and expected firmware not equal")
+	ErrInstalledFirmwareEqual    = errors.New("installed and expected firmware are equal, no action necessary")
+	ErrInstalledVersionUnknown   = errors.New("installed version unknown")
+	ErrComponentNotFound         = errors.New("component not found for firmware install")
+	ErrRequireHostPoweredOff     = errors.New("expected host to be powered off")
 )
 
 // actionHandler implements the actionTransitionHandler methods
@@ -165,6 +168,61 @@ func (h *actionHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) err
 	return nil
 }
 
+func (h *actionHandler) installedEqualsExpected(tctx *sm.HandlerContext, component, expectedFirmware, vendor string, models []string) error {
+	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
+	if err != nil {
+		return err
+	}
+
+	tctx.Logger.WithFields(
+		logrus.Fields{
+			"component": component,
+		}).Debug("Querying device inventory from BMC for current component firmware")
+
+	components, err := model.NewComponentConverter().CommonDeviceToComponents(inv)
+	if err != nil {
+		return err
+	}
+
+	found := components.BySlugModel(component, models)
+	if found == nil {
+		tctx.Logger.WithFields(
+			logrus.Fields{
+				"component": component,
+				"vendor":    vendor,
+				"models":    models,
+				"err":       ErrComponentNotFound,
+			}).Error("no component found for given component/vendor/model")
+
+		return errors.Wrap(ErrComponentNotFound,
+			fmt.Sprintf("component: %s, vendor: %s, model: %s", component,
+				vendor,
+				models,
+			),
+		)
+	}
+
+	tctx.Logger.WithFields(
+		logrus.Fields{
+			"component": found.Slug,
+			"vendor":    found.Vendor,
+			"model":     found.Model,
+			"serial":    found.Serial,
+			"installed": found.FirmwareInstalled,
+			"expected":  expectedFirmware,
+		}).Debug("found component")
+
+	if strings.TrimSpace(found.FirmwareInstalled) == "" {
+		return ErrInstalledVersionUnknown
+	}
+
+	if !strings.EqualFold(expectedFirmware, found.FirmwareInstalled) {
+		return ErrInstalledFirmwareNotEqual
+	}
+
+	return nil
+}
+
 func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
@@ -180,67 +238,31 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 		return nil
 	}
 
-	tctx.Logger.WithFields(
-		logrus.Fields{
-			"component": action.Firmware.Component,
-		}).Debug("Querying device inventory from BMC for current component firmware")
+	if err = h.installedEqualsExpected(
+		tctx,
+		action.Firmware.Component,
+		action.Firmware.Version,
+		action.Firmware.Vendor,
+		action.Firmware.Models,
+	); err != nil {
+		if errors.Is(err, ErrInstalledVersionUnknown) {
+			return errors.Wrap(err, "use TaskParameters.Force=true to disable this check")
+		}
 
-	inv, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
-	if err != nil {
 		return err
-	}
-
-	components, err := model.NewComponentConverter().CommonDeviceToComponents(inv)
-	if err != nil {
-		return err
-	}
-
-	component := components.BySlugModel(action.Firmware.Component, action.Firmware.Models)
-	if component == nil {
-		tctx.Logger.WithFields(
-			logrus.Fields{
-				"component": action.Firmware.Component,
-				"vendor":    action.Firmware.Vendor,
-				"models":    action.Firmware.Models,
-				"err":       ErrComponentNotFound,
-			}).Error("no component found for given component/vendor/model")
-
-		return errors.Wrap(ErrComponentNotFound,
-			fmt.Sprintf("component: %s, vendor: %s, model: %s", action.Firmware.Component,
-				action.Firmware.Vendor,
-				action.Firmware.Models,
-			),
-		)
 	}
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component":        component.Slug,
-			"vendor":           component.Vendor,
-			"model":            component.Model,
-			"serial":           component.Serial,
-			"firmware.version": component.FirmwareInstalled,
-		}).Debug("found component")
+			"action id":       action.ID,
+			"condition id":    action.TaskID,
+			"component":       action.Firmware.Component,
+			"vendor":          action.Firmware.Vendor,
+			"models":          action.Firmware.Models,
+			"expectedVersion": action.Firmware.Version,
+		}).Info("Installed firmware version equals expected")
 
-	if component.FirmwareInstalled == "" {
-		return errors.Wrap(ErrInstalledVersionUnknown, "set TaskParameters.Force=true to skip this check")
-	}
-
-	equal := strings.EqualFold(component.FirmwareInstalled, action.Firmware.Version)
-	if equal {
-		tctx.Logger.WithFields(
-			logrus.Fields{
-				"action id":       action.ID,
-				"condition id":    action.TaskID,
-				"component":       action.Firmware.Component,
-				"vendor":          action.Firmware.Vendor,
-				"models":          action.Firmware.Models,
-				"expectedVersion": action.Firmware.Version,
-			}).Warn("Installed firmware version equals expected")
-		return ErrInstalledFirmwareEqual
-	}
-
-	return nil
+	return ErrInstalledFirmwareEqual
 }
 
 func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
@@ -305,7 +327,67 @@ func (h *actionHandler) downloadFirmware(a sw.StateSwitch, c sw.TransitionArgs) 
 	return nil
 }
 
-func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) uploadFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	if err != nil {
+		return err
+	}
+
+	if action.FirmwareTempFile == "" {
+		return errors.Wrap(ErrFirmwareTempFile, "expected FirmwareTempFile to be declared")
+	}
+
+	// open firmware file handle
+	fileHandle, err := os.Open(action.FirmwareTempFile)
+	if err != nil {
+		return errors.Wrap(err, action.FirmwareTempFile)
+	}
+
+	defer fileHandle.Close()
+	defer os.RemoveAll(filepath.Dir(action.FirmwareTempFile))
+
+	if !tctx.Dryrun {
+		// initiate firmware upload
+		firmwareUploadTaskID, err := tctx.DeviceQueryor.FirmwareUpload(
+			tctx.Ctx,
+			action.Firmware.Component,
+			fileHandle,
+		)
+		if err != nil {
+			return err
+		}
+
+		if firmwareUploadTaskID == "" {
+			firmwareUploadTaskID = action.ID
+		}
+
+		action.FirmwareInstallStep = string(bconsts.FirmwareInstallStepUpload)
+		action.BMCTaskID = firmwareUploadTaskID
+
+		// collect upload metrics
+		fileInfo, err := os.Stat(action.FirmwareTempFile)
+		if err == nil {
+			metrics.UploadBytes.With(
+				prometheus.Labels{
+					"component": action.Firmware.Component,
+					"vendor":    action.Firmware.Vendor,
+				},
+			).Add(float64(fileInfo.Size()))
+		}
+	}
+
+	tctx.Logger.WithFields(
+		logrus.Fields{
+			"component": action.Firmware.Component,
+			"update":    action.Firmware.FileName,
+			"version":   action.Firmware.Version,
+			"BMCTaskID": action.BMCTaskID,
+		}).Info("firmware upload complete")
+
+	return nil
+}
+
+func (h *actionHandler) uploadFirmwareInitiateInstall(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
@@ -326,7 +408,7 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 
 	if !tctx.Dryrun {
 		// initiate firmware install
-		bmcTaskID, err := tctx.DeviceQueryor.FirmwareInstall(
+		bmcFirmwareInstallTaskID, err := tctx.DeviceQueryor.FirmwareInstall(
 			tctx.Ctx,
 			action.Firmware.Component,
 			tctx.Task.Parameters.ForceInstall,
@@ -349,11 +431,12 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 
 		// returned bmcTaskID corresponds to a redfish task ID on BMCs that support redfish
 		// for the rest we track the bmcTaskID as the action.ID
-		if bmcTaskID == "" {
-			bmcTaskID = action.ID
+		if bmcFirmwareInstallTaskID == "" {
+			bmcFirmwareInstallTaskID = action.ID
 		}
 
-		action.BMCTaskID = bmcTaskID
+		action.FirmwareInstallStep = string(bconsts.FirmwareInstallStepUploadInitiateInstall)
+		action.BMCTaskID = bmcFirmwareInstallTaskID
 	}
 
 	tctx.Logger.WithFields(
@@ -362,7 +445,45 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 			"update":    action.Firmware.FileName,
 			"version":   action.Firmware.Version,
 			"bmcTaskID": action.BMCTaskID,
-		}).Info("initiated firmware install")
+		}).Info("uploaded firmware and initiated install")
+
+	return nil
+}
+
+func (h *actionHandler) installUploadedFirmware(a sw.StateSwitch, c sw.TransitionArgs) error {
+	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
+	if err != nil {
+		return err
+	}
+
+	if !tctx.Dryrun {
+		// initiate firmware install
+		bmcFirmwareInstallTaskID, err := tctx.DeviceQueryor.FirmwareInstallUploaded(
+			tctx.Ctx,
+			action.Firmware.Component,
+			action.BMCTaskID,
+		)
+		if err != nil {
+			return err
+		}
+
+		// returned bmcTaskID corresponds to a redfish task ID on BMCs that support redfish
+		// for the rest we track the bmcTaskID as the action.ID
+		if bmcFirmwareInstallTaskID == "" {
+			bmcFirmwareInstallTaskID = action.ID
+		}
+
+		action.FirmwareInstallStep = string(bconsts.FirmwareInstallStepInstallUploaded)
+		action.BMCTaskID = bmcFirmwareInstallTaskID
+	}
+
+	tctx.Logger.WithFields(
+		logrus.Fields{
+			"component": action.Firmware.Component,
+			"update":    action.Firmware.FileName,
+			"version":   action.Firmware.Version,
+			"bmcTaskID": action.BMCTaskID,
+		}).Info("initiated install for uploaded firmware")
 
 	return nil
 }
@@ -690,7 +811,7 @@ func (h *actionHandler) powerOffDevice(a sw.StateSwitch, c sw.TransitionArgs) er
 	return nil
 }
 
-func (h *actionHandler) PublishStatus(_ sw.StateSwitch, args sw.TransitionArgs) error {
+func (h *actionHandler) publishStatus(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
 		return sm.ErrInvalidTransitionHandler
@@ -698,13 +819,5 @@ func (h *actionHandler) PublishStatus(_ sw.StateSwitch, args sw.TransitionArgs) 
 
 	tctx.Publisher.Publish(tctx)
 
-	return nil
-}
-
-func (h *actionHandler) actionFailed(_ sw.StateSwitch, _ sw.TransitionArgs) error {
-	return nil
-}
-
-func (h *actionHandler) actionSuccessful(_ sw.StateSwitch, _ sw.TransitionArgs) error {
 	return nil
 }

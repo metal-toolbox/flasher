@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/model"
-	modeltest "github.com/metal-toolbox/flasher/internal/model/test"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -42,7 +41,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		dq := modeltest.NewMockDeviceQueryor(ctrl)
+		dq := fixtures.NewMockDeviceQueryor(ctrl)
 		ctx := &sm.HandlerContext{
 			Ctx:           context.Background(),
 			Logger:        logrus.NewEntry(&logrus.Logger{}),
@@ -63,7 +62,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		dq := modeltest.NewMockDeviceQueryor(ctrl)
+		dq := fixtures.NewMockDeviceQueryor(ctrl)
 		ctx := &sm.HandlerContext{
 			Ctx:           context.Background(),
 			Logger:        logrus.NewEntry(&logrus.Logger{}),
@@ -84,7 +83,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		dq := modeltest.NewMockDeviceQueryor(ctrl)
+		dq := fixtures.NewMockDeviceQueryor(ctrl)
 		ctx := &sm.HandlerContext{
 			Ctx:           context.Background(),
 			Logger:        logrus.NewEntry(&logrus.Logger{}),
@@ -116,7 +115,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		conversionDebug := false
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		dq := modeltest.NewMockDeviceQueryor(ctrl)
+		dq := fixtures.NewMockDeviceQueryor(ctrl)
 		ctx := &sm.HandlerContext{
 			Ctx:           context.Background(),
 			Logger:        logrus.NewEntry(&logrus.Logger{}),
@@ -158,7 +157,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		conversionDebug := false
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		dq := modeltest.NewMockDeviceQueryor(ctrl)
+		dq := fixtures.NewMockDeviceQueryor(ctrl)
 		ctx := &sm.HandlerContext{
 			Ctx:           context.Background(),
 			Logger:        logrus.NewEntry(&logrus.Logger{}),
@@ -205,7 +204,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		conversionDebug := false
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		dq := modeltest.NewMockDeviceQueryor(ctrl)
+		dq := fixtures.NewMockDeviceQueryor(ctrl)
 		ctx := &sm.HandlerContext{
 			Ctx:           context.Background(),
 			Logger:        logrus.NewEntry(&logrus.Logger{}),
@@ -249,49 +248,62 @@ func Test_checkCurrentFirmware(t *testing.T) {
 
 }
 
-func Test_pollFirmwareInstallStatus(t *testing.T) {
+func TestPollFirmwareInstallStatus(t *testing.T) {
+
 	testcases := []struct {
-		name        string
-		mockStatus  model.ComponentFirmwareInstallStatus
-		expectError string
+		name          string
+		state         string
+		errorContains error
 	}{
 		{
 			"too many failures, returns error",
-			model.StatusInstallUnknown,
-			"attempts querying FirmwareInstallStatus",
+			"unknown",
+			ErrMaxBMCQueryAttempts,
 		},
 		{
 			"install requires a BMC power cycle",
-			model.StatusInstallPowerCycleBMCRequired,
-			"",
+			"powercycle-bmc",
+			nil,
 		},
 		{
 			"install requires a Host power cycle",
-			model.StatusInstallPowerCycleHostRequired,
-			"",
+			"powercycle-host",
+			nil,
 		},
 		{
 			"install state running exceeds max BMC query attempts",
-			model.StatusInstallRunning,
-			"reached maximum BMC query attempts",
+			"running",
+			ErrMaxBMCQueryAttempts,
 		},
 		{
 			"install state failed returns error",
-			model.StatusInstallFailed,
-			ErrFirmwareInstallFailed.Error(),
+			"failed",
+			ErrFirmwareInstallFailed,
 		},
 		{
 			"install state complete returns",
-			model.StatusInstallComplete,
-			"",
+			"complete",
+			nil,
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
+
 			task := newTaskFixture(string(model.StateActive))
 			asset := fixtures.Assets[fixtures.Asset1ID.String()]
-			tctx := newtaskHandlerContextFixture(task, &asset)
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			q := fixtures.NewMockDeviceQueryor(ctrl)
+
+			handlerCtx := &sm.HandlerContext{
+				Task:          task,
+				Ctx:           context.Background(),
+				Logger:        logrus.NewEntry(&logrus.Logger{}),
+				DeviceQueryor: q,
+				Asset:         &asset,
+			}
 
 			action := model.Action{
 				ID:       "foobar",
@@ -308,22 +320,27 @@ func Test_pollFirmwareInstallStatus(t *testing.T) {
 			os.Setenv(envTesting, "1")
 			defer os.Unsetenv(envTesting)
 
-			os.Setenv(fixtures.EnvMockBMCFirmwareInstallStatus, string(tc.mockStatus))
-			defer os.Unsetenv(fixtures.EnvMockBMCFirmwareInstallStatus)
+			q.EXPECT().FirmwareTaskStatus(
+				gomock.Any(),
+				gomock.Any(),
+				gomock.Any(),
+				gomock.Any(),
+				gomock.Any(),
+			).AnyTimes().Return(tc.state, "some status", tc.errorContains)
 
-			if err := handler.pollFirmwareInstallStatus(&action, tctx); err != nil {
-				if tc.expectError != "" {
-					assert.Contains(t, err.Error(), tc.expectError)
+			if err := handler.pollFirmwareTaskStatus(&action, handlerCtx); err != nil {
+				if tc.errorContains != nil {
+					assert.ErrorContains(t, err, tc.errorContains.Error())
 				} else {
 					t.Fatal(err)
 				}
 			}
 
 			// assert action fields are set when bmc/host power cycle is required.
-			switch tc.mockStatus {
-			case model.StatusInstallPowerCycleBMCRequired:
+			switch tc.state {
+			case "powercycle-bmc":
 				assert.True(t, action.BMCPowerCycleRequired)
-			case model.StatusInstallPowerCycleHostRequired:
+			case "powercycle-host":
 				assert.True(t, action.HostPowerCycleRequired)
 			}
 		})
