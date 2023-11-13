@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
-	github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231103151819-643a35b7f0cc
+	github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231107175611-4c4d249ccf77
 	github.com/bmc-toolbox/common v0.0.0-20230717121556-5eb9915a8a5a
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -115,7 +115,7 @@ require (
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stmcginnis/gofish v0.14.1-0.20230920133920-77490fd98fa2 // indirect
+	github.com/stmcginnis/gofish v0.14.1-0.20231018151402-dddaff9168fb // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
