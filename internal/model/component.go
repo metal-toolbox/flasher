@@ -39,35 +39,6 @@ func (c Components) BySlugModel(cSlug string, cModels []string) *Component {
 	return nil
 }
 
-// ComponentFirmwareInstallStatus is the device component specific firmware install statuses
-// returned by the FirmwareInstallStatus method, which is part of the DeviceQueryor interface.
-//
-// As an example, the BMCs return various firmware install statuses based on the vendor implementation
-// and so these statuses defined reduce all of those differences into a few generic status values
-//
-// Note: these statuses are not related to the Flasher task status.
-type ComponentFirmwareInstallStatus string
-
-var (
-	// StatusInstallRunning is returned by the FirmwareInstallStatus when the device indicates the install is running.
-	StatusInstallRunning ComponentFirmwareInstallStatus = "running"
-
-	// StatusInstallRunning is returned by the FirmwareInstallStatus when the device indicates the install is running.
-	StatusInstallComplete ComponentFirmwareInstallStatus = "complete"
-
-	// StatusInstallUnknown is returned by the FirmwareInstallStatus when the firmware install status is not known.
-	StatusInstallUnknown ComponentFirmwareInstallStatus = "unknown"
-
-	// StatusInstallFailed is returned by the FirmwareInstallStatus when the device indicates the install has failed.
-	StatusInstallFailed ComponentFirmwareInstallStatus = "failed"
-
-	// StatusInstallPowerCycleHostRequired is returned by the FirmwareInstallStatus when the device indicates the install requires a host power cycle.
-	StatusInstallPowerCycleHostRequired ComponentFirmwareInstallStatus = "powerCycleHostRequired"
-
-	// StatusInstallPowerCycleBMCRequired is returned by the FirmwareInstallStatus when the device indicates the BMC requires a power cycle.
-	StatusInstallPowerCycleBMCRequired ComponentFirmwareInstallStatus = "powerCycleBMCRequired"
-)
-
 // ComponentConvertor provides methods to convert a common.Device to its Component equivalents.
 type ComponentConverter struct {
 	deviceVendor string

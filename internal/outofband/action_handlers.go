@@ -370,7 +370,7 @@ func (h *actionHandler) initiateInstallFirmware(a sw.StateSwitch, c sw.Transitio
 // polls firmware install status from the BMC
 //
 // nolint:gocyclo // for now this is best kept in the same method
-func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.TransitionArgs) error {
+func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.TransitionArgs) error {
 	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
 	if err != nil {
 		return err
@@ -387,12 +387,21 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 
 	var attemptErrors *multierror.Error
 
+	// inventory is set when the loop below determines that
+	// a new collection should be attempted.
+	var inventory bool
+
+	// helper func
+	componentIsBMC := func(c string) bool {
+		return strings.EqualFold(strings.ToUpper(c), common.SlugBMC)
+	}
+
 	tctx.Logger.WithFields(
 		logrus.Fields{
 			"component": action.Firmware.Component,
 			"version":   action.Firmware.Version,
 			"bmc":       tctx.Asset.BmcAddress,
-		}).Info("polling BMC for firmware install status")
+		}).Info("polling BMC for firmware task status")
 
 	for {
 		// increment attempts
@@ -409,7 +418,7 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 		if attempts >= maxPollStatusAttempts {
 			attemptErrors = multierror.Append(attemptErrors, errors.Wrapf(
 				ErrMaxBMCQueryAttempts,
-				"%d attempts querying FirmwareInstallStatus(), elapsed: %s",
+				"%d attempts querying FirmwareTaskStatus(), elapsed: %s",
 				attempts,
 				time.Since(startTS).String(),
 			))
@@ -417,12 +426,54 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 			return attemptErrors
 		}
 
+		// TODO: break into its own method
+		if inventory {
+			err := h.installedEqualsExpected(
+				tctx,
+				action.Firmware.Component,
+				action.Firmware.Version,
+				action.Firmware.Vendor,
+				action.Firmware.Models,
+			)
+			switch err {
+			case nil:
+				tctx.Logger.WithFields(
+					logrus.Fields{
+						"bmc":       tctx.Asset.BmcAddress,
+						"component": action.Firmware.Component,
+					}).Debug("Installed firmware matches expected.")
+
+				return nil
+
+			case ErrInstalledFirmwareNotEqual:
+				// if the BMC came online and is still running the previous version
+				// the install failed
+				if componentIsBMC(action.Firmware.Component) {
+					errInstall := errors.New("BMC failed to install expected firmware")
+					return errInstall
+				}
+
+			default:
+				// includes errors - ErrInstalledVersionUnknown, ErrComponentNotFound
+				attemptErrors = multierror.Append(attemptErrors, err)
+				tctx.Logger.WithFields(
+					logrus.Fields{
+						"bmc":       tctx.Asset.BmcAddress,
+						"component": action.Firmware.Component,
+						"err":       err.Error(),
+					}).Debug("Inventory collection for component returned error")
+			}
+
+			continue
+		}
+
 		// query firmware install status
-		status, err := tctx.DeviceQueryor.FirmwareInstallStatus(
+		state, status, err := tctx.DeviceQueryor.FirmwareTaskStatus(
 			tctx.Ctx,
-			action.Firmware.Version,
+			bconsts.FirmwareInstallStep(action.FirmwareInstallStep),
 			action.Firmware.Component,
 			action.BMCTaskID,
+			action.Firmware.Version,
 		)
 
 		tctx.Logger.WithFields(
@@ -433,66 +484,88 @@ func (h *actionHandler) pollFirmwareInstallStatus(a sw.StateSwitch, c sw.Transit
 				"bmc":       tctx.Asset.BmcAddress,
 				"elapsed":   time.Since(startTS).String(),
 				"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxPollStatusAttempts),
-				"taskState": status,
-			}).Debug("firmware install status query attempt")
+				"taskState": state,
+				"bmcTaskID": action.BMCTaskID,
+				"status":    status,
+			}).Debug("firmware task status query attempt")
 
 		// error check returns when maxPollStatusAttempts have been reached
 		if err != nil {
 			attemptErrors = multierror.Append(attemptErrors, err)
 
+			// no implementations available.
+			if strings.Contains(err.Error(), "no FirmwareTaskVerifier implementations found") {
+				return errors.Wrap(
+					ErrFirmwareInstallFailed,
+					"Firmware install support for component not available:"+err.Error(),
+				)
+			}
+
+			// When BMCs are updating its own firmware, they can go unreachable
+			// they apply the new firmware and in most cases the BMC task information is lost.
+			//
+			// And so if we get an error and its a BMC component that was being updated, we wait for
+			// the BMC to be available again and validate its firmware matches the one expected.
+			if componentIsBMC(action.Firmware.Component) {
+				tctx.Logger.WithFields(
+					logrus.Fields{
+						"bmc":       tctx.Asset.BmcAddress,
+						"delay":     delayBMCReset.String(),
+						"taskState": state,
+						"bmcTaskID": action.BMCTaskID,
+						"status":    status,
+						"err":       err.Error(),
+					}).Debug("BMC task status lookup returned error")
+
+				inventory = true
+			}
+
 			continue
 		}
 
-		switch status {
+		switch state {
 		// continue polling when install is running
-		case model.StatusInstallRunning:
+		case bconsts.FirmwareInstallInitializing, bconsts.FirmwareInstallQueued, bconsts.FirmwareInstallRunning:
 			continue
 
 		// record the unknown status as an error
-		case model.StatusInstallUnknown:
-			err = errors.New("firmware install status unknown")
+		case bconsts.FirmwareInstallUnknown:
+			err = errors.New("BMC firmware task status unknown")
 			attemptErrors = multierror.Append(attemptErrors, err)
 
 			continue
 
 		// return when bmc power cycle is required
-		case model.StatusInstallPowerCycleBMCRequired:
+		case bconsts.FirmwareInstallPowerCycleBMC:
 			action.BMCPowerCycleRequired = true
 			return nil
 
 		// return when host power cycle is required
-		case model.StatusInstallPowerCycleHostRequired:
+		case bconsts.FirmwareInstallPowerCycleHost:
 			action.HostPowerCycleRequired = true
 			return nil
 
 		// return error when install fails
-		case model.StatusInstallFailed:
+		case bconsts.FirmwareInstallFailed:
 			return errors.Wrap(
 				ErrFirmwareInstallFailed,
 				"check logs on the BMC for information, bmc task ID: "+action.BMCTaskID,
 			)
 
 		// return nil when install is complete
-		case model.StatusInstallComplete:
-			if strings.EqualFold(action.Firmware.Component, common.SlugBMC) {
-				tctx.Logger.WithFields(
-					logrus.Fields{
-						"bmc":   tctx.Asset.BmcAddress,
-						"delay": delayBMCReset.String(),
-					}).Debug("BMC firmware install completed, added delay to allow the BMC to complete its update process..")
+		case bconsts.FirmwareInstallComplete:
+			// The BMC would reset itself and returning now would mean the next install fails,
+			// wait until the BMC is available again and verify its on the expected version.
+			if componentIsBMC(action.Firmware.Component) {
+				inventory = true
 
-				if err := sleepWithContext(tctx.Ctx, delayBMCReset); err != nil {
-					return errors.Wrap(
-						ErrFirmwareInstallFailed,
-						err.Error(),
-					)
-				}
+				continue
 			}
 
 			return nil
 
 		default:
-			return errors.Wrap(ErrFirmwareInstallStatusUnexpected, string(status))
+			return errors.Wrap(ErrFirmwareTaskStateUnexpected, "state: "+(state))
 		}
 	}
 }
@@ -534,7 +607,8 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 		return nil
 	}
 
-	return h.pollFirmwareInstallStatus(a, c)
+	// TODO: implement an poll BMC availability method instead
+	return h.pollFirmwareTaskStatus(a, c)
 }
 
 func (h *actionHandler) resetDevice(a sw.StateSwitch, c sw.TransitionArgs) error {
@@ -563,7 +637,8 @@ func (h *actionHandler) resetDevice(a sw.StateSwitch, c sw.TransitionArgs) error
 		}
 	}
 
-	return h.pollFirmwareInstallStatus(a, c)
+	// TODO: check if this is required
+	return h.pollFirmwareTaskStatus(a, c)
 }
 
 func (h *actionHandler) conditionPowerOffDevice(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
