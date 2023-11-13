@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -83,7 +84,12 @@ func taskStateMachine() {
 }
 
 func outofbandActionStatemachine() {
-	m, err := outofband.NewActionStateMachine("dummy")
+	steps := []bconsts.FirmwareInstallStep{
+		bconsts.FirmwareInstallStepUploadInitiateInstall,
+		bconsts.FirmwareInstallStepInstallStatus,
+	}
+
+	m, err := outofband.NewActionStateMachine("dummy", steps)
 	if err != nil {
 		log.Fatal(err)
 	}
