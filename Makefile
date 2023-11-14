@@ -22,7 +22,9 @@ test: lint
 
 ## Generate mocks
 gen-mock:
-	mockgen -source internal/model/model.go -destination internal/fixtures/mock.go -package fixtures
+	go get go.uber.org/mock@v0.3.0
+	go generate ./...
+	go mod tidy
 
 ## build-osx
 build-osx:
