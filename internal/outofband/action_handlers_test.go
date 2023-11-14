@@ -26,7 +26,7 @@ func (_ fakeStateSwitch) SetState(sw.State) error {
 	return nil
 }
 
-func Test_checkCurrentFirmware(t *testing.T) {
+func TestCheckCurrentFirmware(t *testing.T) {
 	t.Parallel()
 	hPtr := &actionHandler{}
 	t.Run("type-check error", func(t *testing.T) {
@@ -108,7 +108,6 @@ func Test_checkCurrentFirmware(t *testing.T) {
 		err := hPtr.checkCurrentFirmware(act, ctx)
 		require.Error(t, err)
 		require.ErrorIs(t, err, ErrComponentNotFound)
-		t.Logf("error: %s\n", err.Error())
 	})
 	t.Run("blank installed version", func(t *testing.T) {
 		t.Parallel()
@@ -243,7 +242,7 @@ func Test_checkCurrentFirmware(t *testing.T) {
 
 		dq.EXPECT().Inventory(gomock.Any()).Times(1).Return(&dev, nil)
 		err := hPtr.checkCurrentFirmware(act, ctx)
-		require.NoError(t, err)
+		require.ErrorIs(t, ErrInstalledFirmwareNotEqual, err)
 	})
 
 }
