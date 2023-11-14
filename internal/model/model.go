@@ -98,6 +98,8 @@ var (
 	}
 )
 
+//go:generate mockgen -source model.go -destination=../fixtures/mock.go -package=fixtures
+
 // DeviceQueryor interface defines methods to query a device.
 //
 // This is common interface to the ironlib and bmclib libraries.
