@@ -7,7 +7,6 @@ import (
 
 	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
-	"github.com/golang/mock/gomock"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -15,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type fakeStateSwitch struct{}

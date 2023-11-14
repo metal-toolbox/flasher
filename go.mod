@@ -11,7 +11,6 @@ require (
 	github.com/emicklei/dot v1.6.0
 	github.com/equinix-labs/otel-init-go v0.0.9
 	github.com/filanov/stateswitch v1.0.1-0.20221115122927-775ae5822fad
-	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-retryablehttp v0.7.4
@@ -35,6 +34,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.45.0
 	go.opentelemetry.io/otel v1.19.0
 	go.opentelemetry.io/otel/trace v1.19.0
+	go.uber.org/mock v0.3.0
 	golang.org/x/net v0.17.0
 	golang.org/x/oauth2 v0.13.0
 )
