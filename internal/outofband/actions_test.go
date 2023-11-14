@@ -12,13 +12,13 @@ import (
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	sw "github.com/filanov/stateswitch"
-	"github.com/golang/mock/gomock"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func newTaskFixture(status string) *model.Task {

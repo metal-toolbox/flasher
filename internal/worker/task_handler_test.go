@@ -3,7 +3,6 @@ package worker
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.hollow.sh/toolbox/events/registry"
+	"go.uber.org/mock/gomock"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	rctypes "github.com/metal-toolbox/rivets/condition"
