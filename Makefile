@@ -44,7 +44,7 @@ build-linux:
 ifeq (${GO_VERSION}, 0)
 	$(error build requies go version 1.16.n or higher)
 endif
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o flasher \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 BMCLIB_DEBUG=true go build -o flasher -tags osusergo,netgo \
 		-ldflags \
 		"-X ${LDFLAG_LOCATION}.GitCommit=${GIT_COMMIT} \
 		 -X ${LDFLAG_LOCATION}.GitBranch=${GIT_BRANCH} \
