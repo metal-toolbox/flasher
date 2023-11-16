@@ -180,6 +180,10 @@ func (sr *StatusRecord) Append(s string) {
 		}
 	}
 
+	if len(sr.StatusMsgs) > 4 {
+		sr.StatusMsgs = sr.StatusMsgs[1:]
+	}
+
 	n := StatusMsg{Timestamp: time.Now(), Msg: s}
 
 	sr.StatusMsgs = append(sr.StatusMsgs, n)

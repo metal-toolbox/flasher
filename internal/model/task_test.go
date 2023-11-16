@@ -37,6 +37,12 @@ func TestTaskStatusRecord(t *testing.T) {
 			[]string{"a", "", "", "c"},
 			[]string{"a", "c"},
 		},
+		{
+			"truncates long set of statuses",
+			"",
+			[]string{"a", "b", "c", "d", "e", "f"},
+			[]string{"b", "c", "d", "e", "f"},
+		},
 	}
 
 	for _, tc := range tests {
