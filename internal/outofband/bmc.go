@@ -205,7 +205,7 @@ func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force b
 	installCtx, cancel := context.WithTimeout(ctx, firmwareInstallTimeout)
 	defer cancel()
 
-	return b.client.FirmwareInstall(installCtx, componentSlug, bmclibv2consts.FirmwareApplyOnReset, force, file)
+	return b.client.FirmwareInstall(installCtx, componentSlug, string(bmclibv2consts.OnReset), force, file)
 }
 
 // FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameters
@@ -232,7 +232,7 @@ func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, compone
 	switch status {
 	case bmclibv2consts.FirmwareInstallInitializing, bmclibv2consts.FirmwareInstallQueued, bmclibv2consts.FirmwareInstallRunning:
 		return model.StatusInstallRunning, nil
-	case bmclibv2consts.FirmwareInstallPowerCyleHost:
+	case bmclibv2consts.FirmwareInstallPowerCycleHost:
 		// if the host is under reset (this is the final state only for queueing updates)
 		//	if hostWasReset {
 		//		return false, nil
