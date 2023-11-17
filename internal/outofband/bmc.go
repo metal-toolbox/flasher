@@ -215,8 +215,10 @@ func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, compone
 
 	span.SetAttributes(attribute.String("bmc-ip", b.client.Auth.Host))
 
-	if err := b.Open(ctx); err != nil {
-		return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
+	if tryOpen {
+		if err := b.Open(ctx); err != nil {
+			return model.StatusInstallUnknown, errors.Wrap(ErrBMCQuery, err.Error())
+		}
 	}
 
 	status, err := b.client.FirmwareInstallStatus(ctx, installVersion, componentSlug, bmcTaskID)
