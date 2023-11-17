@@ -209,7 +209,7 @@ func (b *bmc) FirmwareInstall(ctx context.Context, componentSlug string, force b
 }
 
 // FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameters
-func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (model.ComponentFirmwareInstallStatus, error) {
+func (b *bmc) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string, tryOpen bool) (model.ComponentFirmwareInstallStatus, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "bmclib.FirmwareInstallStatus")
 	defer span.End()
 

@@ -119,5 +119,5 @@ type DeviceQueryor interface {
 	// FirmwareInstall initiates the firmware install process returning a taskID for the install if any.
 	FirmwareInstall(ctx context.Context, componentSlug string, force bool, file *os.File) (taskID string, err error)
 
-	FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (ComponentFirmwareInstallStatus, error)
+	FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string, tryOpen bool) (ComponentFirmwareInstallStatus, error)
 }

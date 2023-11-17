@@ -71,7 +71,7 @@ func (b *mockBMC) FirmwareInstall(ctx context.Context, componentSlug string, for
 }
 
 // FirmwareInstallStatus looks up the firmware install status based on the given installVersion, componentSlug, bmcTaskID parameteres
-func (b *mockBMC) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string) (model.ComponentFirmwareInstallStatus, error) {
+func (b *mockBMC) FirmwareInstallStatus(ctx context.Context, installVersion, componentSlug, bmcTaskID string, tryOpen bool) (model.ComponentFirmwareInstallStatus, error) {
 	status := os.Getenv(EnvMockBMCFirmwareInstallStatus)
 
 	if status == "" {
