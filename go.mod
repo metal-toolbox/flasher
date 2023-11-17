@@ -115,7 +115,7 @@ require (
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stmcginnis/gofish v0.14.1-0.20230920133920-77490fd98fa2 // indirect
+	github.com/stmcginnis/gofish v0.14.1-0.20231018151402-dddaff9168fb // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
@@ -153,3 +153,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/bmc-toolbox/bmclib/v2 => ../bmclib
