@@ -423,6 +423,7 @@ func TestActionStateMachine(t *testing.T) {
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
+					gomock.Any(),
 				).AnyTimes().Return(bconsts.FirmwareInstallComplete, "some status", nil)
 
 				return ctrl, q
@@ -464,6 +465,7 @@ func TestActionStateMachine(t *testing.T) {
 				q.EXPECT().PowerStatus(gomock.Any()).Return("on", nil).Times(1)
 				q.EXPECT().FirmwareInstall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("123", nil).Times(1)
 				q.EXPECT().FirmwareTaskStatus(
+					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
