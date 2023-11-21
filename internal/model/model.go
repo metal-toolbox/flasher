@@ -126,7 +126,7 @@ type DeviceQueryor interface {
 
 	FirmwareUpload(ctx context.Context, component string, reader *os.File) (uploadVerifyTaskID string, err error)
 
-	FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string) (state, status string, err error)
+	FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string, tryOpen bool) (state, status string, err error)
 
 	FirmwareInstallUploaded(ctx context.Context, component, uploadVerifyTaskID string) (installTaskID string, err error)
 }

@@ -595,6 +595,7 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			action.Firmware.Component,
 			action.BMCTaskID,
 			action.Firmware.Version,
+			true, // need to be false for AsRockRack E3C256D4ID-NL
 		)
 
 		tctx.Logger.WithFields(

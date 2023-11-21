@@ -325,6 +325,7 @@ func TestPollFirmwareInstallStatus(t *testing.T) {
 				gomock.Any(),
 				gomock.Any(),
 				gomock.Any(),
+				gomock.Any(),
 			).AnyTimes().Return(tc.state, "some status", tc.errorContains)
 
 			if err := handler.pollFirmwareTaskStatus(&action, handlerCtx); err != nil {
