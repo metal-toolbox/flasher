@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/fixtures"
@@ -248,7 +249,6 @@ func TestCheckCurrentFirmware(t *testing.T) {
 }
 
 func TestPollFirmwareInstallStatus(t *testing.T) {
-
 	testcases := []struct {
 		name          string
 		state         string
@@ -325,23 +325,28 @@ func TestPollFirmwareInstallStatus(t *testing.T) {
 				gomock.Any(),
 				gomock.Any(),
 				gomock.Any(),
-				gomock.Any(),
-			).AnyTimes().Return(tc.state, "some status", tc.errorContains)
+			).AnyTimes().Return(bconsts.TaskState(tc.state), "some status", tc.errorContains)
+
+			if tc.state == "powercycle-host" {
+				q.EXPECT().SetPowerState(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			}
 
 			if err := handler.pollFirmwareTaskStatus(&action, handlerCtx); err != nil {
 				if tc.errorContains != nil {
 					assert.ErrorContains(t, err, tc.errorContains.Error())
 				} else {
+					if tc.state == "powercycle-host" {
+						assert.True(t, action.HostPowerCycled)
+						return
+					}
+
 					t.Fatal(err)
 				}
 			}
 
 			// assert action fields are set when bmc/host power cycle is required.
-			switch tc.state {
-			case "powercycle-bmc":
+			if tc.state == "powercycle-bmc" {
 				assert.True(t, action.BMCPowerCycleRequired)
-			case "powercycle-host":
-				assert.True(t, action.HostPowerCycleRequired)
 			}
 		})
 	}
