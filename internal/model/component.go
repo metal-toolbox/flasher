@@ -22,16 +22,35 @@ type Components []*Component
 
 // BySlug returns a component that matches the slug value.
 func (c Components) BySlugModel(cSlug string, cModels []string) *Component {
-	for idx, component := range c {
+	// identify components that match the slug
+	slugsMatch := []*Component{}
+	for _, component := range c {
+		component := component
 		// skip non matching component slug
 		if !strings.EqualFold(cSlug, component.Slug) {
 			continue
 		}
 
-		// match component model with contains
-		for _, findModel := range cModels {
-			if strings.Contains(strings.ToLower(component.Model), strings.TrimSpace(findModel)) {
-				return c[idx]
+		// since theres a single BIOS, BMC (:fingers_crossed) component on a machine
+		// we look for further and return the found component
+		if strings.EqualFold(common.SlugBIOS, cSlug) || strings.EqualFold(common.SlugBMC, cSlug) {
+			return component
+		}
+
+		slugsMatch = append(slugsMatch, component)
+	}
+
+	// none found
+	if len(slugsMatch) == 0 {
+		return nil
+	}
+
+	// multiple components identified, match component by model
+	for _, find := range cModels {
+		for _, component := range slugsMatch {
+			find = strings.ToLower(strings.TrimSpace(find))
+			if strings.Contains(strings.ToLower(component.Model), find) {
+				return component
 			}
 		}
 	}
