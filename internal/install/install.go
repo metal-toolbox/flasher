@@ -2,13 +2,16 @@ package install
 
 import (
 	"context"
+	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,6 +37,11 @@ type Params struct {
 }
 
 func (i *Installer) Install(ctx context.Context, params *Params) {
+	_, err := os.Stat(params.File)
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "unable to read firmware file"))
+	}
+
 	task := &model.Task{
 		ID: uuid.New(),
 		Parameters: rctypes.FirmwareInstallTaskParameters{
