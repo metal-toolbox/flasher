@@ -651,35 +651,60 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 
 		switch state {
 		// continue polling when install is running
-		case bconsts.FirmwareInstallInitializing, bconsts.FirmwareInstallQueued, bconsts.FirmwareInstallRunning:
+		case bconsts.Initializing, bconsts.Queued, bconsts.Running:
 			continue
 
 		// record the unknown status as an error
-		case bconsts.FirmwareInstallUnknown:
+		case bconsts.Unknown:
 			err = errors.New("BMC firmware task status unknown")
 			attemptErrors = multierror.Append(attemptErrors, err)
 
 			continue
 
 		// return when bmc power cycle is required
-		case bconsts.FirmwareInstallPowerCycleBMC:
+		case bconsts.PowerCycleBMC:
 			action.BMCPowerCycleRequired = true
 			return nil
 
 		// return when host power cycle is required
-		case bconsts.FirmwareInstallPowerCycleHost:
-			action.HostPowerCycleRequired = true
-			return nil
+		case bconsts.PowerCycleHost:
+			// host was power cycled for this action - wait around until the status is updated
+			if action.HostPowerCycled {
+				continue
+			}
+
+			// power cycle host and continue
+			if err := h.powerCycleHost(tctx, action); err != nil {
+				return err
+			}
+
+			action.HostPowerCycled = true
+
+			// reset attempts
+			attempts = 0
+
+			continue
 
 		// return error when install fails
-		case bconsts.FirmwareInstallFailed:
-			return errors.Wrap(
-				ErrFirmwareInstallFailed,
-				"check logs on the BMC for information, bmc task ID: "+action.BMCTaskID,
-			)
+		case bconsts.Failed:
+			var errMsg string
+			if status == "" {
+				errMsg = fmt.Sprintf(
+					"install failed with errors, task ID: %s",
+					action.BMCTaskID,
+				)
+			} else {
+				errMsg = fmt.Sprintf(
+					"install failed with errors, task ID: %s, status: %s",
+					action.BMCTaskID,
+					status,
+				)
+			}
+
+			return errors.Wrap(ErrFirmwareInstallFailed, errMsg)
 
 		// return nil when install is complete
-		case bconsts.FirmwareInstallComplete:
+		case bconsts.Complete:
 			// The BMC would reset itself and returning now would mean the next install fails,
 			// wait until the BMC is available again and verify its on the expected version.
 			if componentIsBMC(action.Firmware.Component) {
@@ -691,7 +716,7 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			return nil
 
 		default:
-			return errors.Wrap(ErrFirmwareTaskStateUnexpected, "state: "+(state))
+			return errors.Wrap(ErrFirmwareTaskStateUnexpected, "state: "+string(state))
 		}
 	}
 }
@@ -737,13 +762,8 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 	return h.pollFirmwareTaskStatus(a, c)
 }
 
-func (h *actionHandler) resetDevice(a sw.StateSwitch, c sw.TransitionArgs) error {
-	action, tctx, err := actionTaskCtxFromInterfaces(a, c)
-	if err != nil {
-		return err
-	}
-
-	if !action.HostPowerCycleRequired {
+func (h *actionHandler) powerCycleHost(tctx *sm.HandlerContext, action *model.Action) error {
+	if tctx.Dryrun {
 		return nil
 	}
 
@@ -753,18 +773,7 @@ func (h *actionHandler) resetDevice(a sw.StateSwitch, c sw.TransitionArgs) error
 			"bmc":       tctx.Asset.BmcAddress,
 		}).Info("resetting host for firmware install")
 
-	if !tctx.Dryrun {
-		if err := tctx.DeviceQueryor.SetPowerState(tctx.Ctx, "cycle"); err != nil {
-			return err
-		}
-
-		if err := sleepWithContext(tctx.Ctx, delayHostPowerStatusChange); err != nil {
-			return err
-		}
-	}
-
-	// TODO: check if this is required
-	return h.pollFirmwareTaskStatus(a, c)
+	return tctx.DeviceQueryor.SetPowerState(tctx.Ctx, "cycle")
 }
 
 func (h *actionHandler) conditionPowerOffDevice(action *model.Action, tctx *sm.HandlerContext) (bool, error) {
