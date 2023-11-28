@@ -7,18 +7,20 @@ import (
 	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"path"
+	"runtime"
 	"strings"
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	"github.com/bmc-toolbox/bmclib/v2/providers"
 	logrusrv2 "github.com/bombsimon/logrusr/v2"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"golang.org/x/net/publicsuffix"
 
-	"github.com/bmc-toolbox/common"
-	"github.com/jacobweinstock/registrar"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
@@ -77,30 +79,10 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 		bmclib.WithRedfishEtagMatchDisabled(true),
 	)
 
-	// set bmclib driver
-	//
-	// The bmclib drivers here are limited to the HTTPS means of connection,
-	// that is, drivers like ipmi are excluded.
-	switch asset.Vendor {
-	case common.VendorDell, common.VendorHPE:
-		// Set to the bmclib ProviderProtocol value
-		// https://github.com/bmc-toolbox/bmclib/blob/v2/providers/redfish/redfish.go#L26
-		bmcClient.Registry.Drivers = bmcClient.Registry.Using("redfish")
-	case common.VendorAsrockrack:
-		// https://github.com/bmc-toolbox/bmclib/blob/v2/providers/asrockrack/asrockrack.go#L20
-		bmcClient.Registry.Drivers = bmcClient.Registry.Using("vendorapi")
-	default:
-		// attempt both drivers when vendor is unknown
-		drivers := append(registrar.Drivers{},
-			bmcClient.Registry.Using("redfish")...,
-		)
-
-		drivers = append(drivers,
-			bmcClient.Registry.Using("vendorapi")...,
-		)
-
-		bmcClient.Registry.Drivers = drivers
-	}
+	// include bmclib drivers that support firmware related actions
+	bmcClient.Registry.Drivers = bmcClient.Registry.Supports(
+		providers.FeatureFirmwareInstallSteps,
+	)
 
 	return bmcClient
 }
@@ -131,28 +113,40 @@ func (b *bmc) sessionActive(ctx context.Context) error {
 	return nil
 }
 
+// with pins the bmclib client to use the given provider - this requires the initial Open()
+// to have successfully opened a client connection with given provider.
+func (b *bmc) with(provider string) *bmclib.Client {
+	pc, _, _, _ := runtime.Caller(1)
+	funcName := path.Base(runtime.FuncForPC(pc).Name())
+
+	if !slices.Contains(b.availableProviders, provider) {
+		b.logger.WithFields(
+			logrus.Fields{"require": provider, "available": strings.Join(b.availableProviders, ",")},
+		).Trace(funcName + ": bmclib install provider not available")
+
+		return b.client
+	}
+
+	b.logger.WithFields(
+		logrus.Fields{"require": provider, "available": strings.Join(b.availableProviders, ",")},
+	).Info(funcName + ": with bmclib provider")
+
+	return b.client.For(provider)
+}
+
 // login to the BMC, re-trying tries times with exponential backoff
 //
 // if a session is found to be active,  a bmc query is made to validate the session
 // check and the login attempt is ignored.
-func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
+func (b *bmc) loginWithRetries(ctx context.Context, maxAttempts int, provider string) error {
 	attempts := 1
 
-	// nolint:gomnd // time duration definitions are clear as is.
-	delay := &backoff.Backoff{
-		Min:    5 * time.Second,
-		Max:    30 * time.Second,
-		Factor: 2,
-		Jitter: true,
-	}
-
-	if tries == 0 {
-		tries = loginAttempts
+	if maxAttempts == 0 {
+		maxAttempts = loginAttempts
 	}
 
 	// loop returns when a session was established or after retries attempts
 	for {
-		attemptstr := fmt.Sprintf("%d/%d", attempts, tries)
 		attemptCtx, cancel := context.WithTimeout(ctx, loginTimeout)
 		// nolint:gocritic // deferInLoop - loop is bounded
 		defer cancel()
@@ -163,38 +157,123 @@ func (b *bmc) loginWithRetries(ctx context.Context, tries int) error {
 		}
 
 		// attempt login
-		err := b.client.Open(attemptCtx)
+		err := b.with(provider).Open(attemptCtx)
 		if err != nil {
-			b.logger.WithFields(
-				logrus.Fields{
-					"attempt": attemptstr,
-					"err":     err,
-				}).Debug("bmc login error")
-
-			// return if attempts match tries
-			if attempts >= tries {
-				if strings.Contains(err.Error(), "operation timed out") {
-					err = multierror.Append(errBMCLoginTimeout, err)
-				}
-
-				if strings.Contains(err.Error(), "401: ") || strings.Contains(err.Error(), "failed to login") {
-					err = multierror.Append(errBMCLoginUnAuthorized, err)
-				}
-
-				return errors.Wrapf(errBMCLogin, "attempts: %s, last error: %s", attemptstr, err.Error())
-			}
-
-			attempts++
-
-			if err := sleepWithContext(ctx, delay.ForAttempt(float64(attempts))); err != nil {
+			// failed to open connection
+			attempts, err = b.retry(ctx, maxAttempts, attempts, err, provider)
+			if err != nil {
 				return err
 			}
 
 			continue
 		}
 
-		b.logger.WithField("attempt", attemptstr).Debug("bmc login successful")
+		// when we're in middle of a firmware install, the client will lose connection/session,
+		// so now, when the client retries, we want to make sure we have a session
+		// with the installProvider that was identified in FirmwareInstallSteps()
+		if b.installProviderAvailable() {
+			if b.client != nil {
+				_ = b.client.Close(attemptCtx)
+			}
+
+			err := errors.New("required bmclib install provider not available: " + provider)
+			attempts, err = b.retry(ctx, maxAttempts, attempts, err, provider)
+			if err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		b.logger.WithFields(
+			logrus.Fields{
+				"provider":        provider,
+				"successfulOpens": b.client.GetMetadata().SuccessfulProvider,
+			},
+		).Debug("bmc login successful")
 
 		return nil
 	}
+}
+
+// method returns nil if a retry is required and an error when a retry cannot proceed
+func (b *bmc) retry(ctx context.Context, maxAttempts, attempts int, cause error, provider string) (int, error) {
+	// nolint:gomnd // time duration definitions are clear as is.
+	delay := &backoff.Backoff{
+		Min:    5 * time.Second,
+		Max:    30 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
+
+	trystr := fmt.Sprintf("%d/%d", attempts, maxAttempts)
+	b.logger.WithFields(
+		logrus.Fields{
+			"provider":        provider,
+			"attempt":         trystr,
+			"successfulOpens": b.client.GetMetadata().SuccessfulOpenConns,
+			"cause":           cause,
+		}).Debug("bmc login to be retried")
+
+	// return if attempts match tries
+	if attempts >= maxAttempts {
+		if strings.Contains(cause.Error(), "operation timed out") {
+			cause = multierror.Append(cause, errBMCLoginTimeout)
+		}
+
+		if strings.Contains(cause.Error(), "401: ") || strings.Contains(cause.Error(), "failed to login") {
+			cause = multierror.Append(cause, errBMCLoginUnAuthorized)
+		}
+
+		return 0, errors.Wrapf(errBMCLogin, "attempts: %s, last error: %s", trystr, cause.Error())
+	}
+
+	// Reinitialize bmclib client if we've lost our connection
+	// to be sure we're not reusing old cookies/sessions.
+	//
+	// The bmclib client is re-initialized only if it was previously
+	// connected successfully with a provider - set as installProvider
+	if b.installProvider != "" {
+		b.logger.WithFields(
+			logrus.Fields{
+				"provider": b.installProvider,
+			},
+		).Debug("re-initialized bmclib client")
+
+		b.rebuildClient(ctx)
+	}
+
+	attempts++
+
+	if err := sleepWithContext(ctx, delay.ForAttempt(float64(attempts))); err != nil {
+		return 0, err
+	}
+
+	return attempts, nil
+}
+
+func (b *bmc) installProviderAvailable() bool {
+	if b.installProvider == "" {
+		return false
+	}
+
+	// we're in middle of an install, make sure the install provider has been opened before returning
+	return !slices.Contains(
+		b.client.GetMetadata().SuccessfulOpenConns,
+		b.installProvider,
+	)
+}
+
+func (b *bmc) provider() (string, error) {
+	// the install provider is set after firmware install steps is queried
+	if b.installProvider != "" {
+		return b.installProvider, nil
+	}
+
+	if b.asset.Vendor == "" {
+		return "", errors.Wrap(
+			ErrFirmwareInstallProvider, "device has no vendor attribute set, and an install provider was not identified")
+	}
+
+	return b.asset.Vendor, nil
 }
