@@ -352,21 +352,6 @@ func definitions() Transitions {
 			},
 		},
 		{
-			Name:           resetDevice,
-			Kind:           PostInstall,
-			DestState:      "deviceReset", // rename to powerCycleHost
-			Handler:        handler.resetDevice,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Powercycle Device",
-				Description: "Powercycle Device - only when pollFirmwareInstallStatus() identifies a Device power cycle is required.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "deviceReset",
-				Description: "This action state indicates the Device has been (conditionally) power cycled to complete a component firmware install.",
-			},
-		},
-		{
 			Name:           powerOffDevice,
 			Kind:           PowerStateOff,
 			DestState:      "devicePoweredOff",
