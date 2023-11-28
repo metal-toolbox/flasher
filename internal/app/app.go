@@ -41,7 +41,7 @@ type App struct {
 
 // New returns returns a new instance of the flasher app
 func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string, profiling bool) (*App, <-chan os.Signal, error) {
-	if appKind != model.AppKindWorker {
+	if appKind != model.AppKindWorker && appKind != model.AppKindCLI {
 		return nil, nil, errors.Wrap(ErrAppInit, "invalid app kind: "+string(appKind))
 	}
 
@@ -50,10 +50,6 @@ func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel str
 		Kind:   appKind,
 		Config: &Configuration{},
 		Logger: logrus.New(),
-	}
-
-	if err := app.LoadConfiguration(cfgFile, storeKind); err != nil {
-		return nil, nil, err
 	}
 
 	switch model.LogLevel(loglevel) {
@@ -74,13 +70,21 @@ func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel str
 
 	app.Logger.SetFormatter(runtimeFormatter)
 
-	termCh := make(chan os.Signal, 1)
-
 	// register for SIGINT, SIGTERM
+	termCh := make(chan os.Signal, 1)
 	signal.Notify(termCh, syscall.SIGINT, syscall.SIGTERM)
 
 	if profiling {
 		enableProfilingEndpoint()
+	}
+
+	if appKind == model.AppKindCLI {
+		runtimeFormatter.ChildFormatter = &logrus.TextFormatter{}
+		return app, termCh, nil
+	}
+
+	if err := app.LoadConfiguration(cfgFile, storeKind); err != nil {
+		return nil, nil, err
 	}
 
 	return app, termCh, nil
