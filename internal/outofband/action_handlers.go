@@ -412,10 +412,9 @@ func (h *actionHandler) uploadFirmwareInitiateInstall(a sw.StateSwitch, c sw.Tra
 
 	if !tctx.Dryrun {
 		// initiate firmware install
-		bmcFirmwareInstallTaskID, err := tctx.DeviceQueryor.FirmwareInstall(
+		bmcFirmwareInstallTaskID, err := tctx.DeviceQueryor.FirmwareInstallUploadAndInitiate(
 			tctx.Ctx,
 			action.Firmware.Component,
-			tctx.Task.Parameters.ForceInstall,
 			fileHandle,
 		)
 		if err != nil {
