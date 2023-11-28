@@ -242,7 +242,7 @@ func TestCheckCurrentFirmware(t *testing.T) {
 
 		dq.EXPECT().Inventory(gomock.Any()).Times(1).Return(&dev, nil)
 		err := hPtr.checkCurrentFirmware(act, ctx)
-		require.ErrorIs(t, ErrInstalledFirmwareNotEqual, err)
+		require.Nil(t, err)
 	})
 
 }

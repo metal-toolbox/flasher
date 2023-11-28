@@ -68,7 +68,7 @@ var (
 	ErrInstalledFirmwareNotEqual = errors.New("installed and expected firmware not equal")
 	ErrInstalledFirmwareEqual    = errors.New("installed and expected firmware are equal, no action necessary")
 	ErrInstalledVersionUnknown   = errors.New("installed version unknown")
-	ErrComponentNotFound         = errors.New("component not found for firmware install")
+	ErrComponentNotFound         = errors.New("component not identified for firmware install")
 	ErrRequireHostPoweredOff     = errors.New("expected host to be powered off")
 )
 
@@ -210,7 +210,7 @@ func (h *actionHandler) installedEqualsExpected(tctx *sm.HandlerContext, compone
 			"serial":    found.Serial,
 			"installed": found.FirmwareInstalled,
 			"expected":  expectedFirmware,
-		}).Debug("found component")
+		}).Debug("component identified")
 
 	if strings.TrimSpace(found.FirmwareInstalled) == "" {
 		return ErrInstalledVersionUnknown
@@ -249,17 +249,21 @@ func (h *actionHandler) checkCurrentFirmware(a sw.StateSwitch, c sw.TransitionAr
 			return errors.Wrap(err, "use TaskParameters.Force=true to disable this check")
 		}
 
+		if errors.Is(err, ErrInstalledFirmwareNotEqual) {
+			return nil
+		}
+
 		return err
 	}
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"action id":       action.ID,
-			"condition id":    action.TaskID,
-			"component":       action.Firmware.Component,
-			"vendor":          action.Firmware.Vendor,
-			"models":          action.Firmware.Models,
-			"expectedVersion": action.Firmware.Version,
+			"action id":    action.ID,
+			"condition id": action.TaskID,
+			"component":    action.Firmware.Component,
+			"vendor":       action.Firmware.Vendor,
+			"models":       action.Firmware.Models,
+			"expected":     action.Firmware.Version,
 		}).Info("Installed firmware version equals expected")
 
 	return ErrInstalledFirmwareEqual
