@@ -76,8 +76,8 @@ type Action struct {
 	// BMCPowerCycleRequired is set when an action handler determines the BMC requires a reset.
 	BMCPowerCycleRequired bool
 
-	// HostPowerCycleRequired is set when an action handler determines the Host requires a reset.
-	HostPowerCycleRequired bool
+	// HostPowerCycled is set when the host has been power cycled for the action.
+	HostPowerCycled bool
 
 	// Final is set to true when its the last action being executed
 	Final bool
