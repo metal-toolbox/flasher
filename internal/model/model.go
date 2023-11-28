@@ -120,14 +120,13 @@ type DeviceQueryor interface {
 	// Inventory returns the device inventory
 	Inventory(ctx context.Context) (*common.Device, error)
 
-	// FirmwareInstall initiates the firmware install process returning a taskID for the install if any.
-	FirmwareInstall(ctx context.Context, componentSlug string, force bool, file *os.File) (taskID string, err error)
-
 	FirmwareInstallSteps(ctx context.Context, component string) ([]bconsts.FirmwareInstallStep, error)
 
 	FirmwareUpload(ctx context.Context, component string, reader *os.File) (uploadVerifyTaskID string, err error)
 
-	FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string, tryOpen bool) (state, status string, err error)
+	FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string, tryOpen bool) (state bconsts.TaskState, status string, err error)
 
 	FirmwareInstallUploaded(ctx context.Context, component, uploadVerifyTaskID string) (installTaskID string, err error)
+
+	FirmwareInstallUploadAndInitiate(ctx context.Context, component string, file *os.File) (taskID string, err error)
 }
