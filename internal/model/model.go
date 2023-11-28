@@ -21,6 +21,7 @@ type (
 const (
 	AppName               = "flasher"
 	AppKindWorker AppKind = "worker"
+	AppKindCLI    AppKind = "cli"
 
 	InventoryStoreYAML          StoreKind = "yaml"
 	InventoryStoreServerservice StoreKind = "serverservice"
