@@ -55,21 +55,6 @@ func (mr *MockDeviceQueryorMockRecorder) Close(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockDeviceQueryor)(nil).Close), ctx)
 }
 
-// FirmwareInstall mocks base method.
-func (m *MockDeviceQueryor) FirmwareInstall(ctx context.Context, componentSlug string, force bool, file *os.File) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FirmwareInstall", ctx, componentSlug, force, file)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FirmwareInstall indicates an expected call of FirmwareInstall.
-func (mr *MockDeviceQueryorMockRecorder) FirmwareInstall(ctx, componentSlug, force, file any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirmwareInstall", reflect.TypeOf((*MockDeviceQueryor)(nil).FirmwareInstall), ctx, componentSlug, force, file)
-}
-
 // FirmwareInstallSteps mocks base method.
 func (m *MockDeviceQueryor) FirmwareInstallSteps(ctx context.Context, component string) ([]constants.FirmwareInstallStep, error) {
 	m.ctrl.T.Helper()
@@ -83,6 +68,21 @@ func (m *MockDeviceQueryor) FirmwareInstallSteps(ctx context.Context, component 
 func (mr *MockDeviceQueryorMockRecorder) FirmwareInstallSteps(ctx, component any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirmwareInstallSteps", reflect.TypeOf((*MockDeviceQueryor)(nil).FirmwareInstallSteps), ctx, component)
+}
+
+// FirmwareInstallUploadAndInitiate mocks base method.
+func (m *MockDeviceQueryor) FirmwareInstallUploadAndInitiate(ctx context.Context, component string, file *os.File) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FirmwareInstallUploadAndInitiate", ctx, component, file)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FirmwareInstallUploadAndInitiate indicates an expected call of FirmwareInstallUploadAndInitiate.
+func (mr *MockDeviceQueryorMockRecorder) FirmwareInstallUploadAndInitiate(ctx, component, file any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirmwareInstallUploadAndInitiate", reflect.TypeOf((*MockDeviceQueryor)(nil).FirmwareInstallUploadAndInitiate), ctx, component, file)
 }
 
 // FirmwareInstallUploaded mocks base method.
@@ -101,10 +101,10 @@ func (mr *MockDeviceQueryorMockRecorder) FirmwareInstallUploaded(ctx, component,
 }
 
 // FirmwareTaskStatus mocks base method.
-func (m *MockDeviceQueryor) FirmwareTaskStatus(ctx context.Context, kind constants.FirmwareInstallStep, component, taskID, installVersion string, tryOpen bool) (string, string, error) {
+func (m *MockDeviceQueryor) FirmwareTaskStatus(ctx context.Context, kind constants.FirmwareInstallStep, component, taskID, installVersion string, tryOpen bool) (constants.TaskState, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FirmwareTaskStatus", ctx, kind, component, taskID, installVersion, tryOpen)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(constants.TaskState)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
