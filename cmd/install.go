@@ -4,8 +4,9 @@ import (
 	"context"
 	"log"
 
+	"github.com/metal-toolbox/flasher/internal/app"
 	"github.com/metal-toolbox/flasher/internal/install"
-	"github.com/sirupsen/logrus"
+	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/spf13/cobra"
 )
 
@@ -30,8 +31,26 @@ var (
 )
 
 func runInstall(ctx context.Context) {
-	l := logrus.New()
-	l.Level = logrus.TraceLevel + 1
+	flasher, termCh, err := app.New(
+		model.AppKindCLI,
+		"",
+		cfgFile,
+		logLevel,
+		enableProfiling,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Setup cancel context with cancel func.
+	ctx, cancelFunc := context.WithCancel(ctx)
+
+	// routine listens for termination signal and cancels the context
+	go func() {
+		<-termCh
+		flasher.Logger.Info("got TERM signal, exiting...")
+		cancelFunc()
+	}()
 
 	p := &install.Params{
 		DryRun:    dryrun,
@@ -46,7 +65,7 @@ func runInstall(ctx context.Context) {
 		Force:     force,
 	}
 
-	installer := install.New(l)
+	installer := install.New(flasher.Logger)
 
 	installer.Install(ctx, p)
 }
