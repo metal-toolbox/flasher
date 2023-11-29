@@ -527,6 +527,9 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			"bmc":       tctx.Asset.BmcAddress,
 		}).Info("polling BMC for firmware task status")
 
+	// the prefix we'll be using for all the poll status updates
+	statusPrefix := tctx.Task.Status.Last()
+
 	for {
 		// increment attempts
 		attempts++
@@ -613,6 +616,11 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 				"bmcTaskID": action.BMCTaskID,
 				"status":    status,
 			}).Debug("firmware task status query attempt")
+
+		if tctx.Publisher != nil && status != "" {
+			tctx.Task.Status.Update(tctx.Task.Status.Last(), statusPrefix+" -- "+status)
+			tctx.Publisher.Publish(tctx)
+		}
 
 		// error check returns when maxPollStatusAttempts have been reached
 		if err != nil {

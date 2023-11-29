@@ -192,6 +192,22 @@ func (sr *StatusRecord) Append(s string) {
 	sr.StatusMsgs = append(sr.StatusMsgs, n)
 }
 
+func (sr *StatusRecord) Last() string {
+	if len(sr.StatusMsgs) == 0 {
+		return ""
+	}
+
+	return sr.StatusMsgs[len(sr.StatusMsgs)-1].Msg
+}
+
+func (sr *StatusRecord) Update(currentMsg, newMsg string) {
+	for idx, r := range sr.StatusMsgs {
+		if r.Msg == currentMsg {
+			sr.StatusMsgs[idx].Msg = newMsg
+		}
+	}
+}
+
 func (sr *StatusRecord) MustMarshal() json.RawMessage {
 	b, err := json.Marshal(sr)
 	if err != nil {
