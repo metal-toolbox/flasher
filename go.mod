@@ -20,7 +20,7 @@ require (
 	github.com/metal-toolbox/conditionorc v0.1.8-0.20230929065454-5db8bd0295f4
 	github.com/metal-toolbox/rivets v0.0.0-20231020103738-10fc2993b885
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/nats-io/nats-server/v2 v2.10.1
+	github.com/nats-io/nats-server/v2 v2.10.4
 	github.com/nats-io/nats.go v1.31.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
