@@ -1,6 +1,8 @@
 package install
 
 import (
+	"fmt"
+
 	"github.com/bmc-toolbox/common"
 	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -18,11 +20,13 @@ var (
 
 // taskHandler implements the taskTransitionHandler methods
 type taskHandler struct {
-	fwFile      string
-	fwComponent string
-	fwVersion   string
-	model       string
-	vendor      string
+	fwFile             string
+	fwComponent        string
+	fwVersion          string
+	model              string
+	vendor             string
+	onlyPlan           bool
+	bmcResetPreInstall bool
 }
 
 func (h *taskHandler) Init(_ sw.StateSwitch, args sw.TransitionArgs) error {
@@ -92,6 +96,17 @@ func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
 	return nil
 }
 
+func (h *taskHandler) listPlan(tctx *sm.HandlerContext) error {
+	tctx.Logger.WithField("plan.actions", len(tctx.ActionStateMachines)).Info("only listing the plan")
+	for _, actionSM := range tctx.ActionStateMachines {
+		for _, tx := range actionSM.TransitionOrder() {
+			fmt.Println(tx)
+		}
+	}
+
+	return nil
+}
+
 func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 	tctx, ok := args.(*sm.HandlerContext)
 	if !ok {
@@ -101,6 +116,10 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 	task, ok := t.(*model.Task)
 	if !ok {
 		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
+	}
+
+	if h.onlyPlan {
+		return h.listPlan(tctx)
 	}
 
 	tctx.Logger.WithField("plan.actions", len(tctx.ActionStateMachines)).Debug("running the plan")

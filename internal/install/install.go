@@ -34,6 +34,7 @@ type Params struct {
 	Model     string
 	DryRun    bool
 	Force     bool
+	OnlyPlan  bool
 }
 
 func (i *Installer) Install(ctx context.Context, params *Params) {
@@ -58,6 +59,7 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		fwComponent: params.Component,
 		model:       params.Model,
 		vendor:      params.Vendor,
+		onlyPlan:    params.OnlyPlan,
 	}
 
 	le := i.logger.WithFields(
