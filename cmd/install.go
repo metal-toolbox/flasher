@@ -28,6 +28,7 @@ var (
 	user      string
 	pass      string
 	force     bool
+	onlyPlan  bool
 )
 
 func runInstall(ctx context.Context) {
@@ -63,6 +64,7 @@ func runInstall(ctx context.Context) {
 		Pass:      pass,
 		BmcAddr:   addr,
 		Force:     force,
+		OnlyPlan:  onlyPlan,
 	}
 
 	installer := install.New(flasher.Logger)
@@ -71,6 +73,7 @@ func runInstall(ctx context.Context) {
 }
 
 func init() {
+	cmdInstall.Flags().BoolVarP(&onlyPlan, "only-plan", "", false, "only plan and list the install plan")
 	cmdInstall.Flags().BoolVarP(&dryrun, "dry-run", "", false, "dry run install")
 	cmdInstall.Flags().BoolVarP(&force, "force", "", false, "force install, skip checking existing version")
 	cmdInstall.Flags().StringVar(&fwversion, "version", "", "The version of the firmware being installed")
