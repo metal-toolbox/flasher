@@ -108,9 +108,16 @@ func (b *bmc) sessionActive(ctx context.Context) error {
 		return errors.Wrap(errBMCSession, "bmclib client not initialized")
 	}
 
+	// TODO: add a SessionActive method in bmclib since the GetPowerState request
+	// will not work on all devices - while they are going through an update.
+
 	// check if we're able to query the power state
-	powerStatus, err := b.client.GetPowerState(ctx)
+	powerStatus, err := b.with(b.installProvider).GetPowerState(ctx)
 	if err != nil {
+		if errors.Is(err, bmcliberrs.ErrBMCUpdating) {
+			return err
+		}
+
 		b.logger.WithFields(
 			logrus.Fields{
 				"err": err.Error(),
@@ -168,7 +175,21 @@ func (b *bmc) loginWithRetries(ctx context.Context, maxAttempts int, provider st
 		defer cancel()
 
 		// if a session is active, skip login attempt
-		if err := b.sessionActive(attemptCtx); err == nil {
+		errSessionActive := b.sessionActive(attemptCtx)
+		if errSessionActive == nil {
+			return nil
+		}
+
+		// Some BMCs disallow any actions when an update is in progress (AMI)
+		// in these cases, attempting to check the power status returns a 401.
+		if errors.Is(errSessionActive, bmcliberrs.ErrBMCUpdating) {
+			b.logger.WithFields(
+				logrus.Fields{
+					"provider": provider,
+					"err":      errSessionActive,
+				},
+			).Debug("BMC update active, skipping session open attempt")
+
 			return nil
 		}
 
