@@ -58,23 +58,36 @@ func (ts Transitions) ByName(name sw.TransitionType) (t Transition, err error) {
 	return t, errors.Wrap(errNotFound, string(name))
 }
 
-func (ts Transitions) ByKind(kind TransitionKind) (t []Transition, err error) {
+func (ts Transitions) ByKind(kind TransitionKind) (found Transitions, err error) {
 	errNotFound := errors.New("transition not found by Kind")
 
 	for _, elem := range ts { // nolint:gocritic // we're fine with 128 bytes being copied
 		if elem.Kind == kind {
-			t = append(t, elem)
+			found = append(found, elem)
 		}
 	}
 
-	if len(t) == 0 {
-		return t, errors.Wrap(errNotFound, string(kind))
+	if len(found) == 0 {
+		return found, errors.Wrap(errNotFound, string(kind))
 	}
 
-	return t, nil
+	return found, nil
 }
 
-func NewActionStateMachine(actionID string, steps []bconsts.FirmwareInstallStep) (*sm.ActionStateMachine, error) {
+func (ts Transitions) Remove(name sw.TransitionType) (final Transitions) {
+	// nolint:gocritic // insert good reason
+	for _, t := range ts {
+		if t.Name == name {
+			continue
+		}
+
+		final = append(final, t)
+	}
+
+	return final
+}
+
+func NewActionStateMachine(actionID string, steps []bconsts.FirmwareInstallStep, preInstallBMCReset bool) (*sm.ActionStateMachine, error) {
 	// defined transitions
 	defined := definitions()
 
