@@ -21,7 +21,6 @@ const (
 	uploadFirmwareInitiateInstall sw.TransitionType = "uploadFirmwareInitiateInstall"
 	installUploadedFirmware       sw.TransitionType = "installUploadedFirmware"
 	pollInstallStatus             sw.TransitionType = "pollInstallStatus"
-	postInstallResetBMC           sw.TransitionType = "postInstallResetBMC"
 	resetDevice                   sw.TransitionType = "resetDevice"
 )
 
@@ -31,7 +30,6 @@ type TransitionKind string
 const (
 	PreInstall    TransitionKind = "PreInstall"
 	Install       TransitionKind = "Install"
-	PostInstall   TransitionKind = "PostInstall"
 	PowerStateOff TransitionKind = "PowerStateOff"
 	PowerStateOn  TransitionKind = "PowerStateOn"
 )
@@ -334,21 +332,6 @@ func definitions() Transitions {
 			DestStateDoc: sw.StateDoc{
 				Name:        "uploadFirmwareStatusPolled",
 				Description: "This action state indicates the component firmware upload status is confirmed.",
-			},
-		},
-		{
-			Name:           postInstallResetBMC,
-			Kind:           PostInstall,
-			DestState:      "postInstallBMCReset",
-			Handler:        handler.resetBMC,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Powercycle BMC",
-				Description: "Powercycle BMC - only when pollFirmwareInstallStatus() identifies a BMC reset is required.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "postInstallBMCReset",
-				Description: "This action state indicates the BMC has been power cycled as a post-install step to complete a component firmware install.",
 			},
 		},
 		{

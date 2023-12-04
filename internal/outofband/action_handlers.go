@@ -667,11 +667,6 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 
 			continue
 
-		// return when bmc power cycle is required
-		case bconsts.PowerCycleBMC:
-			action.BMCPowerCycleRequired = true
-			return nil
-
 		// return when host power cycle is required
 		case bconsts.PowerCycleHost:
 			// host was power cycled for this action - wait around until the status is updated
