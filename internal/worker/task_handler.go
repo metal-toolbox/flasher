@@ -320,11 +320,13 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 			return nil, nil, errors.Wrap(errFirmwareInstallSteps, firmware.Component)
 		}
 
+		bmcResetOnInstallFailure, bmcResetPostInstall := outofband.BmcResetParams(steps)
+
 		// TODO: The firmware is to define the preferred install method
 		// based on that the action plan is setup.
 		//
 		// For now this is hardcoded to outofband.
-		m, err := outofband.NewActionStateMachine(actionID, steps)
+		m, err := outofband.NewActionStateMachine(actionID, steps, task.Parameters.ResetBMCBeforeInstall)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -350,6 +352,10 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 
 			// Final is set to true when its the last action in the list.
 			Final: final,
+
+			BMCResetPreInstall:       task.Parameters.ResetBMCBeforeInstall,
+			BMCResetPostInstall:      bmcResetPostInstall,
+			BMCResetOnInstallFailure: bmcResetOnInstallFailure,
 		}
 
 		//nolint:errcheck  // SetState never returns an error

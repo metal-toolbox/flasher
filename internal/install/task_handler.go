@@ -234,11 +234,13 @@ func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, fo
 		return nil, nil, errors.Wrap(errFirmwareInstallSteps, firmware.Component)
 	}
 
+	bmcResetOnInstallFailure, bmcResetPostInstall := outofband.BmcResetParams(steps)
+
 	actionMachines := make(sm.ActionStateMachines, 0)
 	actions := make(model.Actions, 0)
 
 	actionID := sm.ActionID(taskID, firmware.Component, 1)
-	m, err := outofband.NewActionStateMachine(actionID, steps)
+	m, err := outofband.NewActionStateMachine(actionID, steps, h.bmcResetPreInstall)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -267,6 +269,10 @@ func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, fo
 
 		// Final is set to true when its the last action in the list.
 		Final: true,
+
+		BMCResetPreInstall:       h.bmcResetPreInstall,
+		BMCResetPostInstall:      bmcResetPostInstall,
+		BMCResetOnInstallFailure: bmcResetOnInstallFailure,
 	}
 
 	//nolint:errcheck  // SetState never returns an error
