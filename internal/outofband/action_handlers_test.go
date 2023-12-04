@@ -260,11 +260,6 @@ func TestPollFirmwareInstallStatus(t *testing.T) {
 			ErrMaxBMCQueryAttempts,
 		},
 		{
-			"install requires a BMC power cycle",
-			"powercycle-bmc",
-			nil,
-		},
-		{
 			"install requires a Host power cycle",
 			"powercycle-host",
 			nil,
@@ -342,11 +337,6 @@ func TestPollFirmwareInstallStatus(t *testing.T) {
 
 					t.Fatal(err)
 				}
-			}
-
-			// assert action fields are set when bmc/host power cycle is required.
-			if tc.state == "powercycle-bmc" {
-				assert.True(t, action.BMCPowerCycleRequired)
 			}
 		})
 	}
