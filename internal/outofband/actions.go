@@ -91,7 +91,7 @@ func NewActionStateMachine(actionID string, steps []bconsts.FirmwareInstallStep,
 	// defined transitions
 	defined := definitions()
 
-	transitions, err := composeTransitions(defined, steps)
+	transitions, err := composeTransitions(defined, steps, preInstallBMCReset)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +100,7 @@ func NewActionStateMachine(actionID string, steps []bconsts.FirmwareInstallStep,
 	return sm.NewActionStateMachine(actionID, tr)
 }
 
-func composeTransitions(defined Transitions, installSteps []bconsts.FirmwareInstallStep) (Transitions, error) {
-	// . errTransitionDef := errors.New("error in transition definition")
+func composeTransitions(defined Transitions, installSteps []bconsts.FirmwareInstallStep, preInstallBMCReset bool) (Transitions, error) {
 	var final Transitions
 
 	// transition to power on host
@@ -122,23 +121,24 @@ func composeTransitions(defined Transitions, installSteps []bconsts.FirmwareInst
 		return nil, err
 	}
 
-	// transitions post install
-	postInstallTransitions, err := defined.ByKind(PostInstall)
-	if err != nil {
-		return nil, err
+	// skip bmc reset transition before install based on parameter
+	if !preInstallBMCReset {
+		preInstallTransitions = preInstallTransitions.Remove(preInstallResetBMC)
 	}
 
 	// populate transitions in order of execution
 
 	// When the first install transition indicates the host must be powered off
 	// exclude the initial power on host transition.
+	//
+	// TODO: get all bmclib providers to return if a host is required to be powered on/off
+	// for a given firmware install, then this hacky match can be removed
 	if installTransitions[0].Kind != PowerStateOff {
 		final = append(final, powerOnTransiton...)
 	}
 
 	final = append(final, preInstallTransitions...)
 	final = append(final, installTransitions...)
-	final = append(final, postInstallTransitions...)
 
 	return final, nil
 }

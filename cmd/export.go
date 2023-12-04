@@ -89,7 +89,7 @@ func outofbandActionStatemachine() {
 		bconsts.FirmwareInstallStepInstallStatus,
 	}
 
-	m, err := outofband.NewActionStateMachine("dummy", steps)
+	m, err := outofband.NewActionStateMachine("dummy", steps, true)
 	if err != nil {
 		log.Fatal(err)
 	}

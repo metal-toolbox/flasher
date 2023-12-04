@@ -145,7 +145,7 @@ func TestComposeTransitions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := composeTransitions(defined, tc.installSteps)
+			got, err := composeTransitions(defined, tc.installSteps, true)
 			if tc.expectErrContains != "" {
 				assert.ErrorContains(t, err, tc.expectErrContains)
 				return
@@ -492,7 +492,7 @@ func TestActionStateMachine(t *testing.T) {
 			task.ActionsPlanned = model.Actions{&action}
 
 			// init new state machine to run actions
-			m, err := NewActionStateMachine("testing", tc.installSteps)
+			m, err := NewActionStateMachine("testing", tc.installSteps, true)
 			if err != nil {
 				t.Fatal(err)
 			}
