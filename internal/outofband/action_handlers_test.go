@@ -325,7 +325,6 @@ func TestPollFirmwareInstallStatus(t *testing.T) {
 				gomock.Any(),
 				gomock.Any(),
 				gomock.Any(),
-				gomock.Any(),
 			).AnyTimes().Return(bconsts.TaskState(tc.state), "some status", tc.errorContains)
 
 			if tc.state == "powercycle-host" {

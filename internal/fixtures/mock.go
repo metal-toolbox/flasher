@@ -101,9 +101,9 @@ func (mr *MockDeviceQueryorMockRecorder) FirmwareInstallUploaded(ctx, component,
 }
 
 // FirmwareTaskStatus mocks base method.
-func (m *MockDeviceQueryor) FirmwareTaskStatus(ctx context.Context, kind constants.FirmwareInstallStep, component, taskID, installVersion string, tryOpen bool) (constants.TaskState, string, error) {
+func (m *MockDeviceQueryor) FirmwareTaskStatus(ctx context.Context, kind constants.FirmwareInstallStep, component, taskID, installVersion string) (constants.TaskState, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FirmwareTaskStatus", ctx, kind, component, taskID, installVersion, tryOpen)
+	ret := m.ctrl.Call(m, "FirmwareTaskStatus", ctx, kind, component, taskID, installVersion)
 	ret0, _ := ret[0].(constants.TaskState)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -111,9 +111,9 @@ func (m *MockDeviceQueryor) FirmwareTaskStatus(ctx context.Context, kind constan
 }
 
 // FirmwareTaskStatus indicates an expected call of FirmwareTaskStatus.
-func (mr *MockDeviceQueryorMockRecorder) FirmwareTaskStatus(ctx, kind, component, taskID, installVersion, tryOpen any) *gomock.Call {
+func (mr *MockDeviceQueryorMockRecorder) FirmwareTaskStatus(ctx, kind, component, taskID, installVersion any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirmwareTaskStatus", reflect.TypeOf((*MockDeviceQueryor)(nil).FirmwareTaskStatus), ctx, kind, component, taskID, installVersion, tryOpen)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirmwareTaskStatus", reflect.TypeOf((*MockDeviceQueryor)(nil).FirmwareTaskStatus), ctx, kind, component, taskID, installVersion)
 }
 
 // FirmwareUpload mocks base method.
