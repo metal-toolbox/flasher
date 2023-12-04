@@ -73,8 +73,14 @@ type Action struct {
 	// on the component is not equal to one being installed. If its equal, the action will return an error.
 	VerifyCurrentFirmware bool
 
-	// BMCPowerCycleRequired is set when an action handler determines the BMC requires a reset.
-	BMCPowerCycleRequired bool
+	// BMC reset required before install
+	BMCResetPreInstall bool
+
+	// BMC reset required after install
+	BMCResetPostInstall bool
+
+	// BMC reset required on install failure
+	BMCResetOnInstallFailure bool
 
 	// HostPowerCycled is set when the host has been power cycled for the action.
 	HostPowerCycled bool
