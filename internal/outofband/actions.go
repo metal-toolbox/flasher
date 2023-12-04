@@ -148,6 +148,12 @@ func convFirmwareInstallSteps(required []bconsts.FirmwareInstallStep, defined Tr
 	transitions := Transitions{}
 
 	for _, s := range required {
+		// TODO: turn FirmwareInstalSteps into FirmwareInstallProperties with fields for these non step parameters
+		if s == bconsts.FirmwareInstallStepResetBMCOnInstallFailure ||
+			s == bconsts.FirmwareInstallStepResetBMCPostInstall {
+			continue
+		}
+
 		transitionName, exists := m[s]
 		if !exists {
 			return nil, errors.Wrap(errUnsupported, string(s))
