@@ -409,12 +409,11 @@ func TestActionStateMachine(t *testing.T) {
 			func() (*gomock.Controller, *fixtures.MockDeviceQueryor) {
 				ctrl := gomock.NewController(t)
 				q := fixtures.NewMockDeviceQueryor(ctrl)
-
 				q.EXPECT().Open(gomock.Any()).Return(nil).Times(1)
 				q.EXPECT().PowerStatus(gomock.Any()).Return("on", nil).Times(1)
+				q.EXPECT().ResetBMC(gomock.Any()).Return(nil).Times(1)
 				q.EXPECT().FirmwareInstallUploadAndInitiate(gomock.Any(), gomock.Any(), gomock.Any()).Return("123", nil).Times(1)
 				q.EXPECT().FirmwareTaskStatus(
-					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
@@ -458,9 +457,9 @@ func TestActionStateMachine(t *testing.T) {
 
 				q.EXPECT().Open(gomock.Any()).Return(nil).Times(1)
 				q.EXPECT().PowerStatus(gomock.Any()).Return("on", nil).Times(1)
+				q.EXPECT().ResetBMC(gomock.Any()).Return(nil).Times(1)
 				q.EXPECT().FirmwareInstallUploadAndInitiate(gomock.Any(), gomock.Any(), gomock.Any()).Return("123", nil).Times(1)
 				q.EXPECT().FirmwareTaskStatus(
-					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),

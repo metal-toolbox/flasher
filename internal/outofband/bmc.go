@@ -274,11 +274,9 @@ func (b *bmc) FirmwareInstallUploadAndInitiate(ctx context.Context, component st
 }
 
 // FirmwareTaskStatus looks up the firmware upload/install state and status values
-func (b *bmc) FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string, tryOpen bool) (state bconsts.TaskState, status string, err error) {
-	if tryOpen {
-		if err = b.Open(ctx); err != nil {
-			return "", "", errors.Wrap(ErrBMCQuery, err.Error())
-		}
+func (b *bmc) FirmwareTaskStatus(ctx context.Context, kind bconsts.FirmwareInstallStep, component, taskID, installVersion string) (state bconsts.TaskState, status string, err error) {
+	if err = b.Open(ctx); err != nil {
+		return "", "", errors.Wrap(ErrBMCQuery, err.Error())
 	}
 
 	provider, err := b.provider()
