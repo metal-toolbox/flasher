@@ -13,6 +13,8 @@ import (
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	"github.com/bmc-toolbox/bmclib/v2/constants"
+	bmcliberrs "github.com/bmc-toolbox/bmclib/v2/errors"
 	"github.com/bmc-toolbox/bmclib/v2/providers"
 	logrusrv2 "github.com/bombsimon/logrusr/v2"
 	"github.com/hashicorp/go-multierror"
@@ -24,6 +26,20 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
+
+// NOTE: the constants.FirmwareInstallStep type will be moved to the FirmwareInstallProperties struct type which will make this easier
+func BmcResetParams(steps []constants.FirmwareInstallStep) (bmcResetOnInstallFailure, bmcResetPostInstall bool) {
+	for _, step := range steps {
+		switch step {
+		case constants.FirmwareInstallStepResetBMCOnInstallFailure:
+			bmcResetOnInstallFailure = true
+		case constants.FirmwareInstallStepResetBMCPostInstall:
+			bmcResetPostInstall = true
+		}
+	}
+
+	return bmcResetOnInstallFailure, bmcResetPostInstall
+}
 
 func newHTTPClient() *http.Client {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
