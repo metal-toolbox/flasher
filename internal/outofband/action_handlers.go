@@ -702,6 +702,24 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 				)
 			}
 
+			// A BMC reset is required if the BMC install fails - to get it out of flash mode
+			if componentIsBMC(action.Firmware.Component) && action.BMCResetOnInstallFailure {
+				if err := h.powerCycleBMC(tctx); err != nil {
+					tctx.Logger.WithFields(
+						logrus.Fields{
+							"bmc":       tctx.Asset.BmcAddress,
+							"component": action.Firmware.Component,
+							"err":       err.Error(),
+						}).Debug("install failure required a BMC reset, reset returned error")
+				}
+
+				tctx.Logger.WithFields(
+					logrus.Fields{
+						"bmc":       tctx.Asset.BmcAddress,
+						"component": action.Firmware.Component,
+					}).Debug("BMC reset for failed BMC firmware install")
+			}
+
 			return errors.Wrap(ErrFirmwareInstallFailed, errMsg)
 
 		// return nil when install is complete
@@ -710,6 +728,23 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			// wait until the BMC is available again and verify its on the expected version.
 			if componentIsBMC(action.Firmware.Component) {
 				inventory = true
+
+				if action.BMCResetPostInstall {
+					if errBmcReset := h.powerCycleBMC(tctx); errBmcReset != nil {
+						tctx.Logger.WithFields(
+							logrus.Fields{
+								"bmc":       tctx.Asset.BmcAddress,
+								"component": action.Firmware.Component,
+								"err":       errBmcReset.Error(),
+							}).Debug("install success required a BMC reset, reset returned error")
+					}
+
+					tctx.Logger.WithFields(
+						logrus.Fields{
+							"bmc":       tctx.Asset.BmcAddress,
+							"component": action.Firmware.Component,
+						}).Debug("BMC reset for successful BMC firmware install")
+				}
 
 				continue
 			}
