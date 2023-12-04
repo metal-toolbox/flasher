@@ -728,39 +728,35 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 		return err
 	}
 
-	// proceed with reset only if these flags are set
-	if !action.BMCPowerCycleRequired && !tctx.Task.Parameters.ResetBMCBeforeInstall {
-		return nil
-	}
-
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component":                             action.Firmware.Component,
-			"bmc":                                   tctx.Asset.BmcAddress,
-			"task.Parameters.ResetBMCBeforeInstall": tctx.Task.Parameters.ResetBMCBeforeInstall,
-			"action.BMCPowerCycleRequired":          action.BMCPowerCycleRequired,
-		}).Info("resetting BMC")
+			"component": action.Firmware.Component,
+			"bmc":       tctx.Asset.BmcAddress,
+		}).Info("resetting BMC, delay introduced: " + delayBMCReset.String())
 
-	if !tctx.Dryrun {
-		if err := tctx.DeviceQueryor.ResetBMC(tctx.Ctx); err != nil {
-			return err
-		}
-
-		if err := sleepWithContext(tctx.Ctx, delayBMCReset); err != nil {
-			return err
-		}
+	err = h.powerCycleBMC(tctx)
+	if err != nil {
+		return err
 	}
 
-	// skip install status poll if this was a preinstall BMC reset
-	if tctx.Task.Parameters.ResetBMCBeforeInstall {
-		// set this to false to prevent the rest of the actions from attempting a preInstall BMC reset.
-		tctx.Task.Parameters.ResetBMCBeforeInstall = false
-
+	if tctx.Dryrun {
 		return nil
 	}
 
-	// TODO: implement an poll BMC availability method instead
-	return h.pollFirmwareTaskStatus(a, c)
+	err = sleepWithContext(tctx.Ctx, delayBMCReset)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *actionHandler) powerCycleBMC(tctx *sm.HandlerContext) error {
+	if tctx.Dryrun {
+		return nil
+	}
+
+	return tctx.DeviceQueryor.ResetBMC(tctx.Ctx)
 }
 
 func (h *actionHandler) powerCycleHost(tctx *sm.HandlerContext, action *model.Action) error {
