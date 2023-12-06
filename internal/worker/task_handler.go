@@ -353,9 +353,13 @@ func (h *taskHandler) planInstall(hCtx *sm.HandlerContext, task *model.Task, fir
 			// Final is set to true when its the last action in the list.
 			Final: final,
 
-			BMCResetPreInstall:       task.Parameters.ResetBMCBeforeInstall,
 			BMCResetPostInstall:      bmcResetPostInstall,
 			BMCResetOnInstallFailure: bmcResetOnInstallFailure,
+		}
+
+		// The BMC requires to be reset only on the first action
+		if idx == 0 {
+			newAction.BMCResetPreInstall = task.Parameters.ResetBMCBeforeInstall
 		}
 
 		//nolint:errcheck  // SetState never returns an error
