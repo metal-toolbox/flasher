@@ -226,10 +226,10 @@ func TestPlanInstall1(t *testing.T) {
 	require.Equal(t, 2, len(sms), "expect two action state machines")
 	require.Equal(t, 2, len(actions), "expect two actions to be performed")
 	require.True(t, actions[0].BMCResetPreInstall, "expect BMCResetPreInstall is true on the first action")
-	require.False(t, actions[1].BMCResetPreInstall, "expect BMCResetPreInstall is true on subsequent actions")
-	require.False(t, actions[0].BMCResetOnInstallFailure, "expect BMCResetOnInstallFailure is true for action")
+	require.False(t, actions[1].BMCResetPreInstall, "expect BMCResetPreInstall is false on subsequent actions")
+	require.False(t, actions[0].BMCResetOnInstallFailure, "expect BMCResetOnInstallFailure is false for action")
 	require.False(t, actions[1].BMCResetOnInstallFailure, "expect BMCResetOnInstallFailure is false for action")
-	require.True(t, actions[1].Final, "expect final bool is set on the last action")
+	require.True(t, actions[1].Final, "expect final bool is true the last action")
 	require.Equal(t, "bios", actions[0].Firmware.Component, "expect bios component action")
 	require.Equal(t, "nic", actions[1].Firmware.Component, "expect nic component action")
 }
