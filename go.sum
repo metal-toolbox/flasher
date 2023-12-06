@@ -99,12 +99,8 @@ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+Ce
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
-github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231129094547-0df7b754427e h1:RvAD9NZt1tH6xv66/iAi1172NdEVDmlphH4ehKXta6A=
-github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231129094547-0df7b754427e/go.mod h1:gFF4iD468hbW1JUdJJx3mbhNGzoLsG47epbMa++grp8=
-github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231130133815-17b3809a2d4a h1:e4+Nr4yWq7lGyhZLoaK2506UehNXMPvoRWvyKyEdons=
-github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231130133815-17b3809a2d4a/go.mod h1:gFF4iD468hbW1JUdJJx3mbhNGzoLsG47epbMa++grp8=
-github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231204145348-905a95485261 h1:MFz86XdJiJfE8K9E7n6eiKALiphc3pcBEowD0MUsmnY=
-github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231204145348-905a95485261/go.mod h1:gFF4iD468hbW1JUdJJx3mbhNGzoLsG47epbMa++grp8=
+github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231206130132-1063371b9ed6 h1:7VnbUwv1Rwhpf+g4RQzg5f20lYwFB54ZDbSrxy9Qjbk=
+github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231206130132-1063371b9ed6/go.mod h1:gFF4iD468hbW1JUdJJx3mbhNGzoLsG47epbMa++grp8=
 github.com/bmc-toolbox/common v0.0.0-20230717121556-5eb9915a8a5a h1:SjtoU9dE3bYfYnPXODCunMztjoDgnE3DVJCPLBqwz6Q=
 github.com/bmc-toolbox/common v0.0.0-20230717121556-5eb9915a8a5a/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
