@@ -538,8 +538,8 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 h1:jWpvCLoY8Z/e3VKvlsiIGKtc+UG6U5vzxaoagmhXfyg=
 github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0/go.mod h1:QUyp042oQthUoa9bqDv0ER0wrtXnBruoNd7aNjkbP+k=
-github.com/metal-toolbox/conditionorc v0.1.8-0.20230929065454-5db8bd0295f4 h1:7UmtDusAghGMSYQC/itY7YU0arbVbQeszPGOLUQDP4Y=
-github.com/metal-toolbox/conditionorc v0.1.8-0.20230929065454-5db8bd0295f4/go.mod h1:fj66UNyDwpo6AXGqhrv+NRPgD2r2yXQK3g9/wv6lbz0=
+github.com/metal-toolbox/conditionorc v0.1.12 h1:EwmMiLa3aznJ4P8G1aHPAS5VLo9EscJKXPhkFzXDCz4=
+github.com/metal-toolbox/conditionorc v0.1.12/go.mod h1:WzyuNziOjdqhzSXX4PtGWlEpUNlRb8batYTO+J/lBJU=
 github.com/metal-toolbox/rivets v0.0.0-20231020103738-10fc2993b885 h1:mpJZhvW/Mi1pclg7OhhRVRBlXKl2eUQ6HlgVfTcQ2Bw=
 github.com/metal-toolbox/rivets v0.0.0-20231020103738-10fc2993b885/go.mod h1:QlGp4NUmXkSa8lhm/fFlH845kamwiOM7kiIsigVxWlg=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=
