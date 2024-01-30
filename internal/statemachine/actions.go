@@ -17,9 +17,9 @@ import (
 const (
 
 	// state for successful actions
-	StateActionSuccessful sw.State = sw.State(TransitionTypeTaskSuccess)
+	StateActionSuccessful sw.State = sw.State(model.StateSucceeded)
 	// state for failed actions
-	StateActionFailed sw.State = sw.State(TransitionTypeTaskFail)
+	StateActionFailed sw.State = sw.State(model.StateFailed)
 )
 
 var (
@@ -245,6 +245,8 @@ func (a *ActionStateMachine) Run(ctx context.Context, action *model.Action, tctx
 
 // ConditionalFault is invoked before each transition to induce a fault if specified.
 func (a *ActionStateMachine) ConditionalFault(task *model.Task, transitionType sw.TransitionType) error {
+	var errConditionFault = errors.New("condition induced fault")
+
 	if task.Fault == nil {
 		return nil
 	}
