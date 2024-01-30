@@ -8,8 +8,8 @@ import (
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	sw "github.com/filanov/stateswitch"
+	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/spf13/cobra"
 
 	"github.com/emicklei/dot"
@@ -58,29 +58,18 @@ func asGraph(s *sw.StateMachineJSON) *dot.Graph {
 }
 
 func taskStateMachine() {
-	handler := &sm.MockTaskHandler{}
+	g := dot.NewGraph(dot.Directed)
 
-	m, err := sm.NewTaskStateMachine(handler)
-	if err != nil {
-		log.Fatal(err)
-	}
+	pending := g.Node(string(model.StatePending))
+	active := g.Node(string(model.StateActive))
+	succeeded := g.Node(string(model.StateSucceeded))
+	failed := g.Node(string(model.StateFailed))
 
-	j, err := m.DescribeAsJSON()
-	if err != nil {
-		log.Fatal(err)
-	}
+	g.Edge(pending, active, "Task active")
+	g.Edge(active, succeeded, "Task successful")
+	g.Edge(active, failed, "Task failed")
 
-	if exportFlagSet.json {
-		fmt.Println(string(j))
-		os.Exit(0)
-	}
-
-	t := &sw.StateMachineJSON{}
-	if err := json.Unmarshal(j, t); err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println(dot.MermaidGraph(asGraph(t), dot.MermaidTopDown))
+	fmt.Println(dot.MermaidGraph(g, dot.MermaidTopDown))
 }
 
 func outofbandActionStatemachine() {
@@ -115,6 +104,7 @@ func outofbandActionStatemachine() {
 func exportStatemachine() {
 	if exportFlagSet.taskSM {
 		taskStateMachine()
+
 		return
 	}
 
