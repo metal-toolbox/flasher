@@ -1,10 +1,10 @@
 package install
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/bmc-toolbox/common"
-	sw "github.com/filanov/stateswitch"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
@@ -18,8 +18,11 @@ var (
 	errTaskQueryInventory = errors.New("error in task query inventory for installed firmware")
 )
 
-// taskHandler implements the taskTransitionHandler methods
-type taskHandler struct {
+// handler implements the Runner.Handler interface
+//
+// The handler is instantiated to run a single task
+type handler struct {
+	ctx                *sm.HandlerContext
 	fwFile             string
 	fwComponent        string
 	fwVersion          string
@@ -29,42 +32,32 @@ type taskHandler struct {
 	bmcResetPreInstall bool
 }
 
-func (h *taskHandler) Init(_ sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return sm.ErrInvalidtaskHandlerContext
-	}
-
-	if tctx.DeviceQueryor == nil {
+func (t *handler) Initialize(ctx context.Context) error {
+	if t.ctx.DeviceQueryor == nil {
 		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
 		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
+		t.ctx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.ctx.Asset, t.ctx.Logger)
 	}
 
 	return nil
 }
 
 // Query looks up the device component inventory and sets it in the task handler context.
-func (h *taskHandler) Query(_ sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return sm.ErrInvalidtaskHandlerContext
-	}
-
-	tctx.Logger.Debug("run query step")
+func (t *handler) Query(ctx context.Context) error {
+	t.ctx.Logger.Debug("run query step")
 
 	// attempt to fetch component inventory from the device
-	components, err := h.queryFromDevice(tctx)
+	components, err := t.queryFromDevice(ctx)
 	if err != nil {
 		return errors.Wrap(errTaskQueryInventory, err.Error())
 	}
 
 	// component inventory was identified
 	if len(components) > 0 {
-		tctx.Asset.Components = components
+		t.ctx.Asset.Components = components
 
 		return nil
 	}
@@ -72,31 +65,21 @@ func (h *taskHandler) Query(_ sw.StateSwitch, args sw.TransitionArgs) error {
 	return errors.Wrap(errTaskQueryInventory, "failed to query device component inventory")
 }
 
-func (h *taskHandler) Plan(t sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return sm.ErrInvalidtaskHandlerContext
-	}
+func (t *handler) PlanActions(ctx context.Context) error {
+	t.ctx.Logger.Debug("create the plan")
 
-	task, ok := t.(*model.Task)
-	if !ok {
-		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
-	}
-
-	tctx.Logger.Debug("create the plan")
-
-	actionSMs, actions, err := h.planInstallFile(tctx, task.ID.String(), task.Parameters.ForceInstall)
+	actionSMs, actions, err := t.planInstallFile(ctx)
 	if err != nil {
 		return err
 	}
 
-	tctx.ActionStateMachines = actionSMs
-	task.ActionsPlanned = actions
+	t.ctx.ActionStateMachines = actionSMs
+	t.ctx.Task.ActionsPlanned = actions
 
 	return nil
 }
 
-func (h *taskHandler) listPlan(tctx *sm.HandlerContext) error {
+func (t *handler) listPlan(tctx *sm.HandlerContext) error {
 	tctx.Logger.WithField("plan.actions", len(tctx.ActionStateMachines)).Info("only listing the plan")
 	for _, actionSM := range tctx.ActionStateMachines {
 		for _, tx := range actionSM.TransitionOrder() {
@@ -107,43 +90,33 @@ func (h *taskHandler) listPlan(tctx *sm.HandlerContext) error {
 	return nil
 }
 
-func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return sm.ErrInvalidTransitionHandler
+func (t *handler) RunActions(ctx context.Context) error {
+	if t.onlyPlan {
+		return t.listPlan(t.ctx)
 	}
 
-	task, ok := t.(*model.Task)
-	if !ok {
-		return errors.Wrap(ErrSaveTask, ErrTaskTypeAssertion.Error())
-	}
-
-	if h.onlyPlan {
-		return h.listPlan(tctx)
-	}
-
-	tctx.Logger.WithField("plan.actions", len(tctx.ActionStateMachines)).Debug("running the plan")
+	t.ctx.Logger.WithField("plan.actions", len(t.ctx.ActionStateMachines)).Debug("running the plan")
 
 	// each actionSM (state machine) corresponds to a firmware to be installed
-	for _, actionSM := range tctx.ActionStateMachines {
+	for _, actionSM := range t.ctx.ActionStateMachines {
 		// fetch action attributes from task
-		action := task.ActionsPlanned.ByID(actionSM.ActionID())
+		action := t.ctx.Task.ActionsPlanned.ByID(actionSM.ActionID())
 		if err := action.SetState(model.StateActive); err != nil {
 			return err
 		}
 
 		// return on context cancellation
-		if tctx.Ctx.Err() != nil {
-			return tctx.Ctx.Err()
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
-		tctx.Logger.WithFields(logrus.Fields{
+		t.ctx.Logger.WithFields(logrus.Fields{
 			"statemachineID": actionSM.ActionID(),
 			"final":          action.Final,
 		}).Debug("action state machine start")
 
 		// run the action state machine
-		err := actionSM.Run(tctx.Ctx, action, tctx)
+		err := actionSM.Run(t.ctx.Ctx, action, t.ctx)
 		if err != nil {
 			return errors.Wrap(
 				err,
@@ -151,7 +124,7 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 			)
 		}
 
-		tctx.Logger.WithFields(logrus.Fields{
+		t.ctx.Logger.WithFields(logrus.Fields{
 			"action":    action.ID,
 			"condition": action.TaskID,
 			"component": action.Firmware.Component,
@@ -162,69 +135,28 @@ func (h *taskHandler) Run(t sw.StateSwitch, args sw.TransitionArgs) error {
 			continue
 		}
 
-		tctx.Logger.WithFields(logrus.Fields{
+		t.ctx.Logger.WithFields(logrus.Fields{
 			"statemachineID": actionSM.ActionID(),
 		}).Debug("state machine end")
 	}
 
-	tctx.Logger.Debug("plan finished")
+	t.ctx.Logger.Debug("plan finished")
 	return nil
 }
 
-func (h *taskHandler) TaskFailed(_ sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return sm.ErrInvalidTransitionHandler
-	}
-
-	tctx.Task.Status.Append("task failed")
-
-	if tctx.DeviceQueryor != nil {
-		if err := tctx.DeviceQueryor.Close(tctx.Ctx); err != nil {
-			tctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
-		}
-	}
-
-	return nil
+func (t *handler) Publish() {
+	t.ctx.Publisher.Publish(t.ctx)
 }
 
-func (h *taskHandler) TaskSuccessful(_ sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return sm.ErrInvalidTransitionHandler
-	}
-
-	tctx.Task.Status.Append("task completed successfully")
-
-	if tctx.DeviceQueryor != nil {
-		if err := tctx.DeviceQueryor.Close(tctx.Ctx); err != nil {
-			tctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
-		}
-	}
-
-	return nil
-}
-
-func (h *taskHandler) PublishStatus(_ sw.StateSwitch, args sw.TransitionArgs) error {
-	tctx, ok := args.(*sm.HandlerContext)
-	if !ok {
-		return sm.ErrInvalidTransitionHandler
-	}
-
-	tctx.Publisher.Publish(tctx)
-
-	return nil
-}
-
-func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, forceInstall bool) (sm.ActionStateMachines, model.Actions, error) {
+func (t *handler) planInstallFile(ctx context.Context) (sm.ActionStateMachines, model.Actions, error) {
 	firmware := &model.Firmware{
-		Component: h.fwComponent,
-		Version:   h.fwVersion,
-		Models:    []string{h.model},
-		Vendor:    h.vendor,
+		Component: t.fwComponent,
+		Version:   t.fwVersion,
+		Models:    []string{t.model},
+		Vendor:    t.vendor,
 	}
 
-	steps, err := tctx.DeviceQueryor.FirmwareInstallSteps(tctx.Ctx, firmware.Component)
+	steps, err := t.ctx.DeviceQueryor.FirmwareInstallSteps(ctx, firmware.Component)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -239,8 +171,8 @@ func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, fo
 	actionMachines := make(sm.ActionStateMachines, 0)
 	actions := make(model.Actions, 0)
 
-	actionID := sm.ActionID(taskID, firmware.Component, 1)
-	m, err := outofband.NewActionStateMachine(actionID, steps, h.bmcResetPreInstall)
+	actionID := sm.ActionID(t.ctx.Task.ID.String(), firmware.Component, 1)
+	m, err := outofband.NewActionStateMachine(actionID, steps, t.bmcResetPreInstall)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -250,7 +182,7 @@ func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, fo
 
 	newAction := model.Action{
 		ID:     actionID,
-		TaskID: taskID,
+		TaskID: t.ctx.Task.ID.String(),
 
 		// TODO: The firmware is to define the preferred install method
 		// based on that the action plan is setup.
@@ -262,15 +194,15 @@ func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, fo
 		Firmware: *firmware,
 
 		// VerifyCurrentFirmware is disabled when ForceInstall is true.
-		VerifyCurrentFirmware: !forceInstall,
+		VerifyCurrentFirmware: !t.ctx.Task.Parameters.ForceInstall,
 
 		// Setting this causes the action SM to not download the file
-		FirmwareTempFile: h.fwFile,
+		FirmwareTempFile: t.fwFile,
 
 		// Final is set to true when its the last action in the list.
 		Final: true,
 
-		BMCResetPreInstall:       h.bmcResetPreInstall,
+		BMCResetPreInstall:       t.bmcResetPreInstall,
 		BMCResetPostInstall:      bmcResetPostInstall,
 		BMCResetOnInstallFailure: bmcResetOnInstallFailure,
 	}
@@ -285,38 +217,58 @@ func (h *taskHandler) planInstallFile(tctx *sm.HandlerContext, taskID string, fo
 }
 
 // query device components inventory from the device itself.
-func (h *taskHandler) queryFromDevice(tctx *sm.HandlerContext) (model.Components, error) {
-	if tctx.DeviceQueryor == nil {
+func (t *handler) queryFromDevice(ctx context.Context) (model.Components, error) {
+	if t.ctx.DeviceQueryor == nil {
 		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
 		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		tctx.DeviceQueryor = outofband.NewDeviceQueryor(tctx.Ctx, tctx.Asset, tctx.Logger)
+		t.ctx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.ctx.Asset, t.ctx.Logger)
 	}
 
-	tctx.Task.Status.Append("connecting to device BMC")
-	tctx.Publisher.Publish(tctx)
+	t.ctx.Task.Status.Append("connecting to device BMC")
+	t.ctx.Publisher.Publish(t.ctx)
 
-	if err := tctx.DeviceQueryor.Open(tctx.Ctx); err != nil {
+	if err := t.ctx.DeviceQueryor.Open(ctx); err != nil {
 		return nil, err
 	}
 
-	tctx.Task.Status.Append("collecting inventory from device BMC")
-	tctx.Publisher.Publish(tctx)
+	t.ctx.Task.Status.Append("collecting inventory from device BMC")
+	t.ctx.Publisher.Publish(t.ctx)
 
-	deviceCommon, err := tctx.DeviceQueryor.Inventory(tctx.Ctx)
+	deviceCommon, err := t.ctx.DeviceQueryor.Inventory(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if tctx.Asset.Vendor == "" {
-		tctx.Asset.Vendor = deviceCommon.Vendor
+	if t.ctx.Asset.Vendor == "" {
+		t.ctx.Asset.Vendor = deviceCommon.Vendor
 	}
 
-	if tctx.Asset.Model == "" {
-		tctx.Asset.Model = common.FormatProductName(deviceCommon.Model)
+	if t.ctx.Asset.Model == "" {
+		t.ctx.Asset.Model = common.FormatProductName(deviceCommon.Model)
 	}
 
 	return model.NewComponentConverter().CommonDeviceToComponents(deviceCommon)
+}
+
+func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
+	if t.ctx.DeviceQueryor == nil {
+		return
+	}
+
+	if err := t.ctx.DeviceQueryor.Close(ctx); err != nil {
+		t.ctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+	}
+}
+
+func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
+	if t.ctx.DeviceQueryor == nil {
+		return
+	}
+
+	if err := t.ctx.DeviceQueryor.Close(ctx); err != nil {
+		t.ctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+	}
 }

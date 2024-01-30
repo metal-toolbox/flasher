@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/runner"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	rctypes "github.com/metal-toolbox/rivets/condition"
 	"github.com/pkg/errors"
@@ -52,16 +53,6 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		Status: model.NewTaskStatusRecord("initialized task"),
 	}
 
-	// setup state machine task handler
-	handler := &taskHandler{
-		fwFile:      params.File,
-		fwVersion:   params.Version,
-		fwComponent: params.Component,
-		model:       params.Model,
-		vendor:      params.Vendor,
-		onlyPlan:    params.OnlyPlan,
-	}
-
 	le := i.logger.WithFields(
 		logrus.Fields{
 			"dry-run":   params.DryRun,
@@ -69,49 +60,48 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 			"component": params.Component,
 		})
 
-	handlerCtx := &sm.HandlerContext{
-		Dryrun:    params.DryRun,
-		Task:      task,
-		Ctx:       ctx,
-		Publisher: &publisher{},
-		Data:      make(map[string]string),
-		Asset: &model.Asset{
-			BmcAddress:  net.ParseIP(params.BmcAddr),
-			BmcUsername: params.User,
-			BmcPassword: params.Pass,
-			Model:       params.Model,
-			Vendor:      params.Vendor,
-		},
-		Logger: le,
-	}
-
-	i.runTaskStatemachine(handler, handlerCtx)
+	i.runTask(ctx, params, task, le)
 }
 
 type publisher struct{}
 
 func (f *publisher) Publish(_ *sm.HandlerContext) {}
 
-func (i *Installer) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.HandlerContext) {
+func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Task, le *logrus.Entry) {
+	h := &handler{
+		fwFile:      params.File,
+		fwComponent: params.Component,
+		fwVersion:   params.Version,
+		model:       params.Model,
+		vendor:      params.Vendor,
+		onlyPlan:    params.OnlyPlan,
+		ctx: &sm.HandlerContext{
+			Dryrun:    params.DryRun,
+			Task:      task,
+			Ctx:       ctx,
+			Publisher: &publisher{},
+			Data:      make(map[string]string),
+			Asset: &model.Asset{
+				BmcAddress:  net.ParseIP(params.BmcAddr),
+				BmcUsername: params.User,
+				BmcPassword: params.Pass,
+				Model:       params.Model,
+				Vendor:      params.Vendor,
+			},
+			Logger: le,
+		},
+	}
+
+	r := runner.New(le)
+
 	startTS := time.Now()
 
 	i.logger.Info("running task for device")
 
-	// init state machine for task
-	stateMachine, err := sm.NewTaskStateMachine(handler)
-	if err != nil {
-		i.logger.Error(err)
-
-		return
-	}
-
-	_ = handlerCtx.Task.SetState(model.StatePending)
-
-	// run task state machine
-	if err := stateMachine.Run(handlerCtx.Task, handlerCtx); err != nil {
+	if err := r.RunTask(ctx, task, h); err != nil {
 		i.logger.WithFields(
 			logrus.Fields{
-				"bmc-ip": handlerCtx.Asset.BmcAddress.String(),
+				"bmc-ip": h.ctx.Asset.BmcAddress.String(),
 				"err":    err.Error(),
 			},
 		).Warn("task for device failed")
@@ -120,7 +110,7 @@ func (i *Installer) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.Han
 	}
 
 	i.logger.WithFields(logrus.Fields{
-		"bmc-ip":  handlerCtx.Asset.BmcAddress,
+		"bmc-ip":  h.ctx.Asset.BmcAddress,
 		"elapsed": time.Since(startTS).String(),
 	}).Info("task for device completed")
 }
