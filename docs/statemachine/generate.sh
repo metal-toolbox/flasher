@@ -3,8 +3,6 @@
 set -e
 
 taskSMDoc="docs/statemachine/README-task-statemachine.md"
-taskSMJSON="docs/statemachine/task-statemachine.json"
-
 actionSMDoc="docs/statemachine/README-action-statemachine.md"
 actionSMJSON="docs/statemachine/action-statemachine.json"
 
@@ -17,22 +15,12 @@ echo "# Flasher task state machine" > $taskSMDoc
 echo " " >> $taskSMDoc
 echo "The Task statemachine plans and executes Actions (sub-statemachines) to install firmware." >> $taskSMDoc
 echo " " >> $taskSMDoc
-echo "Note: The Task statemachine plans and and executes [Action sub-state machine(s)]($actionSMDoc) for each firmware being installed." >> $taskSMDoc
+echo "Note: The Task statemachine plans and and executes [Action sub-state machine(s)]($actionSMDoc) for _each_ firmware being installed." >> $taskSMDoc
 echo " " >> $taskSMDoc
 
 echo '```mermaid' >> $taskSMDoc
 ./flasher export-statemachine --task >> $taskSMDoc
 echo '```' >> $taskSMDoc
-
-
-## generate state transition docs
-
-./flasher export-statemachine --task --json > $taskSMJSON
-
-echo "## Task statemachine transitions" >> $taskSMDoc
-echo " " >> $taskSMDoc
-
-./docs/statemachine/generate_task_sm_docs.sh $taskSMJSON $taskSMDoc
 
 
 echo "generate task action sub-statemachine docs..."
