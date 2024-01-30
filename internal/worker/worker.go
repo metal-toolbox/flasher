@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"strconv"
 	"sync"
@@ -425,9 +424,6 @@ func (o *Worker) runTaskHandler(ctx context.Context, asset *model.Asset, task *m
 		},
 	)
 
-	t, _ := ctx.Deadline()
-	fmt.Printf(">>>> ctx " + t.String())
-
 	// init handler
 	handler := newHandler(
 		ctx,
@@ -440,8 +436,6 @@ func (o *Worker) runTaskHandler(ctx context.Context, asset *model.Asset, task *m
 		o.getStatusPublisher(),
 		hLogger,
 	)
-
-	fmt.Printf(">>>> handler ctx " + t.String())
 
 	// init runner
 	r := runner.New(hLogger)
