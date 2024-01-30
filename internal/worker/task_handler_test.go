@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,7 +18,7 @@ import (
 	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
-func Test_sortFirmwareByInstallOrde(t *testing.T) {
+func TestSortFirmwareByInstallOrder(t *testing.T) {
 	have := []*model.Firmware{
 		{
 			Version:   "DL6R",
@@ -72,7 +73,8 @@ func Test_sortFirmwareByInstallOrde(t *testing.T) {
 		},
 	}
 
-	sortFirmwareByInstallOrder(have)
+	h := handler{}
+	h.sortFirmwareByInstallOrder(have)
 
 	assert.Equal(t, expected, have)
 }
@@ -137,7 +139,8 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		},
 	}
 
-	got := removeFirmwareAlreadyAtDesiredVersion(ctx, fwSet)
+	h := handler{ctx}
+	got := h.removeFirmwareAlreadyAtDesiredVersion(fwSet)
 	require.Equal(t, 3, len(ctx.Task.Status.StatusMsgs))
 	require.Equal(t, 1, len(got))
 	require.Equal(t, expected[0], got[0])
@@ -199,19 +202,13 @@ func TestPlanInstall1(t *testing.T) {
 		},
 		Task: &model.Task{
 			ID: taskID,
+			Parameters: rctypes.FirmwareInstallTaskParameters{
+				AssetID:               serverID,
+				ResetBMCBeforeInstall: true,
+			},
 		},
 		WorkerID:      registry.GetID("test-app"),
 		DeviceQueryor: q,
-	}
-
-	h := &taskHandler{}
-
-	taskParam := &model.Task{
-		ID: uuid.MustParse("95ccb1c5-d807-4078-bb22-facc3045a49a"),
-		Parameters: rctypes.FirmwareInstallTaskParameters{
-			AssetID:               serverID,
-			ResetBMCBeforeInstall: true,
-		},
 	}
 
 	q.EXPECT().FirmwareInstallSteps(gomock.Any(), gomock.Any()).
@@ -221,7 +218,8 @@ func TestPlanInstall1(t *testing.T) {
 			bconsts.FirmwareInstallStepInstallStatus,
 		}, nil)
 
-	sms, actions, err := h.planInstall(ctx, taskParam, fwSet)
+	h := &handler{ctx}
+	sms, actions, err := h.planInstall(context.Background(), fwSet)
 	require.NoError(t, err, "no errors returned")
 	require.Equal(t, 2, len(sms), "expect two action state machines")
 	require.Equal(t, 2, len(actions), "expect two actions to be performed")
@@ -290,19 +288,13 @@ func TestPlanInstall2(t *testing.T) {
 		},
 		Task: &model.Task{
 			ID: taskID,
+			Parameters: rctypes.FirmwareInstallTaskParameters{
+				AssetID:      serverID,
+				ForceInstall: true,
+			},
 		},
 		WorkerID:      registry.GetID("test-app"),
 		DeviceQueryor: q,
-	}
-
-	h := &taskHandler{}
-
-	taskParam := &model.Task{
-		ID: uuid.MustParse("95ccb1c5-d807-4078-bb22-facc3045a49a"),
-		Parameters: rctypes.FirmwareInstallTaskParameters{
-			AssetID:      serverID,
-			ForceInstall: true,
-		},
 	}
 
 	q.EXPECT().FirmwareInstallSteps(gomock.Any(), gomock.Any()).
@@ -313,7 +305,8 @@ func TestPlanInstall2(t *testing.T) {
 			bconsts.FirmwareInstallStepInstallStatus,
 		}, nil)
 
-	sms, actions, err := h.planInstall(ctx, taskParam, fwSet)
+	h := &handler{ctx}
+	sms, actions, err := h.planInstall(context.Background(), fwSet)
 	require.NoError(t, err, "no errors returned")
 	require.Equal(t, 3, len(sms), "expect three action state machines")
 	require.Equal(t, 3, len(actions), "expect three actions to be performed")
