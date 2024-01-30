@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/version"
 	"github.com/nats-io/nats.go"
@@ -360,7 +362,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 	// the runTask method is expected to close this channel to indicate its done
 	doneCh := make(chan bool)
 
-	// monitor sends in progress ack's until the task statemachine returns.
+	// monitor sends in progress ack's until the task handler returns.
 	monitor := func() {
 		defer o.syncWG.Done()
 
@@ -382,35 +384,7 @@ func (o *Worker) runTaskWithMonitor(ctx context.Context, task *model.Task, asset
 
 	go monitor()
 
-	// setup state machine task handler
-	handler := &taskHandler{}
-
-	// setup state machine task handler context
-	l := logrus.New()
-	l.Formatter = o.logger.Formatter
-	l.Level = o.logger.Level
-
-	handlerCtx := &sm.HandlerContext{
-		WorkerID:     o.id,
-		Dryrun:       o.dryrun || task.Parameters.DryRun,
-		Task:         task,
-		Publisher:    o.getStatusPublisher(),
-		Ctx:          ctx,
-		Store:        o.store,
-		Data:         make(map[string]string),
-		Asset:        asset,
-		FacilityCode: o.facilityCode,
-		Logger: l.WithFields(
-			logrus.Fields{
-				"workerID":    o.id.String(),
-				"conditionID": task.ID.String(),
-				"assetID":     asset.ID.String(),
-				"bmc":         asset.BmcAddress.String(),
-			},
-		),
-	}
-
-	o.runTaskStatemachine(handler, handlerCtx, doneCh)
+	o.runTaskHandler(ctx, asset, task, doneCh)
 
 	<-doneCh
 }
@@ -435,46 +409,68 @@ func (o *Worker) registerConditionMetrics(startTS time.Time, state string) {
 	).Observe(time.Since(startTS).Seconds())
 }
 
-func (o *Worker) runTaskStatemachine(handler *taskHandler, handlerCtx *sm.HandlerContext, doneCh chan bool) {
+func (o *Worker) runTaskHandler(ctx context.Context, asset *model.Asset, task *model.Task, doneCh chan bool) {
 	defer close(doneCh)
 
+	// prepare logger
+	l := logrus.New()
+	l.Formatter = o.logger.Formatter
+	l.Level = o.logger.Level
+	hLogger := l.WithFields(
+		logrus.Fields{
+			"workerID":    o.id.String(),
+			"conditionID": task.ID.String(),
+			"assetID":     asset.ID.String(),
+			"bmc":         asset.BmcAddress.String(),
+		},
+	)
+
+	t, _ := ctx.Deadline()
+	fmt.Printf(">>>> ctx " + t.String())
+
+	// init handler
+	handler := newHandler(
+		ctx,
+		o.dryrun,
+		o.id,
+		o.facilityCode,
+		task,
+		asset,
+		o.store,
+		o.getStatusPublisher(),
+		hLogger,
+	)
+
+	fmt.Printf(">>>> handler ctx " + t.String())
+
+	// init runner
+	r := runner.New(hLogger)
 	startTS := time.Now()
 
 	o.logger.WithFields(logrus.Fields{
-		"deviceID":    handlerCtx.Task.Parameters.AssetID.String(),
-		"conditionID": handlerCtx.Task.ID,
+		"deviceID":    task.Parameters.AssetID.String(),
+		"conditionID": task.ID,
 	}).Info("running task for device")
 
-	// init state machine for task
-	stateMachine, err := sm.NewTaskStateMachine(handler)
-	if err != nil {
-		o.logger.Error(err)
-
-		o.registerConditionMetrics(startTS, string(rctypes.Failed))
-
-		return
-	}
-
-	// run task state machine
-	if err := stateMachine.Run(handlerCtx.Task, handlerCtx); err != nil {
+	// run task handler
+	if err := r.RunTask(ctx, task, handler); err != nil {
 		o.logger.WithFields(
 			logrus.Fields{
-				"deviceID":    handlerCtx.Task.Parameters.AssetID,
-				"conditionID": handlerCtx.Task.ID.String(),
+				"deviceID":    task.Parameters.AssetID,
+				"conditionID": task.ID.String(),
 				"err":         err.Error(),
 			},
 		).Warn("task for device failed")
 
 		o.registerConditionMetrics(startTS, string(rctypes.Failed))
-
 		return
 	}
 
 	o.registerConditionMetrics(startTS, string(rctypes.Succeeded))
 
 	o.logger.WithFields(logrus.Fields{
-		"deviceID":    handlerCtx.Task.Parameters.AssetID.String(),
-		"conditionID": handlerCtx.Task.ID,
+		"deviceID":    task.Parameters.AssetID.String(),
+		"conditionID": task.ID,
 		"elapsed":     time.Since(startTS).String(),
 	}).Info("task for device completed")
 }
