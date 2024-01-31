@@ -32,11 +32,15 @@ func New(logger *logrus.Entry) *Runner {
 }
 
 func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler) error {
-	funcs := map[string]func(context.Context) error{
-		"Initialize":  handler.Initialize,
-		"Query":       handler.Query,
-		"PlanActions": handler.PlanActions,
-		"RunActions":  handler.RunActions,
+	// nolint:govet // struct field optimization not required
+	funcs := []struct {
+		name   string
+		method func(context.Context) error
+	}{
+		{"Initialize", handler.Initialize},
+		{"Query", handler.Query},
+		{"PlanActions", handler.PlanActions},
+		{"RunActions", handler.RunActions},
 	}
 
 	taskFailed := func(err error) error {
@@ -66,12 +70,12 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 	_ = task.SetState(model.StateActive)
 	handler.Publish()
 
-	for fname, f := range funcs {
-		if cferr := r.conditionalFault(fname, task, handler); cferr != nil {
+	for _, f := range funcs {
+		if cferr := r.conditionalFault(f.name, task, handler); cferr != nil {
 			return taskFailed(cferr)
 		}
 
-		if err := f(ctx); err != nil {
+		if err := f.method(ctx); err != nil {
 			return taskFailed(err)
 		}
 	}
