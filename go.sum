@@ -99,8 +99,6 @@ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+Ce
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
-github.com/bmc-toolbox/bmclib/v2 v2.2.0 h1:EJ+53SUPoMpr6AJvlBlOEqIQF5UlnA8Mf1J2zEobV68=
-github.com/bmc-toolbox/bmclib/v2 v2.2.0/go.mod h1:gFF4iD468hbW1JUdJJx3mbhNGzoLsG47epbMa++grp8=
 github.com/bmc-toolbox/bmclib/v2 v2.2.1 h1:Y9msRLtHUB5mOgG1Dey1JxBJTIvJCoffcRHrBt7P7Fc=
 github.com/bmc-toolbox/bmclib/v2 v2.2.1/go.mod h1:gFF4iD468hbW1JUdJJx3mbhNGzoLsG47epbMa++grp8=
 github.com/bmc-toolbox/common v0.0.0-20231204194243-7bcbccab7116 h1:gqWn/cMjryKoUfITx2vRHrRHTvd9fQ+zKPwWsmMIrK4=
@@ -541,8 +539,8 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 h1:jWpvCLoY8Z/e3VKvlsiIGKtc+UG6U5vzxaoagmhXfyg=
 github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0/go.mod h1:QUyp042oQthUoa9bqDv0ER0wrtXnBruoNd7aNjkbP+k=
-github.com/metal-toolbox/conditionorc v1.0.2-0.20231206221522-2787dadc4766 h1:q0xiFZTmLPLJRBSiZMNzcLAu3Wtmb2spyAq9yqcw7vI=
-github.com/metal-toolbox/conditionorc v1.0.2-0.20231206221522-2787dadc4766/go.mod h1:tyCSzB71e3h7C5vnVwGip2w3C9TkHIza2QhMCniNauU=
+github.com/metal-toolbox/conditionorc v1.0.1 h1:+YGhtfXJx9eqCwQWwfQW9OdlVp+BXfUE712LlTwGKCI=
+github.com/metal-toolbox/conditionorc v1.0.1/go.mod h1:dtMfuknURK23fzbe63h/NnagmUaTBu2ohd4Y2CKbFtg=
 github.com/metal-toolbox/rivets v0.1.3 h1:Dl52WYrkBfSikZnt75JzXZx1HBksH0ixUjD6J6EnCK4=
 github.com/metal-toolbox/rivets v0.1.3/go.mod h1:QlGp4NUmXkSa8lhm/fFlH845kamwiOM7kiIsigVxWlg=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=
