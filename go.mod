@@ -18,7 +18,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/conditionorc v1.0.2-0.20231206221522-2787dadc4766
-	github.com/metal-toolbox/rivets v0.1.3
+	github.com/metal-toolbox/rivets v0.2.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nats-io/nats-server/v2 v2.10.4
 	github.com/nats-io/nats.go v1.31.0
