@@ -201,10 +201,18 @@ func (b *bmc) ResetBMC(ctx context.Context) error {
 	}
 
 	defer b.tracelog()
-	_, err = b.with(provider).ResetBMC(ctx, "GracefulRestart")
 
-	defer b.tracelog()
-	return err
+	// BMCs may or may not return an error when resetting
+	// either way we re-initialize the client to make sure
+	// we're not re-using old session/cookies.
+	defer b.ReinitializeClient(ctx)
+
+	_, err = b.with(provider).ResetBMC(ctx, "GracefulRestart")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Inventory queries the BMC for the device inventory and returns an object with the device inventory.

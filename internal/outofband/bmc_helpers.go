@@ -273,13 +273,7 @@ func (b *bmc) retry(ctx context.Context, maxAttempts, attempts int, cause error,
 	// The bmclib client is re-initialized only if it was previously
 	// connected successfully with a provider - set as installProvider
 	if b.installProvider != "" {
-		b.logger.WithFields(
-			logrus.Fields{
-				"provider": b.installProvider,
-			},
-		).Debug("re-initialized bmclib client")
-
-		b.rebuildClient(ctx)
+		b.ReinitializeClient(ctx)
 	}
 
 	attempts++
