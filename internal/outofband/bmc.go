@@ -100,9 +100,15 @@ func (b *bmc) tracelog() {
 		}).Trace(funcName + ": connection metadata")
 }
 
-func (b *bmc) rebuildClient(ctx context.Context) {
+func (b *bmc) ReinitializeClient(ctx context.Context) {
 	newclient := newBmclibv2Client(ctx, b.asset, b.logger)
 	b.client = newclient
+
+	b.logger.WithFields(
+		logrus.Fields{
+			"provider": b.installProvider,
+		},
+	).Debug("bmclib client re-initialized")
 }
 
 // Open creates a BMC session

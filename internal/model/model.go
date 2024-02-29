@@ -117,6 +117,9 @@ type DeviceQueryor interface {
 
 	ResetBMC(ctx context.Context) error
 
+	// Reinitializes the underlying device queryor client to purge old session information.
+	ReinitializeClient(ctx context.Context)
+
 	// Inventory returns the device inventory
 	Inventory(ctx context.Context) (*common.Device, error)
 

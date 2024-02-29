@@ -5,6 +5,7 @@
 //
 //	mockgen -source model.go -destination=../fixtures/mock.go -package=fixtures
 //
+
 // Package fixtures is a generated GoMock package.
 package fixtures
 
@@ -173,6 +174,18 @@ func (m *MockDeviceQueryor) PowerStatus(ctx context.Context) (string, error) {
 func (mr *MockDeviceQueryorMockRecorder) PowerStatus(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PowerStatus", reflect.TypeOf((*MockDeviceQueryor)(nil).PowerStatus), ctx)
+}
+
+// ReinitializeClient mocks base method.
+func (m *MockDeviceQueryor) ReinitializeClient(ctx context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ReinitializeClient", ctx)
+}
+
+// ReinitializeClient indicates an expected call of ReinitializeClient.
+func (mr *MockDeviceQueryorMockRecorder) ReinitializeClient(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReinitializeClient", reflect.TypeOf((*MockDeviceQueryor)(nil).ReinitializeClient), ctx)
 }
 
 // ResetBMC mocks base method.
