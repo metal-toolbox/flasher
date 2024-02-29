@@ -20,7 +20,6 @@ import (
 	"go.hollow.sh/toolbox/events/registry"
 
 	rctypes "github.com/metal-toolbox/rivets/condition"
-	rkv "github.com/metal-toolbox/rivets/kv"
 )
 
 var (
@@ -91,7 +90,7 @@ func (s *statusKVPublisher) Publish(hCtx *sm.HandlerContext) {
 }
 
 func statusFromContext(hCtx *sm.HandlerContext) []byte {
-	sv := &rkv.StatusValue{
+	sv := &rctypes.StatusValue{
 		WorkerID: hCtx.WorkerID.String(),
 		Target:   hCtx.Asset.ID.String(),
 		TraceID:  trace.SpanFromContext(hCtx.Ctx).SpanContext().TraceID().String(),

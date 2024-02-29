@@ -22,8 +22,8 @@ test: lint
 
 ## Generate mocks
 gen-mock:
-	go get go.uber.org/mock@v0.3.0
-	go install go.uber.org/mock/mockgen@v0.3.0
+	go get go.uber.org/mock@v0.4.0
+	go install go.uber.org/mock/mockgen@v0.4.0
 	go generate ./...
 	go mod tidy
 
