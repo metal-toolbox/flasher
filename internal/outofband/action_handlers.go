@@ -730,6 +730,8 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			// wait until the BMC is available again and verify its on the expected version.
 			if componentIsBMC(action.Firmware.Component) {
 				inventory = true
+				// re-initialize the client to make sure we're not re-using old sessions.
+				tctx.DeviceQueryor.ReinitializeClient(tctx.Ctx)
 
 				if action.BMCResetPostInstall {
 					if errBmcReset := h.powerCycleBMC(tctx); errBmcReset != nil {
