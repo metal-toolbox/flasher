@@ -208,11 +208,7 @@ func (b *bmc) ResetBMC(ctx context.Context) error {
 	defer b.ReinitializeClient(ctx)
 
 	_, err = b.with(provider).ResetBMC(ctx, "GracefulRestart")
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Inventory queries the BMC for the device inventory and returns an object with the device inventory.
