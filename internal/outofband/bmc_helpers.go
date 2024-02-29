@@ -20,6 +20,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/exp/slices"
 	"golang.org/x/net/publicsuffix"
 
@@ -93,6 +94,7 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 		bmclib.WithHTTPClient(newHTTPClient()),
 		bmclib.WithPerProviderTimeout(loginTimeout),
 		bmclib.WithRedfishEtagMatchDisabled(true),
+		bmclib.WithTracerProvider(otel.GetTracerProvider()),
 	)
 
 	// include bmclib drivers that support firmware related actions
@@ -145,7 +147,7 @@ func (b *bmc) with(provider string) *bmclib.Client {
 	if !slices.Contains(b.availableProviders, provider) {
 		b.logger.WithFields(
 			logrus.Fields{"require": provider, "available": strings.Join(b.availableProviders, ",")},
-		).Trace(funcName + ": bmclib install provider not available")
+		).Trace(funcName + ": required provider not in available list")
 
 		return b.client
 	}

@@ -210,7 +210,7 @@ func (h *actionHandler) installedEqualsExpected(tctx *sm.HandlerContext, compone
 			"serial":    found.Serial,
 			"installed": found.FirmwareInstalled,
 			"expected":  expectedFirmware,
-		}).Debug("component identified")
+		}).Debug("component version check")
 
 	if strings.TrimSpace(found.FirmwareInstalled) == "" {
 		return ErrInstalledVersionUnknown
@@ -587,6 +587,8 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 					logrus.Fields{
 						"bmc":       tctx.Asset.BmcAddress,
 						"component": action.Firmware.Component,
+						"elapsed":   time.Since(startTS).String(),
+						"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxPollStatusAttempts),
 						"err":       err.Error(),
 					}).Debug("Inventory collection for component returned error")
 			}
@@ -778,12 +780,7 @@ func (h *actionHandler) resetBMC(a sw.StateSwitch, c sw.TransitionArgs) error {
 		return nil
 	}
 
-	err = sleepWithContext(tctx.Ctx, delayBMCReset)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return sleepWithContext(tctx.Ctx, delayBMCReset)
 }
 
 func (h *actionHandler) powerCycleBMC(tctx *sm.HandlerContext) error {
