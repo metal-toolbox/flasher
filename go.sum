@@ -105,6 +105,7 @@ github.com/bmc-toolbox/common v0.0.0-20231204194243-7bcbccab7116 h1:gqWn/cMjryKo
 github.com/bmc-toolbox/common v0.0.0-20231204194243-7bcbccab7116/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
 github.com/bombsimon/logrusr/v2 v2.0.1/go.mod h1:ByVAX+vHdLGAfdroiMg6q0zgq2FODY2lc5YJvzmOJio=
+github.com/bombsimon/logrusr/v4 v4.1.0/go.mod h1:pjfHC5e59CvjTBIU3V3sGhFWFAnsnhOR03TRc6im0l8=
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.10.0-rc/go.mod h1:ElCzW+ufi8qKqNW0FY314xriJhyJhuoJ3gFZdAHF7NM=
 github.com/bytedance/sonic v1.11.1 h1:JC0+6c9FoWYYxakaoa+c5QTtJeiSZNeByOBhXtAFSn4=
