@@ -20,13 +20,6 @@ lint: gen-mock
 test: lint
 	go test -timeout 1m -v -covermode=atomic ./...
 
-## Generate mocks
-gen-mock:
-	go get go.uber.org/mock@v0.4.0
-	go install go.uber.org/mock/mockgen@v0.4.0
-	go generate ./...
-	go mod tidy
-
 ## build-osx
 build-osx:
 ifeq (${GO_VERSION}, 0)

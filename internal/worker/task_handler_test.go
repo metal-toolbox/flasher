@@ -8,10 +8,10 @@ import (
 	"github.com/metal-toolbox/flasher/internal/fixtures"
 	"github.com/metal-toolbox/flasher/internal/model"
 	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/metal-toolbox/rivets/events/registry"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.hollow.sh/toolbox/events/registry"
 	"go.uber.org/mock/gomock"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
@@ -126,7 +126,7 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		Task: &model.Task{
 			ID: serverID, // it just needs to be a UUID
 		},
-		WorkerID: registry.GetID("test-app"),
+		WorkerID: registry.GetID("test-app").String(),
 	}
 	expected := []*model.Firmware{
 		{
@@ -207,7 +207,7 @@ func TestPlanInstall1(t *testing.T) {
 				ResetBMCBeforeInstall: true,
 			},
 		},
-		WorkerID:      registry.GetID("test-app"),
+		WorkerID:      registry.GetID("test-app").String(),
 		DeviceQueryor: q,
 	}
 
@@ -293,7 +293,7 @@ func TestPlanInstall2(t *testing.T) {
 				ForceInstall: true,
 			},
 		},
-		WorkerID:      registry.GetID("test-app"),
+		WorkerID:      registry.GetID("test-app").String(),
 		DeviceQueryor: q,
 	}
 
