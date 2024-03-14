@@ -27,7 +27,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	go.hollow.sh/serverservice v0.16.2
 	go.hollow.sh/toolbox v0.6.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0
