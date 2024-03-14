@@ -10,11 +10,11 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.hollow.sh/toolbox/events"
 )
 
 const (
-	WorkerConcurrency = 1
+	WorkerConcurrency         = 1
+	defaultNatsConnectTimeout = 60 * time.Second
 )
 
 var (
@@ -47,16 +47,6 @@ type Configuration struct {
 	//
 	// This parameter is required when StoreKind is set to serverservice.
 	ServerserviceOptions *ServerserviceOptions `mapstructure:"serverservice"`
-
-	// EventsBrokerKind indicates the kind of event broker configuration to enable,
-	//
-	// Supported parameter value - nats
-	EventsBorkerKind string `mapstructure:"events_broker_kind"`
-
-	// NatsOptions defines the NATs events broker configuration parameters.
-	//
-	// This parameter is required when EventsBrokerKind is set to nats.
-	NatsOptions *events.NatsOptions `mapstructure:"nats"`
 }
 
 // ServerserviceOptions defines configuration for the Serverservice client.
@@ -89,10 +79,6 @@ func (a *App) LoadConfiguration(cfgFile string, storeKind model.StoreKind) error
 	// these are initialized here so viper can read in configuration from env vars
 	// once https://github.com/spf13/viper/pull/1429 is merged, this can go.
 	a.Config.ServerserviceOptions = &ServerserviceOptions{}
-	a.Config.NatsOptions = &events.NatsOptions{
-		Stream:   &events.NatsStreamOptions{},
-		Consumer: &events.NatsConsumerOptions{},
-	}
 
 	if cfgFile != "" {
 		fh, err := os.Open(cfgFile)
@@ -116,12 +102,6 @@ func (a *App) LoadConfiguration(cfgFile string, storeKind model.StoreKind) error
 	}
 
 	a.envVarAppOverrides()
-
-	if a.Config.EventsBorkerKind == "nats" {
-		if err := a.envVarNatsOverrides(); err != nil {
-			return errors.Wrap(ErrConfig, "nats env overrides error:"+err.Error())
-		}
-	}
 
 	if storeKind == model.InventoryStoreServerservice {
 		if err := a.envVarServerserviceOverrides(); err != nil {
@@ -165,90 +145,29 @@ func (a *App) envBindVars() error {
 	return nil
 }
 
-// NATs streaming configuration
-var (
-	defaultNatsConnectTimeout = 100 * time.Millisecond
-)
-
-// nolint:gocyclo // nats env config load is cyclomatic
-func (a *App) envVarNatsOverrides() error {
-	if a.Config.NatsOptions == nil {
-		a.Config.NatsOptions = &events.NatsOptions{}
-	}
-
+func (a *App) NatsParams() (nurl, credsFile string, connectTimeout time.Duration, err error) {
 	if a.v.GetString("nats.url") != "" {
-		a.Config.NatsOptions.URL = a.v.GetString("nats.url")
+		nurl = a.v.GetString("nats.url")
 	}
 
-	if a.Config.NatsOptions.URL == "" {
-		return errors.New("missing parameter: nats.url")
-	}
-
-	if a.v.GetString("nats.publisherSubjectPrefix") != "" {
-		a.Config.NatsOptions.PublisherSubjectPrefix = a.v.GetString("nats.publisherSubjectPrefix")
-	}
-
-	if a.Config.NatsOptions.PublisherSubjectPrefix == "" {
-		return errors.New("missing parameter: nats.publisherSubjectPrefix")
-	}
-
-	if a.v.GetString("nats.stream.user") != "" {
-		a.Config.NatsOptions.StreamUser = a.v.GetString("nats.stream.user")
-	}
-
-	if a.v.GetString("nats.stream.pass") != "" {
-		a.Config.NatsOptions.StreamPass = a.v.GetString("nats.stream.pass")
+	if nurl == "" {
+		return "", "", 0, errors.New("missing parameter: nats.url")
 	}
 
 	if a.v.GetString("nats.creds.file") != "" {
-		a.Config.NatsOptions.CredsFile = a.v.GetString("nats.creds.file")
+		credsFile = a.v.GetString("nats.creds.file")
 	}
 
-	if a.v.GetString("nats.stream.name") != "" {
-		if a.Config.NatsOptions.Stream == nil {
-			a.Config.NatsOptions.Stream = &events.NatsStreamOptions{}
-		}
-
-		a.Config.NatsOptions.Stream.Name = a.v.GetString("nats.stream.name")
+	if credsFile == "" {
+		return "", "", 0, errors.New("missing parameter: nats.creds.file")
 	}
 
-	if a.Config.NatsOptions.Stream.Name == "" {
-		return errors.New("A stream name is required")
-	}
-
-	if a.v.GetString("nats.consumer.name") != "" {
-		if a.Config.NatsOptions.Consumer == nil {
-			a.Config.NatsOptions.Consumer = &events.NatsConsumerOptions{}
-		}
-
-		a.Config.NatsOptions.Consumer.Name = a.v.GetString("nats.consumer.name")
-	}
-
-	if len(a.v.GetStringSlice("nats.consumer.subscribeSubjects")) != 0 {
-		a.Config.NatsOptions.Consumer.SubscribeSubjects = a.v.GetStringSlice("nats.consumer.subscribeSubjects")
-	}
-
-	if len(a.Config.NatsOptions.Consumer.SubscribeSubjects) == 0 {
-		return errors.New("missing parameter: nats.consumer.subscribeSubjects")
-	}
-
-	if a.v.GetString("nats.consumer.filterSubject") != "" {
-		a.Config.NatsOptions.Consumer.FilterSubject = a.v.GetString("nats.consumer.filterSubject")
-	}
-
-	if a.Config.NatsOptions.Consumer.FilterSubject == "" {
-		return errors.New("missing parameter: nats.consumer.filterSubject")
-	}
-
+	connectTimeout = defaultNatsConnectTimeout
 	if a.v.GetDuration("nats.connect.timeout") != 0 {
-		a.Config.NatsOptions.ConnectTimeout = a.v.GetDuration("nats.connect.timeout")
+		connectTimeout = a.v.GetDuration("nats.connect.timeout")
 	}
 
-	if a.Config.NatsOptions.ConnectTimeout == 0 {
-		a.Config.NatsOptions.ConnectTimeout = defaultNatsConnectTimeout
-	}
-
-	return nil
+	return nurl, credsFile, connectTimeout, nil
 }
 
 // Server service configuration options
