@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"go.hollow.sh/toolbox/events/registry"
 )
 
 var (
@@ -38,7 +37,7 @@ type handler struct {
 func newHandler(
 	ctx context.Context,
 	dryrun bool,
-	workerID registry.ControllerID,
+	workerID string,
 	facilityCode string,
 	task *model.Task,
 	asset *model.Asset,

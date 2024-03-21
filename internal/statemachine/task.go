@@ -7,7 +7,9 @@ import (
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"go.hollow.sh/toolbox/events/registry"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
+	"github.com/metal-toolbox/rivets/events/controller"
 )
 
 var (
@@ -18,6 +20,25 @@ var (
 // Publisher defines methods to publish task information.
 type Publisher interface {
 	Publish(ctx *HandlerContext)
+}
+
+// StatusPublisher implements the Publisher interface
+// to wrap the condition controller publish method
+type StatusPublisher struct {
+	cp controller.ConditionStatusPublisher
+}
+
+func NewNatsConditionStatusPublisher(cp controller.ConditionStatusPublisher) Publisher {
+	return &StatusPublisher{cp}
+}
+
+func (s *StatusPublisher) Publish(smCtx *HandlerContext) {
+	s.cp.Publish(
+		smCtx.Ctx,
+		smCtx.Asset.ID.String(),
+		rctypes.State(smCtx.Task.State()),
+		smCtx.Task.Status.MustMarshal(),
+	)
 }
 
 // HandlerContext holds references to objects required to complete firmware install task and action transitions.
@@ -57,7 +78,7 @@ type HandlerContext struct {
 	Logger *logrus.Entry
 
 	// WorkerID is the identifier for the worker executing this task.
-	WorkerID registry.ControllerID
+	WorkerID string
 
 	// ActionStateMachines are sub-statemachines of this Task
 	// each firmware applicable has a Action statemachine that is
@@ -70,7 +91,4 @@ type HandlerContext struct {
 	//
 	// It is upto the Action handler implementations to ensure the dry run works as described.
 	Dryrun bool
-
-	// LastRev is the last revision of the status data for this task stored in NATS KV
-	LastRev uint64
 }

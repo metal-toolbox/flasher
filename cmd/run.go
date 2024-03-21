@@ -11,10 +11,10 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/worker"
+	"github.com/metal-toolbox/rivets/events/controller"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.hollow.sh/toolbox/events"
 
 	// nolint:gosec // profiling endpoint listens on localhost.
 	_ "net/http/pprof"
@@ -70,36 +70,48 @@ func runWorker(ctx context.Context) {
 		cancelFunc()
 	}()
 
-	inv, err := initInventory(ctx, flasher.Config, flasher.Logger)
+	repository, err := initStore(ctx, flasher.Config, flasher.Logger)
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
 
-	stream, err := events.NewStream(*flasher.Config.NatsOptions)
+	if facilityCode == "" {
+		flasher.Logger.Fatal("--facility-code parameter required")
+	}
+
+	natsURL, natsCreds, connectTimeout, err := flasher.NatsParams()
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
 
-	if useStatusKV && facilityCode == "" {
-		flasher.Logger.Fatal("--use-kv flag requires a --facility-code parameter")
-	}
-
-	w := worker.New(
+	nc := controller.NewNatsController(
+		model.AppName,
 		facilityCode,
-		dryrun,
-		useStatusKV,
-		faultInjection,
-		flasher.Config.Concurrency,
-		replicas,
-		stream,
-		inv,
-		flasher.Logger,
+		"firmwareInstall",
+		natsURL,
+		natsCreds,
+		"firmwareInstall",
+		controller.WithConcurrency(10),
+		controller.WithKVReplicas(1),
+		controller.WithLogger(flasher.Logger),
+		controller.WithConnectionTimeout(connectTimeout),
 	)
 
-	w.Run(ctx)
+	if err := nc.Connect(ctx); err != nil {
+		flasher.Logger.Fatal(err)
+	}
+
+	worker.Run(
+		ctx,
+		dryrun,
+		faultInjection,
+		repository,
+		nc,
+		flasher.Logger,
+	)
 }
 
-func initInventory(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
+func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
 	switch {
 	// from CLI flags
 	case strings.HasSuffix(storeKind, ".yml"), strings.HasSuffix(storeKind, ".yaml"):

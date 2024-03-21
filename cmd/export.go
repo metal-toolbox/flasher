@@ -57,7 +57,7 @@ func asGraph(s *sw.StateMachineJSON) *dot.Graph {
 	return g
 }
 
-func taskStateMachine() {
+func conditionStateMachine() {
 	g := dot.NewGraph(dot.Directed)
 
 	pending := g.Node(string(model.StatePending))
@@ -103,7 +103,7 @@ func outofbandActionStatemachine() {
 
 func exportStatemachine() {
 	if exportFlagSet.taskSM {
-		taskStateMachine()
+		conditionStateMachine()
 
 		return
 	}
