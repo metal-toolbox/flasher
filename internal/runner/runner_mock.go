@@ -5,6 +5,7 @@
 //
 //	mockgen -source internal/runner/runner.go -destination=internal/runner/runner_mock.go -package=runner
 //
+
 // Package runner is a generated GoMock package.
 package runner
 

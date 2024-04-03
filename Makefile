@@ -16,6 +16,12 @@ REPO := "https://github.com/metal-toolbox/flasher.git"
 lint: gen-mock
 	golangci-lint run --config .golangci.yml
 
+## generate mocks
+gen-mock:
+	go install go.uber.org/mock/mockgen@v0.4.0
+	mockgen -source internal/runner/runner.go -destination=internal/runner/runner_mock.go -package=runner
+	go mod tidy
+
 ## Go test
 test: lint
 	go test -timeout 1m -v -covermode=atomic ./...
