@@ -103,6 +103,7 @@ func (r *Runner) conditionalFault(fname string, task *model.Task, handler Handle
 		td, err := time.ParseDuration(task.Fault.DelayDuration)
 		if err != nil {
 			// invalid duration string is ignored
+			// nolint:nilerr // nil error returned intentionally
 			return nil
 		}
 

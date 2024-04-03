@@ -23,7 +23,7 @@ import (
 var cmdRun = &cobra.Command{
 	Use:   "run",
 	Short: "Run flasher service to listen for events and install firmware",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		runWorker(cmd.Context())
 	},
 }

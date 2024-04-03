@@ -116,7 +116,7 @@ func (t *handler) RunActions(ctx context.Context) error {
 		}).Debug("action state machine start")
 
 		// run the action state machine
-		err := actionSM.Run(t.ctx.Ctx, action, t.ctx)
+		err := actionSM.Run(ctx, action, t.ctx)
 		if err != nil {
 			return errors.Wrap(
 				err,
