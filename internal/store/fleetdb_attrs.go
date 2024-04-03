@@ -4,18 +4,20 @@ import (
 	"encoding/json"
 	"net"
 
+	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
+	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
+
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
-	sservice "go.hollow.sh/serverservice/pkg/api/v1"
 )
 
-// versionedAttributeFirmware is the format in which the firmware data is present in serverservice.
+// versionedAttributeFirmware is the format in which the firmware data is present in fleetdb API.
 type versionedAttributeFirmware struct {
 	Firmware *common.Firmware `json:"firmware,omitempty"`
 }
 
-func findAttribute(ns string, attributes []sservice.Attributes) *sservice.Attributes {
+func findAttribute(ns string, attributes []fleetdbapi.Attributes) *fleetdbapi.Attributes {
 	for _, attribute := range attributes {
 		if attribute.Namespace == ns {
 			return &attribute
@@ -25,7 +27,7 @@ func findAttribute(ns string, attributes []sservice.Attributes) *sservice.Attrib
 	return nil
 }
 
-func findVersionedAttribute(ns string, attributes []sservice.VersionedAttributes) *sservice.VersionedAttributes {
+func findVersionedAttribute(ns string, attributes []fleetdbapi.VersionedAttributes) *fleetdbapi.VersionedAttributes {
 	for _, attribute := range attributes {
 		if attribute.Namespace == ns {
 			return &attribute
@@ -36,7 +38,7 @@ func findVersionedAttribute(ns string, attributes []sservice.VersionedAttributes
 }
 
 // assetState returns the asset state attribute value from the configured AssetStateAttributeNS
-func (s *Serverservice) assetStateAttribute(attributes []sservice.Attributes) (string, error) {
+func (s *FleetDBAPI) assetStateAttribute(attributes []fleetdbapi.Attributes) (string, error) {
 	var assetState string
 
 	assetStateAttribute := findAttribute(s.config.AssetStateAttributeNS, attributes)
@@ -56,12 +58,12 @@ func (s *Serverservice) assetStateAttribute(attributes []sservice.Attributes) (s
 	return data[s.config.AssetStateAttributeKey], nil
 }
 
-func (s *Serverservice) bmcAddressFromAttributes(attributes []sservice.Attributes) (net.IP, error) {
+func (s *FleetDBAPI) bmcAddressFromAttributes(attributes []fleetdbapi.Attributes) (net.IP, error) {
 	ip := net.IP{}
 
-	bmcAttribute := findAttribute(serverAttributeNSBmcAddress, attributes)
+	bmcAttribute := findAttribute(rfleetdb.ServerAttributeNSBmcAddress, attributes)
 	if bmcAttribute == nil {
-		return ip, errors.Wrap(ErrBMCAddress, "not found: "+serverAttributeNSBmcAddress)
+		return ip, errors.Wrap(ErrBMCAddress, "not found: "+rfleetdb.ServerAttributeNSBmcAddress)
 	}
 
 	data := map[string]string{}
@@ -70,15 +72,15 @@ func (s *Serverservice) bmcAddressFromAttributes(attributes []sservice.Attribute
 	}
 
 	if data["address"] == "" {
-		return ip, errors.Wrap(ErrBMCAddress, "value undefined: "+serverAttributeNSBmcAddress)
+		return ip, errors.Wrap(ErrBMCAddress, "value undefined: "+rfleetdb.ServerAttributeNSBmcAddress)
 	}
 
 	return net.ParseIP(data["address"]), nil
 }
-func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attributes) (deviceVendor, deviceModel, deviceSerial string, err error) {
+func (s *FleetDBAPI) vendorModelFromAttributes(attributes []fleetdbapi.Attributes) (deviceVendor, deviceModel, deviceSerial string, err error) {
 	vendorAttrs := map[string]string{}
 
-	vendorAttribute := findAttribute(serverAttributeNSVendor, attributes)
+	vendorAttribute := findAttribute(rfleetdb.ServerAttributeNSVendor, attributes)
 	if vendorAttribute == nil {
 		return deviceVendor,
 			deviceModel,
@@ -114,10 +116,10 @@ func (s *Serverservice) vendorModelFromAttributes(attributes []sservice.Attribut
 	return
 }
 
-func (s *Serverservice) fromServerserviceComponents(scomponents sservice.ServerComponentSlice) model.Components {
+func (s *FleetDBAPI) fromServerserviceComponents(scomponents fleetdbapi.ServerComponentSlice) model.Components {
 	components := make(model.Components, 0, len(scomponents))
 
-	// nolint:gocritic // rangeValCopy - this type is returned in the current form by serverservice.
+	// nolint:gocritic // rangeValCopy - this type is returned in the current form by fleetdb API.
 	for _, sc := range scomponents {
 		components = append(components, &model.Component{
 			Slug:              sc.ComponentTypeSlug,
@@ -131,7 +133,7 @@ func (s *Serverservice) fromServerserviceComponents(scomponents sservice.ServerC
 	return components
 }
 
-func (s *Serverservice) firmwareFromVersionedAttributes(va []sservice.VersionedAttributes) string {
+func (s *FleetDBAPI) firmwareFromVersionedAttributes(va []fleetdbapi.VersionedAttributes) string {
 	if len(va) == 0 {
 		return ""
 	}

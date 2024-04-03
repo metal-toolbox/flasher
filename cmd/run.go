@@ -117,7 +117,7 @@ func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Lo
 	case strings.HasSuffix(storeKind, ".yml"), strings.HasSuffix(storeKind, ".yaml"):
 		return store.NewYamlInventory(storeKind)
 	case storeKind == string(model.InventoryStoreServerservice):
-		return store.NewServerserviceStore(ctx, config.ServerserviceOptions, logger)
+		return store.NewServerserviceStore(ctx, config.FleetDBAPIOptions, logger)
 	}
 
 	return nil, errors.Wrap(ErrInventoryStore, "expected a valid inventory store parameter")

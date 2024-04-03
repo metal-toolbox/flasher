@@ -42,7 +42,7 @@ The [sandbox README.md](https://github.com/metal-toolbox/sandbox/blob/main/READM
 The diagram below depicts the services flasher depends on:
 ```mermaid
 graph TB
-  a((Flasher))-- 1. Query Asset BMC creds, attributes -->ss[(Serverservice)]
+  a((Flasher))-- 1. Query Asset BMC creds, attributes -->ss[(FleetDBAPI)]
   a((Flasher))-- 2. Query current inventory -->sb(ServerA BMC)
   a((Flasher))-- 3. Fetch firmware files -->sa(Firmware file store)
   a((Flasher))-- 4. install firmware -->sb(ServerA BMC)

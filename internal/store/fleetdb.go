@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
-	sservice "go.hollow.sh/serverservice/pkg/api/v1"
+	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
+	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
+
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/oauth2/clientcredentials"
@@ -25,16 +27,7 @@ import (
 )
 
 const (
-	// serverservice attribute namespace for device vendor, model, serial attributes
-	serverAttributeNSVendor = "sh.hollow.alloy.server_vendor_attributes"
-
-	// serverservice attribute namespace for the BMC address
-	serverAttributeNSBmcAddress = "sh.hollow.bmc_info"
-
-	// serverservice attribute namespace for firmware set labels
-	firmwareAttributeNSFirmwareSetLabels = "sh.hollow.firmware_set.labels"
-
-	// connectionTimeout is the maximum amount of time spent on each http connection to serverservice.
+	// connectionTimeout is the maximum amount of time spent on each http connection to fleetdb API.
 	connectionTimeout = 30 * time.Second
 
 	pkgName = "internal/store"
@@ -42,11 +35,11 @@ const (
 
 var (
 	ErrNoAttributes          = errors.New("no flasher attribute found")
-	ErrAttributeList         = errors.New("error in serverservice flasher attribute list")
-	ErrAttributeCreate       = errors.New("error in serverservice flasher attribute create")
-	ErrAttributeUpdate       = errors.New("error in serverservice flasher attribute update")
-	ErrVendorModelAttributes = errors.New("device vendor, model attributes not found in serverservice")
-	ErrDeviceStatus          = errors.New("error serverservice device status")
+	ErrAttributeList         = errors.New("error in fleetdb API attribute list")
+	ErrAttributeCreate       = errors.New("error in fleetdb API attribute create")
+	ErrAttributeUpdate       = errors.New("error in fleetdb API attribute update")
+	ErrVendorModelAttributes = errors.New("device vendor, model attributes not found in fleetdb API")
+	ErrDeviceStatus          = errors.New("error fleetdb API device status")
 
 	ErrDeviceID = errors.New("device UUID error")
 
@@ -57,26 +50,26 @@ var (
 	ErrDeviceState = errors.New("error in device state")
 
 	// ErrServerserviceAttrObj is retuned when an error occurred in unpacking the attribute.
-	ErrServerserviceAttrObj = errors.New("serverservice attribute error")
+	ErrServerserviceAttrObj = errors.New("fleetdb API attribute error")
 
 	// ErrServerserviceVersionedAttrObj is retuned when an error occurred in unpacking the versioned attribute.
-	ErrServerserviceVersionedAttrObj = errors.New("serverservice versioned attribute error")
+	ErrServerserviceVersionedAttrObj = errors.New("fleetdb API versioned attribute error")
 
 	// ErrServerserviceQuery is returned when a server service query fails.
-	ErrServerserviceQuery = errors.New("serverservice query returned error")
+	ErrServerserviceQuery = errors.New("fleetdb API query returned error")
 
 	ErrFirmwareSetLookup = errors.New("firmware set error")
 )
 
-type Serverservice struct {
-	config *app.ServerserviceOptions
+type FleetDBAPI struct {
+	config *app.FleetDBAPIOptions
 	// componentSlugs map[string]string
-	client *sservice.Client
+	client *fleetdbapi.Client
 	logger *logrus.Logger
 }
 
-func NewServerserviceStore(ctx context.Context, config *app.ServerserviceOptions, logger *logrus.Logger) (Repository, error) {
-	var client *sservice.Client
+func NewServerserviceStore(ctx context.Context, config *app.FleetDBAPIOptions, logger *logrus.Logger) (Repository, error) {
+	var client *fleetdbapi.Client
 	var err error
 
 	if !config.DisableOAuth {
@@ -85,23 +78,21 @@ func NewServerserviceStore(ctx context.Context, config *app.ServerserviceOptions
 			return nil, err
 		}
 	} else {
-		client, err = sservice.NewClientWithToken("fake", config.Endpoint, nil)
+		client, err = fleetdbapi.NewClientWithToken("fake", config.Endpoint, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	serverservice := &Serverservice{
+	return &FleetDBAPI{
 		client: client,
 		config: config,
 		logger: logger,
-	}
-
-	return serverservice, nil
+	}, nil
 }
 
-// returns a serverservice retryable http client with Otel and Oauth wrapped in
-func newClientWithOAuth(ctx context.Context, cfg *app.ServerserviceOptions, logger *logrus.Logger) (*sservice.Client, error) {
+// returns a fleetdb API retryable http client with Otel and Oauth wrapped in
+func newClientWithOAuth(ctx context.Context, cfg *app.FleetDBAPIOptions, logger *logrus.Logger) (*fleetdbapi.Client, error) {
 	// init retryable http client
 	retryableClient := retryablehttp.NewClient()
 
@@ -145,14 +136,14 @@ func newClientWithOAuth(ctx context.Context, cfg *app.ServerserviceOptions, logg
 	httpClient := retryableClient.StandardClient()
 	httpClient.Timeout = connectionTimeout
 
-	return sservice.NewClientWithToken(
+	return fleetdbapi.NewClientWithToken(
 		cfg.OidcClientSecret,
 		cfg.Endpoint,
 		httpClient,
 	)
 }
 
-func (s *Serverservice) registerMetric(queryKind string) {
+func (s *FleetDBAPI) registerMetric(queryKind string) {
 	metrics.StoreQueryErrorCount.With(
 		prometheus.Labels{
 			"storeKind": "serverservice",
@@ -162,8 +153,8 @@ func (s *Serverservice) registerMetric(queryKind string) {
 }
 
 // AssetByID returns an Asset object with various attributes populated.
-func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset, error) {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "Serverservice.AssetByID")
+func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*model.Asset, error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "FleetDBAPI.AssetByID")
 	defer span.End()
 
 	deviceUUID, err := uuid.Parse(id)
@@ -174,7 +165,7 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 	asset := &model.Asset{ID: deviceUUID}
 
 	// query credentials
-	credential, _, err := s.client.GetCredential(ctx, deviceUUID, sservice.ServerCredentialTypeBMC)
+	credential, _, err := s.client.GetCredential(ctx, deviceUUID, fleetdbapi.ServerCredentialTypeBMC)
 	if err != nil {
 		s.registerMetric("GetCredential")
 
@@ -223,15 +214,15 @@ func (s *Serverservice) AssetByID(ctx context.Context, id string) (*model.Asset,
 		return asset, nil
 	}
 
-	// convert from serverservice components to Asset.Components
+	// convert from fleetdb API components to Asset.Components
 	asset.Components = s.fromServerserviceComponents(components)
 
 	return asset, nil
 }
 
 // FirmwareSetByID returns a list of firmwares part of a firmware set identified by the given id.
-func (s *Serverservice) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*model.Firmware, error) {
-	ctx, span := otel.Tracer(pkgName).Start(ctx, "Serverservice.FirmwareSetByID")
+func (s *FleetDBAPI) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*model.Firmware, error) {
+	ctx, span := otel.Tracer(pkgName).Start(ctx, "FleetDBAPI.FirmwareSetByID")
 	defer span.End()
 
 	firmwareset, _, err := s.client.GetServerComponentFirmwareSet(ctx, id)
@@ -245,18 +236,18 @@ func (s *Serverservice) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*m
 }
 
 // FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
-func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]*model.Firmware, error) {
+func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]*model.Firmware, error) {
 	// lookup flasher task attribute
-	params := &sservice.ComponentFirmwareSetListParams{
-		AttributeListParams: []sservice.AttributeListParams{
+	params := &fleetdbapi.ComponentFirmwareSetListParams{
+		AttributeListParams: []fleetdbapi.AttributeListParams{
 			{
-				Namespace: firmwareAttributeNSFirmwareSetLabels,
+				Namespace: rfleetdb.FirmwareAttributeNSFirmwareSetLabels,
 				Keys:      []string{"model"},
 				Operator:  "eq",
 				Value:     deviceModel,
 			},
 			{
-				Namespace: firmwareAttributeNSFirmwareSetLabels,
+				Namespace: rfleetdb.FirmwareAttributeNSFirmwareSetLabels,
 				Keys:      []string{"vendor"},
 				Operator:  "eq",
 				Value:     deviceVendor,
@@ -304,7 +295,7 @@ func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceV
 
 	found := []*model.Firmware{}
 
-	// nolint:gocritic // rangeValCopy - the data is returned by serverservice in this form.
+	// nolint:gocritic // rangeValCopy - the data is returned by fleetdb API in this form.
 	for _, set := range firmwaresets {
 		found = append(found, intoFirmwaresSlice(set.ComponentFirmware)...)
 	}
@@ -312,7 +303,7 @@ func (s *Serverservice) FirmwareByDeviceVendorModel(ctx context.Context, deviceV
 	return found, nil
 }
 
-func intoFirmwaresSlice(componentFirmware []sservice.ComponentFirmwareVersion) []*model.Firmware {
+func intoFirmwaresSlice(componentFirmware []fleetdbapi.ComponentFirmwareVersion) []*model.Firmware {
 	strSliceToLower := func(sl []string) []string {
 		lowered := make([]string, 0, len(sl))
 
@@ -325,7 +316,7 @@ func intoFirmwaresSlice(componentFirmware []sservice.ComponentFirmwareVersion) [
 
 	firmwares := make([]*model.Firmware, 0, len(componentFirmware))
 
-	// nolint:gocritic // rangeValCopy - componentFirmware is returned by serverservice in this form.
+	// nolint:gocritic // rangeValCopy - componentFirmware is returned by fleetdb API in this form.
 	for _, firmware := range componentFirmware {
 		firmwares = append(firmwares, &model.Firmware{
 			ID:        firmware.UUID.String(),
