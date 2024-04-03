@@ -562,6 +562,7 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 				action.Firmware.Vendor,
 				action.Firmware.Models,
 			)
+			// nolint:errorlint // TODO(joel): rework this to use errors.Is
 			switch err {
 			case nil:
 				tctx.Logger.WithFields(

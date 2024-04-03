@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -25,17 +24,6 @@ const (
 )
 
 var (
-	fetchEventsInterval = 10 * time.Second
-
-	// taskTimeout defines the time after which a task will be canceled.
-	taskTimeout = 180 * time.Minute
-
-	// taskInprogressTicker is the interval at which tasks in progress
-	// will ack themselves as in progress on the event stream.
-	//
-	// This value should be set to less than the event stream Ack timeout value.
-	taskInprogressTick = 3 * time.Minute
-
 	errTaskFirmwareParam = errors.New("error in task firmware parameters")
 	errInitTask          = errors.New("error initializing new task from condition")
 )

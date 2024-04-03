@@ -29,7 +29,7 @@ var (
 var cmdExportStatemachine = &cobra.Command{
 	Use:   "export-statemachine --task|--action [--json|--mermaid]",
 	Short: "Export a JSON dump of flasher statemachine(s) - writes to a file task-statemachine.json",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		exportStatemachine()
 	},
 }

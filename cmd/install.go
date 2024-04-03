@@ -13,7 +13,7 @@ import (
 var cmdInstall = &cobra.Command{
 	Use:   "install",
 	Short: "Install given firmware for a component",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		runInstall(cmd.Context())
 	},
 }
