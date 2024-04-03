@@ -43,15 +43,15 @@ type Configuration struct {
 
 	StoreKind model.StoreKind `mapstructure:"store_kind"`
 
-	// ServerserviceOptions defines the serverservice client configuration parameters
+	// FleetDBAPIOptions defines the serverservice client configuration parameters
 	//
 	// This parameter is required when StoreKind is set to serverservice.
-	ServerserviceOptions *ServerserviceOptions `mapstructure:"serverservice"`
+	FleetDBAPIOptions *FleetDBAPIOptions `mapstructure:"serverservice"`
 }
 
-// ServerserviceOptions defines configuration for the Serverservice client.
+// FleetDBAPIOptions defines configuration for the FleetDBAPI client.
 // https://github.com/metal-toolbox/hollow-serverservice
-type ServerserviceOptions struct {
+type FleetDBAPIOptions struct {
 	EndpointURL            *url.URL
 	FacilityCode           string   `mapstructure:"facility_code"`
 	Endpoint               string   `mapstructure:"endpoint"`
@@ -78,7 +78,7 @@ func (a *App) LoadConfiguration(cfgFile string, storeKind model.StoreKind) error
 
 	// these are initialized here so viper can read in configuration from env vars
 	// once https://github.com/spf13/viper/pull/1429 is merged, this can go.
-	a.Config.ServerserviceOptions = &ServerserviceOptions{}
+	a.Config.FleetDBAPIOptions = &FleetDBAPIOptions{}
 
 	if cfgFile != "" {
 		fh, err := os.Open(cfgFile)
@@ -174,66 +174,66 @@ func (a *App) NatsParams() (nurl, credsFile string, connectTimeout time.Duration
 
 // nolint:gocyclo // parameter validation is cyclomatic
 func (a *App) envVarServerserviceOverrides() error {
-	if a.Config.ServerserviceOptions == nil {
-		a.Config.ServerserviceOptions = &ServerserviceOptions{}
+	if a.Config.FleetDBAPIOptions == nil {
+		a.Config.FleetDBAPIOptions = &FleetDBAPIOptions{}
 	}
 
 	if a.v.GetString("serverservice.endpoint") != "" {
-		a.Config.ServerserviceOptions.Endpoint = a.v.GetString("serverservice.endpoint")
+		a.Config.FleetDBAPIOptions.Endpoint = a.v.GetString("serverservice.endpoint")
 	}
 
-	endpointURL, err := url.Parse(a.Config.ServerserviceOptions.Endpoint)
+	endpointURL, err := url.Parse(a.Config.FleetDBAPIOptions.Endpoint)
 	if err != nil {
 		return errors.New("serverservice endpoint URL error: " + err.Error())
 	}
 
-	a.Config.ServerserviceOptions.EndpointURL = endpointURL
+	a.Config.FleetDBAPIOptions.EndpointURL = endpointURL
 
 	if a.v.GetString("serverservice.disable.oauth") != "" {
-		a.Config.ServerserviceOptions.DisableOAuth = a.v.GetBool("serverservice.disable.oauth")
+		a.Config.FleetDBAPIOptions.DisableOAuth = a.v.GetBool("serverservice.disable.oauth")
 	}
 
-	if a.Config.ServerserviceOptions.DisableOAuth {
+	if a.Config.FleetDBAPIOptions.DisableOAuth {
 		return nil
 	}
 
 	if a.v.GetString("serverservice.oidc.issuer.endpoint") != "" {
-		a.Config.ServerserviceOptions.OidcIssuerEndpoint = a.v.GetString("serverservice.oidc.issuer.endpoint")
+		a.Config.FleetDBAPIOptions.OidcIssuerEndpoint = a.v.GetString("serverservice.oidc.issuer.endpoint")
 	}
 
-	if a.Config.ServerserviceOptions.OidcIssuerEndpoint == "" {
+	if a.Config.FleetDBAPIOptions.OidcIssuerEndpoint == "" {
 		return errors.New("serverservice oidc.issuer.endpoint not defined")
 	}
 
 	if a.v.GetString("serverservice.oidc.audience.endpoint") != "" {
-		a.Config.ServerserviceOptions.OidcAudienceEndpoint = a.v.GetString("serverservice.oidc.audience.endpoint")
+		a.Config.FleetDBAPIOptions.OidcAudienceEndpoint = a.v.GetString("serverservice.oidc.audience.endpoint")
 	}
 
-	if a.Config.ServerserviceOptions.OidcAudienceEndpoint == "" {
+	if a.Config.FleetDBAPIOptions.OidcAudienceEndpoint == "" {
 		return errors.New("serverservice oidc.audience.endpoint not defined")
 	}
 
 	if a.v.GetString("serverservice.oidc.client.secret") != "" {
-		a.Config.ServerserviceOptions.OidcClientSecret = a.v.GetString("serverservice.oidc.client.secret")
+		a.Config.FleetDBAPIOptions.OidcClientSecret = a.v.GetString("serverservice.oidc.client.secret")
 	}
 
-	if a.Config.ServerserviceOptions.OidcClientSecret == "" {
+	if a.Config.FleetDBAPIOptions.OidcClientSecret == "" {
 		return errors.New("serverservice.oidc.client.secret not defined")
 	}
 
 	if a.v.GetString("serverservice.oidc.client.id") != "" {
-		a.Config.ServerserviceOptions.OidcClientID = a.v.GetString("serverservice.oidc.client.id")
+		a.Config.FleetDBAPIOptions.OidcClientID = a.v.GetString("serverservice.oidc.client.id")
 	}
 
-	if a.Config.ServerserviceOptions.OidcClientID == "" {
+	if a.Config.FleetDBAPIOptions.OidcClientID == "" {
 		return errors.New("serverservice.oidc.client.id not defined")
 	}
 
 	if a.v.GetString("serverservice.oidc.client.scopes") != "" {
-		a.Config.ServerserviceOptions.OidcClientScopes = a.v.GetStringSlice("serverservice.oidc.client.scopes")
+		a.Config.FleetDBAPIOptions.OidcClientScopes = a.v.GetStringSlice("serverservice.oidc.client.scopes")
 	}
 
-	if len(a.Config.ServerserviceOptions.OidcClientScopes) == 0 {
+	if len(a.Config.FleetDBAPIOptions.OidcClientScopes) == 0 {
 		return errors.New("serverservice oidc.client.scopes not defined")
 	}
 
