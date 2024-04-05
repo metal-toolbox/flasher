@@ -30,12 +30,10 @@ var cmdRun = &cobra.Command{
 
 // run worker command
 var (
-	useStatusKV    bool
 	dryrun         bool
 	faultInjection bool
 	facilityCode   string
 	storeKind      string
-	replicas       int
 )
 
 var (
@@ -79,7 +77,7 @@ func runWorker(ctx context.Context) {
 		flasher.Logger.Fatal("--facility-code parameter required")
 	}
 
-	natsURL, natsCreds, connectTimeout, err := flasher.NatsParams()
+	natsCfg, err := flasher.NatsParams()
 	if err != nil {
 		flasher.Logger.Fatal(err)
 	}
@@ -88,13 +86,13 @@ func runWorker(ctx context.Context) {
 		model.AppName,
 		facilityCode,
 		"firmwareInstall",
-		natsURL,
-		natsCreds,
+		natsCfg.NatsURL,
+		natsCfg.CredsFile,
 		"firmwareInstall",
-		controller.WithConcurrency(10),
-		controller.WithKVReplicas(1),
+		controller.WithConcurrency(flasher.Config.Concurrency),
+		controller.WithKVReplicas(natsCfg.KVReplicas),
 		controller.WithLogger(flasher.Logger),
-		controller.WithConnectionTimeout(connectTimeout),
+		controller.WithConnectionTimeout(natsCfg.ConnectTimeout),
 	)
 
 	if err := nc.Connect(ctx); err != nil {
@@ -126,9 +124,7 @@ func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Lo
 func init() {
 	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "Inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
-	cmdRun.PersistentFlags().BoolVarP(&useStatusKV, "use-kv", "", false, "When this is true, flasher writes status to a NATS KV store instead of sending reply messages (requires --facility-code)")
 	cmdRun.PersistentFlags().BoolVarP(&faultInjection, "fault-injection", "", false, "Tasks can include a Fault attribute to allow fault injection for development purposes")
-	cmdRun.PersistentFlags().IntVarP(&replicas, "replica-count", "r", 3, "The number of replicas to use for NATS data")
 	cmdRun.PersistentFlags().StringVar(&facilityCode, "facility-code", "", "The facility code this flasher instance is associated with")
 
 	if err := cmdRun.MarkPersistentFlagRequired("store"); err != nil {
