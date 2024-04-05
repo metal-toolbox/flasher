@@ -570,6 +570,8 @@ github.com/metal-toolbox/fleetdb v0.17.1 h1:eyaCg4yGQnbXIjiBMZPsLqmEpxbltlEUNDG+
 github.com/metal-toolbox/fleetdb v0.17.1/go.mod h1:TbRbU+ppHIknqiAONR7JDQfzKij30uiPkehgxlA1Hv0=
 github.com/metal-toolbox/rivets v1.0.2 h1:cdLXPcGZOw0v8BP2driAMvBTf+PF9Eua2UnUpBFyDrs=
 github.com/metal-toolbox/rivets v1.0.2/go.mod h1:EMQJRT1mjIyFRXxvKNaBlz7Z4Sp88rTaGO8W18olN2I=
+github.com/metal-toolbox/rivets v1.0.3-0.20240404085830-34516b35bd8e h1:EFarcZokTOhcvGvd0VQkpgvEHtlsbAy/nKSMTnbnA4Q=
+github.com/metal-toolbox/rivets v1.0.3-0.20240404085830-34516b35bd8e/go.mod h1:EMQJRT1mjIyFRXxvKNaBlz7Z4Sp88rTaGO8W18olN2I=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=
 github.com/miekg/dns v1.1.26/go.mod h1:bPDLeHnStXmXAq1m/Ch/hvfNHr14JKNPMBo3VZKjuso=
 github.com/miekg/dns v1.1.41/go.mod h1:p6aan82bvRIyn+zDIv9xYNUpwa73JcSh9BKwknJysuI=

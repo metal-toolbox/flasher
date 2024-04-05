@@ -109,6 +109,10 @@ func (a *App) LoadConfiguration(cfgFile string, storeKind model.StoreKind) error
 		}
 	}
 
+	if a.Config.Concurrency == 0 {
+		a.Config.Concurrency = WorkerConcurrency
+	}
+
 	return nil
 }
 
@@ -145,29 +149,39 @@ func (a *App) envBindVars() error {
 	return nil
 }
 
-func (a *App) NatsParams() (nurl, credsFile string, connectTimeout time.Duration, err error) {
-	if a.v.GetString("nats.url") != "" {
-		nurl = a.v.GetString("nats.url")
+type NatsConfig struct {
+	NatsURL        string
+	CredsFile      string
+	KVReplicas     int
+	ConnectTimeout time.Duration
+}
+
+func (a *App) NatsParams() (NatsConfig, error) {
+	cfg := NatsConfig{
+		ConnectTimeout: defaultNatsConnectTimeout,
 	}
 
-	if nurl == "" {
-		return "", "", 0, errors.New("missing parameter: nats.url")
+	if a.v.GetString("nats.url") != "" {
+		cfg.NatsURL = a.v.GetString("nats.url")
+	} else {
+		return NatsConfig{}, errors.New("missing parameter: nats.url")
 	}
 
 	if a.v.GetString("nats.creds.file") != "" {
-		credsFile = a.v.GetString("nats.creds.file")
+		cfg.CredsFile = a.v.GetString("nats.creds.file")
+	} else {
+		return NatsConfig{}, errors.New("missing parameter: nats.creds.file")
 	}
 
-	if credsFile == "" {
-		return "", "", 0, errors.New("missing parameter: nats.creds.file")
-	}
-
-	connectTimeout = defaultNatsConnectTimeout
 	if a.v.GetDuration("nats.connect.timeout") != 0 {
-		connectTimeout = a.v.GetDuration("nats.connect.timeout")
+		cfg.ConnectTimeout = a.v.GetDuration("nats.connect.timeout")
 	}
 
-	return nurl, credsFile, connectTimeout, nil
+	if a.v.GetInt("nats.kv.replicas") != 0 {
+		cfg.KVReplicas = a.v.GetInt("nats.kv.replicas")
+	}
+
+	return cfg, nil
 }
 
 // Server service configuration options
