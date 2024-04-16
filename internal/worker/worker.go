@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/version"
 	"github.com/pkg/errors"
@@ -24,8 +22,7 @@ const (
 )
 
 var (
-	errTaskFirmwareParam = errors.New("error in task firmware parameters")
-	errInitTask          = errors.New("error initializing new task from condition")
+	errInitTask = errors.New("error initializing new task from condition")
 )
 
 type ConditionTaskHandler struct {
@@ -83,7 +80,7 @@ func Run(
 
 // Handle implements the controller.ConditionHandler interface
 func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Condition, publisher controller.ConditionStatusPublisher) error {
-	task, err := newTaskFromCondition(condition, h.faultInjection)
+	task, err := newTaskFromCondition(condition, h.dryrun, h.faultInjection)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
 	}
@@ -101,6 +98,11 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 		return controller.ErrRetryHandler
 	}
 
+	// TODO: encrypt BMC credentials before store in prod
+	task.Asset = asset
+	task.FacilityCode = h.facilityCode
+	task.WorkerID = h.controllerID
+
 	// prepare logger
 	l := logrus.New()
 	l.Formatter = h.logger.Formatter
@@ -116,14 +118,9 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 
 	// init handler
 	handler := newHandler(
-		ctx,
-		h.dryrun,
-		h.controllerID,
-		h.facilityCode,
 		task,
-		asset,
 		h.store,
-		sm.NewNatsConditionStatusPublisher(publisher),
+		model.NewNatsTaskStatusPublisher(publisher),
 		hLogger,
 	)
 
@@ -140,48 +137,25 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 	return nil
 }
 
-func newTask(conditionID uuid.UUID, params *rctypes.FirmwareInstallTaskParameters) (model.Task, error) {
-	task := model.Task{
-		ID:         conditionID,
-		Parameters: *params,
-		Status:     model.NewTaskStatusRecord("initialized task"),
-	}
-
-	//nolint:errcheck // this method returns nil unconditionally
-	task.SetState(model.StatePending)
-
-	if len(params.Firmwares) > 0 {
-		task.Parameters.Firmwares = params.Firmwares
-		task.FirmwarePlanMethod = model.FromRequestedFirmware
-
-		return task, nil
-	}
-
-	if params.FirmwareSetID != uuid.Nil {
-		task.Parameters.FirmwareSetID = params.FirmwareSetID
-		task.FirmwarePlanMethod = model.FromFirmwareSet
-
-		return task, nil
-	}
-
-	return task, errors.Wrap(errTaskFirmwareParam, "no firmware list or firmwareSetID specified")
-}
-
 // newTaskFromMsg returns a new task object with the given parameters
-func newTaskFromCondition(condition *rctypes.Condition, faultInjection bool) (*model.Task, error) {
+func newTaskFromCondition(condition *rctypes.Condition, dryRun, faultInjection bool) (*model.Task, error) {
 	parameters := &rctypes.FirmwareInstallTaskParameters{}
 	if err := json.Unmarshal(condition.Parameters, parameters); err != nil {
 		return nil, errors.Wrap(errInitTask, "Firmware install task parameters error: "+err.Error())
 	}
 
-	task, err := newTask(condition.ID, parameters)
+	t, err := model.NewTask(condition.ID, parameters)
 	if err != nil {
 		return nil, err
 	}
 
 	if faultInjection && condition.Fault != nil {
-		task.Fault = condition.Fault
+		t.Fault = condition.Fault
 	}
 
-	return &task, nil
+	if dryRun {
+		t.Parameters.DryRun = true
+	}
+
+	return &t, nil
 }
