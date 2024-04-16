@@ -42,6 +42,16 @@ type ActionHandler struct {
 	handler *handler
 }
 
+func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.Queryor) *handler {
+	return &handler{
+		task:          actionCtx.Task,
+		firmware:      actionCtx.Firmware,
+		publisher:     actionCtx.Publisher,
+		logger:        actionCtx.Logger,
+		deviceQueryor: queryor,
+	}
+}
+
 func (o *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
 	var deviceQueryor device.Queryor
 	if actionCtx.DeviceQueryor == nil {
@@ -50,13 +60,7 @@ func (o *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.Act
 		deviceQueryor = actionCtx.DeviceQueryor
 	}
 
-	o.handler = &handler{
-		task:          actionCtx.Task,
-		firmware:      actionCtx.Firmware,
-		publisher:     actionCtx.Publisher,
-		logger:        actionCtx.Logger,
-		deviceQueryor: deviceQueryor,
-	}
+	o.handler = initHandler(actionCtx, deviceQueryor)
 
 	required, err := deviceQueryor.FirmwareInstallSteps(ctx, actionCtx.Firmware.Component)
 	if err != nil {
