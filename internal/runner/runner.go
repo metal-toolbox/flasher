@@ -5,9 +5,15 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/metal-toolbox/flasher/internal/device"
+	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 // A Runner instance runs a single task, setting up and executing the actions required to install firmware
@@ -23,7 +29,43 @@ type Handler interface {
 	RunActions(ctx context.Context) error
 	OnSuccess(ctx context.Context, task *model.Task)
 	OnFailure(ctx context.Context, task *model.Task)
-	Publish()
+	Publish(ctx context.Context)
+}
+
+// The TaskHandlerContext is passed to task handlers
+type TaskHandlerContext struct {
+	// Publisher provides a method to publish task information
+	Publisher model.Publisher
+
+	// The task this action belongs to
+	Task *model.Task
+
+	// Logger is the task, action handler logger.
+	Logger *logrus.Entry
+
+	// Device queryor interface
+	DeviceQueryor device.Queryor
+
+	// Data store repository
+	Store store.Repository
+}
+
+type ActionHandler interface {
+	ComposeAction(ctx context.Context, actionCtx *ActionHandlerContext) (*model.Action, error)
+}
+
+// The ActionHandlerContext passed to action handlers
+type ActionHandlerContext struct {
+	*TaskHandlerContext
+
+	// The first action to be run
+	First bool
+
+	// The final action to be run
+	Last bool
+
+	// The firmware to be installed
+	Firmware *model.Firmware
 }
 
 func New(logger *logrus.Entry) *Runner {
