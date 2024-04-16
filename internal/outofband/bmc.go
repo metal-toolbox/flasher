@@ -14,6 +14,7 @@ import (
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 
 	"github.com/bmc-toolbox/common"
+	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
@@ -57,7 +58,7 @@ type bmc struct {
 }
 
 // NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
-func NewDeviceQueryor(ctx context.Context, asset *model.Asset, logger *logrus.Entry) model.DeviceQueryor {
+func NewDeviceQueryor(ctx context.Context, asset *model.Asset, logger *logrus.Entry) device.Queryor {
 	return &bmc{
 		client: newBmclibv2Client(ctx, asset, logger),
 		logger: logger,

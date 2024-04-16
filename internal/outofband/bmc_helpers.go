@@ -29,7 +29,7 @@ import (
 )
 
 // NOTE: the constants.FirmwareInstallStep type will be moved to the FirmwareInstallProperties struct type which will make this easier
-func BmcResetParams(steps []constants.FirmwareInstallStep) (bmcResetOnInstallFailure, bmcResetPostInstall bool) {
+func bmcResetParams(steps []constants.FirmwareInstallStep) (bmcResetOnInstallFailure, bmcResetPostInstall bool) {
 	for _, step := range steps {
 		switch step {
 		case constants.FirmwareInstallStepResetBMCOnInstallFailure:
@@ -70,18 +70,19 @@ func newHTTPClient() *http.Client {
 // newBmclibv2Client initializes a bmclib client with the given credentials
 func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *bmclib.Client {
 	logger := logrus.New()
-	logger.Formatter = l.Logger.Formatter
-
-	// setup a logr logger for bmclib
-	// bmclib uses logr, for which the trace logs are logged with log.V(3),
-	// this is a hax so the logrusr lib will enable trace logging
-	// since any value that is less than (logrus.LogLevel - 4) >= log.V(3) is ignored
-	// https://github.com/bombsimon/logrusr/blob/master/logrusr.go#L64
-	switch l.Logger.GetLevel() {
-	case logrus.TraceLevel:
-		logger.Level = 7
-	case logrus.DebugLevel:
-		logger.Level = 5
+	if l != nil {
+		logger.Formatter = l.Logger.Formatter
+		// setup a logr logger for bmclib
+		// bmclib uses logr, for which the trace logs are logged with log.V(3),
+		// this is a hax so the logrusr lib will enable trace logging
+		// since any value that is less than (logrus.LogLevel - 4) >= log.V(3) is ignored
+		// https://github.com/bombsimon/logrusr/blob/master/logrusr.go#L64
+		switch l.Logger.GetLevel() {
+		case logrus.TraceLevel:
+			logger.Level = 7
+		case logrus.DebugLevel:
+			logger.Level = 5
+		}
 	}
 
 	logruslogr := logrusrv2.New(logger)
