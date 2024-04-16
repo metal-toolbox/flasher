@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	rctypes "github.com/metal-toolbox/rivets/condition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -44,14 +43,25 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		log.Fatal(errors.Wrap(err, "unable to read firmware file"))
 	}
 
-	task := &model.Task{
-		ID: uuid.New(),
-		Parameters: rctypes.FirmwareInstallTaskParameters{
-			ForceInstall: params.Force,
-			DryRun:       params.DryRun,
-		},
-		Status: model.NewTaskStatusRecord("initialized task"),
+	taskParams := &rctypes.FirmwareInstallTaskParameters{
+		ForceInstall: params.Force,
+		DryRun:       params.DryRun,
 	}
+
+	task, err := model.NewTask(uuid.New(), taskParams)
+	if err != nil {
+		i.logger.Fatal(err)
+	}
+
+	task.Asset = &model.Asset{
+		BmcAddress:  net.ParseIP(params.BmcAddr),
+		BmcUsername: params.User,
+		BmcPassword: params.Pass,
+		Model:       params.Model,
+		Vendor:      params.Vendor,
+	}
+
+	task.Status = model.NewTaskStatusRecord("initialized task")
 
 	le := i.logger.WithFields(
 		logrus.Fields{
@@ -60,12 +70,8 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 			"component": params.Component,
 		})
 
-	i.runTask(ctx, params, task, le)
+	i.runTask(ctx, params, &task, le)
 }
-
-type publisher struct{}
-
-func (f *publisher) Publish(_ *sm.HandlerContext) {}
 
 func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Task, le *logrus.Entry) {
 	h := &handler{
@@ -75,20 +81,10 @@ func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Tas
 		model:       params.Model,
 		vendor:      params.Vendor,
 		onlyPlan:    params.OnlyPlan,
-		ctx: &sm.HandlerContext{
-			Dryrun:    params.DryRun,
+		taskCtx: &runner.TaskHandlerContext{
 			Task:      task,
-			Ctx:       ctx,
-			Publisher: &publisher{},
-			Data:      make(map[string]string),
-			Asset: &model.Asset{
-				BmcAddress:  net.ParseIP(params.BmcAddr),
-				BmcUsername: params.User,
-				BmcPassword: params.Pass,
-				Model:       params.Model,
-				Vendor:      params.Vendor,
-			},
-			Logger: le,
+			Publisher: nil,
+			Logger:    le,
 		},
 	}
 
@@ -101,7 +97,7 @@ func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Tas
 	if err := r.RunTask(ctx, task, h); err != nil {
 		i.logger.WithFields(
 			logrus.Fields{
-				"bmc-ip": h.ctx.Asset.BmcAddress.String(),
+				"bmc-ip": task.Asset.BmcAddress.String(),
 				"err":    err.Error(),
 			},
 		).Warn("task for device failed")
@@ -110,7 +106,7 @@ func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Tas
 	}
 
 	i.logger.WithFields(logrus.Fields{
-		"bmc-ip":  h.ctx.Asset.BmcAddress,
+		"bmc-ip":  task.Asset.BmcAddress.String(),
 		"elapsed": time.Since(startTS).String(),
 	}).Info("task for device completed")
 }
