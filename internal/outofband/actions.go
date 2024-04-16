@@ -1,9 +1,11 @@
 package outofband
 
 import (
-	sw "github.com/filanov/stateswitch"
+	"context"
+
+	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/pkg/errors"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
@@ -11,145 +13,131 @@ import (
 
 const (
 	// transition types implemented and defined further below
-	powerOnDevice                 sw.TransitionType = "powerOnDevice"
-	powerOffDevice                sw.TransitionType = "powerOffDevice"
-	checkInstalledFirmware        sw.TransitionType = "checkInstalledFirmware"
-	downloadFirmware              sw.TransitionType = "downloadFirmware"
-	preInstallResetBMC            sw.TransitionType = "preInstallResetBMC"
-	uploadFirmware                sw.TransitionType = "uploadFirmware"
-	pollUploadStatus              sw.TransitionType = "pollUploadStatus"
-	uploadFirmwareInitiateInstall sw.TransitionType = "uploadFirmwareInitiateInstall"
-	installUploadedFirmware       sw.TransitionType = "installUploadedFirmware"
-	pollInstallStatus             sw.TransitionType = "pollInstallStatus"
-	resetDevice                   sw.TransitionType = "resetDevice"
+	powerOnServer                 model.StepName = "powerOnServer"
+	powerOffServer                model.StepName = "powerOffServer"
+	checkInstalledFirmware        model.StepName = "checkInstalledFirmware"
+	downloadFirmware              model.StepName = "downloadFirmware"
+	preInstallResetBMC            model.StepName = "preInstallResetBMC"
+	uploadFirmware                model.StepName = "uploadFirmware"
+	pollUploadStatus              model.StepName = "pollUploadStatus"
+	uploadFirmwareInitiateInstall model.StepName = "uploadFirmwareInitiateInstall"
+	installUploadedFirmware       model.StepName = "installUploadedFirmware"
+	pollInstallStatus             model.StepName = "pollInstallStatus"
+	resetDevice                   model.StepName = "resetDevice"
 )
-
-// TransitionKind type groups firmware install transitions.
-type TransitionKind string
 
 const (
-	PreInstall    TransitionKind = "PreInstall"
-	Install       TransitionKind = "Install"
-	PowerStateOff TransitionKind = "PowerStateOff"
-	PowerStateOn  TransitionKind = "PowerStateOn"
+	PreInstall model.StepGroup = "PreInstall"
+	Install    model.StepGroup = "Install"
+	PowerState model.StepGroup = "PowerState"
 )
 
-// Transition is an internal type to hold all attributes required to build a stateswitch.TransitionRule.
-type Transition struct {
-	Name           sw.TransitionType
-	DestState      sw.State
-	Handler        sw.Transition
-	Kind           TransitionKind
-	PostTransition sw.Transition
-	TransitionDoc  sw.TransitionRuleDoc
-	DestStateDoc   sw.StateDoc
+var (
+	errInstallStepsQuery = errors.New("error returned when querying firmware install steps")
+	errNoInstallSteps    = errors.New("no firmware install steps identified")
+	errCompose           = errors.New("error in composing steps for firmware install")
+)
+
+type ActionHandler struct {
+	handler *handler
 }
 
-type Transitions []Transition
-
-func (ts Transitions) ByName(name sw.TransitionType) (t Transition, err error) {
-	errNotFound := errors.New("transition not found by Name")
-	for _, t := range ts { // nolint:gocritic // we're fine with 128 bytes being copied
-		if t.Name == name {
-			return t, nil
-		}
+func (o *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
+	var deviceQueryor device.Queryor
+	if actionCtx.DeviceQueryor == nil {
+		deviceQueryor = NewDeviceQueryor(ctx, actionCtx.Task.Asset, actionCtx.Logger)
+	} else {
+		deviceQueryor = actionCtx.DeviceQueryor
 	}
 
-	return t, errors.Wrap(errNotFound, string(name))
+	o.handler = &handler{
+		task:          actionCtx.Task,
+		firmware:      actionCtx.Firmware,
+		publisher:     actionCtx.Publisher,
+		logger:        actionCtx.Logger,
+		deviceQueryor: deviceQueryor,
+	}
+
+	required, err := deviceQueryor.FirmwareInstallSteps(ctx, actionCtx.Firmware.Component)
+	if err != nil {
+		return nil, errors.Wrap(errInstallStepsQuery, err.Error())
+	}
+
+	if len(required) == 0 {
+		return nil, errNoInstallSteps
+	}
+
+	// first action and a BMC reset is required before install
+	bmcResetBeforeInstall := actionCtx.First && actionCtx.Task.Parameters.ResetBMCBeforeInstall
+
+	bmcResetOnInstallFailure, bmcResetPostInstall := bmcResetParams(required)
+
+	steps, err := o.composeSteps(required, bmcResetBeforeInstall)
+	if err != nil {
+		return nil, errors.Wrap(errCompose, err.Error())
+	}
+
+	action := &model.Action{
+		InstallMethod:            model.InstallMethodOutofband,
+		Firmware:                 *actionCtx.Firmware,
+		BMCResetPreInstall:       bmcResetBeforeInstall,
+		BMCResetPostInstall:      bmcResetPostInstall,
+		BMCResetOnInstallFailure: bmcResetOnInstallFailure,
+		ForceInstall:             actionCtx.Task.Parameters.ForceInstall,
+		Steps:                    steps,
+		First:                    actionCtx.First,
+		Last:                     actionCtx.Last,
+	}
+
+	o.handler.action = action
+
+	return action, nil
 }
 
-func (ts Transitions) ByKind(kind TransitionKind) (found Transitions, err error) {
-	errNotFound := errors.New("transition not found by Kind")
+func (o *ActionHandler) composeSteps(required []bconsts.FirmwareInstallStep, preInstallBMCReset bool) (model.Steps, error) {
+	var final model.Steps
 
-	for _, elem := range ts { // nolint:gocritic // we're fine with 128 bytes being copied
-		if elem.Kind == kind {
-			found = append(found, elem)
-		}
-	}
-
-	if len(found) == 0 {
-		return found, errors.Wrap(errNotFound, string(kind))
-	}
-
-	return found, nil
-}
-
-func (ts Transitions) Remove(name sw.TransitionType) (final Transitions) {
-	// nolint:gocritic // insert good reason
-	for _, t := range ts {
-		if t.Name == name {
-			continue
-		}
-
-		final = append(final, t)
-	}
-
-	return final
-}
-
-func NewActionStateMachine(actionID string, steps []bconsts.FirmwareInstallStep, preInstallBMCReset bool) (*sm.ActionStateMachine, error) {
-	// defined transitions
-	defined := definitions()
-
-	transitions, err := composeTransitions(defined, steps, preInstallBMCReset)
+	// pre-install steps
+	preInstallSteps, err := o.definitions().ByGroup(PreInstall)
 	if err != nil {
 		return nil, err
 	}
 
-	tr := transitions.prepare()
-	return sm.NewActionStateMachine(actionID, tr)
-}
-
-func composeTransitions(defined Transitions, installSteps []bconsts.FirmwareInstallStep, preInstallBMCReset bool) (Transitions, error) {
-	var final Transitions
-
-	// transition to power on host
-	powerOnTransiton, err := defined.ByKind(PowerStateOn)
-	if err != nil {
-		return nil, err
-	}
-
-	// transitions for install
-	installTransitions, err := convFirmwareInstallSteps(installSteps, defined)
-	if err != nil {
-		return nil, err
-	}
-
-	// transitions before install
-	preInstallTransitions, err := defined.ByKind(PreInstall)
+	// install steps
+	installSteps, err := o.convFirmwareInstallSteps(required)
 	if err != nil {
 		return nil, err
 	}
 
 	// skip bmc reset transition before install based on parameter
 	if !preInstallBMCReset {
-		preInstallTransitions = preInstallTransitions.Remove(preInstallResetBMC)
+		preInstallSteps = preInstallSteps.Remove(preInstallResetBMC)
 	}
 
-	// populate transitions in order of execution
-
-	// When the first install transition indicates the host must be powered off
-	// exclude the initial power on host transition.
+	// populate steps in order of execution
 	//
-	// TODO: get all bmclib providers to return if a host is required to be powered on/off
-	// for a given firmware install, then this hacky match can be removed
-	if installTransitions[0].Kind != PowerStateOff {
-		final = append(final, powerOnTransiton...)
+	// Power on server unless it explicitly requires a power off as the first step
+	if installSteps[0].Name != powerOffServer && installSteps[0].Name != powerOnServer {
+		powerOnServerStep, err := o.definitions().ByName(powerOnServer)
+		if err != nil {
+			return nil, err
+		}
+
+		final = append(final, &powerOnServerStep)
 	}
 
-	final = append(final, preInstallTransitions...)
-	final = append(final, installTransitions...)
+	final = append(final, preInstallSteps...)
+	final = append(final, installSteps...)
 
 	return final, nil
 }
 
 // maps bmclib firmware install steps to transitions
-func convFirmwareInstallSteps(required []bconsts.FirmwareInstallStep, defined Transitions) (Transitions, error) {
+func (o *ActionHandler) convFirmwareInstallSteps(required []bconsts.FirmwareInstallStep) (model.Steps, error) {
 	errUnsupported := errors.New("bmclib.FirmwareInstallStep constant not supported")
-	errNoInstallTransitions := errors.New("no required install transitions")
 
-	m := map[bconsts.FirmwareInstallStep]sw.TransitionType{
-		bconsts.FirmwareInstallStepPowerOffHost:          powerOffDevice,
+	m := map[bconsts.FirmwareInstallStep]model.StepName{
+		bconsts.FirmwareInstallStepPowerOffHost:          powerOffServer,
 		bconsts.FirmwareInstallStepUpload:                uploadFirmware,
 		bconsts.FirmwareInstallStepUploadInitiateInstall: uploadFirmwareInitiateInstall,
 		bconsts.FirmwareInstallStepUploadStatus:          pollUploadStatus,
@@ -158,7 +146,7 @@ func convFirmwareInstallSteps(required []bconsts.FirmwareInstallStep, defined Tr
 	}
 
 	// items to be returned
-	transitions := Transitions{}
+	final := model.Steps{}
 
 	for _, s := range required {
 		// TODO: turn FirmwareInstalSteps into FirmwareInstallProperties with fields for these non step parameters
@@ -167,206 +155,87 @@ func convFirmwareInstallSteps(required []bconsts.FirmwareInstallStep, defined Tr
 			continue
 		}
 
-		transitionName, exists := m[s]
+		stepType, exists := m[s]
 		if !exists {
 			return nil, errors.Wrap(errUnsupported, string(s))
 		}
 
-		t, err := defined.ByName(transitionName)
+		step, err := o.definitions().ByName(stepType)
 		if err != nil {
 			return nil, err
 		}
 
-		transitions = append(transitions, t)
+		final = append(final, &step)
 	}
 
-	if len(transitions) == 0 {
-		return nil, errNoInstallTransitions
+	if len(final) == 0 {
+		return nil, errNoInstallSteps
 	}
 
-	return transitions, nil
+	return final, nil
 }
 
-// prepare returns sw.TransitionRule from the Transitions defined.
-func (ts Transitions) prepare() []sw.TransitionRule {
-	rules := []sw.TransitionRule{}
-
-	for idx, t := range ts { // nolint:gocritic // we're fine with 128 bytes being copied
-		tr := sw.TransitionRule{
-			TransitionType:   t.Name,
-			DestinationState: t.DestState,
-			Transition:       t.Handler,
-			PostTransition:   sw.PostTransition(t.PostTransition),
-			Documentation:    t.TransitionDoc,
-		}
-
-		// transitions begin in the active state
-		if idx == 0 {
-			tr.SourceStates = sw.States{model.StateActive}
-		} else {
-			tr.SourceStates = sw.States{ts[idx-1].DestState}
-		}
-
-		rules = append(rules, tr)
-	}
-
-	return rules
-}
-
-func definitions() Transitions {
-	handler := &actionHandler{}
-
-	// Note: transitions are defined in order of execution
-	return []Transition{
+func (o *ActionHandler) definitions() model.Steps {
+	return model.Steps{
 		{
-			Name:           powerOnDevice, // rename powerOnDevice -> powerOnHost
-			Kind:           PowerStateOn,
-			DestState:      "devicePoweredOn",
-			Handler:        handler.powerOnDevice,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Power on device",
-				Description: "Power on device - if its currently powered off.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "devicePoweredOn",
-				Description: "This action state indicates the device has been (conditionally) powered on for a component firmware install.",
-			},
+			Name:        powerOnServer,
+			Group:       PowerState,
+			Handler:     o.handler.powerOnServer,
+			Description: "Power on server - if its currently powered off.",
 		},
 		{
-			Name:           checkInstalledFirmware,
-			Kind:           PreInstall,
-			DestState:      "installedFirmwareChecked",
-			Handler:        handler.checkCurrentFirmware,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Check installed firmware",
-				Description: "Check firmware installed on component",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "installedFirmwareChecked",
-				Description: "This action state indicates the installed firmware on the component has been checked.",
-			},
+			Name:        powerOffServer,
+			Group:       PowerState,
+			Handler:     o.handler.powerOffServer,
+			Description: "Powercycle Device, if this is the final firmware to be installed and the device was powered off earlier.",
 		},
 		{
-			Name:           downloadFirmware,
-			Kind:           PreInstall,
-			DestState:      "firmwareDownloaded",
-			Handler:        handler.downloadFirmware,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Download and verify firmware",
-				Description: "Download and verify firmware file checksum.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "firmwareDownloaded",
-				Description: "This action state indicates the component firmware to be installed has been downloaded and verified.",
-			},
+			Name:        checkInstalledFirmware,
+			Group:       PreInstall,
+			Handler:     o.handler.checkCurrentFirmware,
+			Description: "Check firmware currently installed on component",
 		},
 		{
-			Name:           preInstallResetBMC,
-			Kind:           PreInstall,
-			DestState:      "preInstallBMCReset",
-			Handler:        handler.resetBMC,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Powercycle BMC before install",
-				Description: "Powercycle BMC before installing any firmware as a precaution.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "preInstallBMCReset",
-				Description: "This action state indicates the BMC has been power cycled as a pre-install step to make sure the BMC is in good health before proceeding.",
-			},
+			Name:        downloadFirmware,
+			Group:       PreInstall,
+			Handler:     o.handler.downloadFirmware,
+			Description: "Download and verify firmware file checksum.",
 		},
 		{
-			Name:           uploadFirmwareInitiateInstall,
-			Kind:           Install,
-			DestState:      "firmwareUploadedInstallInitiated",
-			Handler:        handler.uploadFirmwareInitiateInstall,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Initiate firmware install",
-				Description: "Initiate firmware install for component.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "firmwareUploadedInstallInitiated",
-				Description: "This action state indicates the component firmware has been uploaded to the target device for install, and the firmware install on the device has been initiated.",
-			},
+			Name:        preInstallResetBMC,
+			Group:       PreInstall,
+			Handler:     o.handler.resetBMC,
+			Description: "Powercycle BMC before installing any firmware - for better chances of success.",
 		},
 		{
-			Name:           installUploadedFirmware,
-			Kind:           Install,
-			DestState:      "installedUploadedFirmware",
-			Handler:        handler.installUploadedFirmware,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Initiate firmware install for firmware uploaded already uploaded",
-				Description: "Initiate firmware install for firmware uploaded.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "installedUploadedFirmware",
-				Description: "This action state indicates the install process was initiated for a firmware that was uploaded through uploadFirmware",
-			},
+			Name:        uploadFirmwareInitiateInstall,
+			Group:       Install,
+			Handler:     o.handler.uploadFirmwareInitiateInstall,
+			Description: "Initiate firmware install for component.",
 		},
 		{
-			Name:           pollInstallStatus,
-			Kind:           Install,
-			DestState:      "firmwareInstallStatusPolled",
-			Handler:        handler.pollFirmwareTaskStatus,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Poll firmware install status",
-				Description: "Poll BMC with exponential backoff for firmware install status until its in a finalized state (completed/powercyclehost/powercyclebmc/failed).",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "firmwareInstallStatusPolled",
-				Description: "This action state indicates the component firmware install status is in a finalized state (powerCycleDevice, powerCycleBMC, successful, failed).",
-			},
+			Name:        installUploadedFirmware,
+			Group:       Install,
+			Handler:     o.handler.installUploadedFirmware,
+			Description: "Initiate firmware install for firmware uploaded.",
 		},
 		{
-			Name:           uploadFirmware,
-			Kind:           Install,
-			DestState:      "firmwareUploaded",
-			Handler:        handler.uploadFirmware,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Upload firmware",
-				Description: "Upload firmware to the device.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "firmwareUploaded",
-				Description: "This action state indicates the component firmware has been uploaded to the target device.",
-			},
+			Name:        pollInstallStatus,
+			Group:       Install,
+			Handler:     o.handler.pollFirmwareTaskStatus,
+			Description: "Poll BMC with exponential backoff for firmware install status until its in a finalized state (completed/powercyclehost/powercyclebmc/failed).",
 		},
 		{
-			Name:           pollUploadStatus,
-			Kind:           Install,
-			DestState:      "uploadFirmwareStatusPolled",
-			Handler:        handler.pollFirmwareTaskStatus,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Poll firmware upload status",
-				Description: "Poll device with exponential backoff for firmware upload status until it's confirmed.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "uploadFirmwareStatusPolled",
-				Description: "This action state indicates the component firmware upload status is confirmed.",
-			},
+			Name:        uploadFirmware,
+			Group:       Install,
+			Handler:     o.handler.uploadFirmware,
+			Description: "Upload firmware to the device.",
 		},
 		{
-			Name:           powerOffDevice,
-			Kind:           PowerStateOff,
-			DestState:      "devicePoweredOff",
-			Handler:        handler.powerOffDevice,
-			PostTransition: handler.publishStatus,
-			TransitionDoc: sw.TransitionRuleDoc{
-				Name:        "Power off Device",
-				Description: "Powercycle Device - only if this is the final firmware (action statemachine) to be installed and the device was powered off earlier.",
-			},
-			DestStateDoc: sw.StateDoc{
-				Name:        "devicePoweredOff",
-				Description: "This action state indicates the Device has been (conditionally) power off to complete a component firmware install.",
-			},
+			Name:        pollUploadStatus,
+			Group:       Install,
+			Handler:     o.handler.pollFirmwareTaskStatus,
+			Description: "Poll device with exponential backoff for firmware upload status until it's confirmed.",
 		},
 	}
 }
