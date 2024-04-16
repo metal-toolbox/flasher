@@ -5,18 +5,13 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/bmc-toolbox/common"
-	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	"github.com/metal-toolbox/flasher/internal/runner"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
 	"github.com/metal-toolbox/flasher/internal/store"
-	rctypes "github.com/metal-toolbox/rivets/condition"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
 
@@ -27,77 +22,66 @@ var (
 	errTaskPlanActions    = errors.New("error in task action planning")
 )
 
-// handler implements the Runner.Handler interface
+// handler implements the task.Handler interface
 //
 // The handler is instantiated to run a single task
 type handler struct {
-	ctx *sm.HandlerContext
+	*runner.TaskHandlerContext
 }
 
 func newHandler(
-	ctx context.Context,
-	dryrun bool,
-	workerID string,
-	facilityCode string,
 	task *model.Task,
-	asset *model.Asset,
 	storage store.Repository,
-	publisher sm.Publisher,
+	publisher model.Publisher,
 	logger *logrus.Entry,
-) runner.Handler {
-	handlerCtx := &sm.HandlerContext{
-		WorkerID:     workerID,
-		Dryrun:       dryrun || task.Parameters.DryRun,
-		Task:         task,
-		Publisher:    publisher,
-		Ctx:          ctx,
-		Store:        storage,
-		Data:         make(map[string]string),
-		Asset:        asset,
-		FacilityCode: facilityCode,
-		Logger:       logger,
+) runner.TaskHandler {
+	return &handler{
+		&runner.TaskHandlerContext{
+			Task:      task,
+			Publisher: publisher,
+			Store:     storage,
+			Logger:    logger,
+		},
 	}
-
-	return &handler{handlerCtx}
 }
 
 func (t *handler) Initialize(ctx context.Context) error {
-	if t.ctx.DeviceQueryor == nil {
+	if t.DeviceQueryor == nil {
 		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
 		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.ctx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.ctx.Asset, t.ctx.Logger)
+		t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Asset, t.Logger)
 	}
 
 	return nil
 }
 
 func (t *handler) Query(ctx context.Context) error {
-	t.ctx.Logger.Debug("run query step")
+	t.Logger.Debug("run query step")
 
-	t.ctx.Task.Status.Append("connecting to device BMC")
-	t.ctx.Publisher.Publish(t.ctx)
+	t.Task.Status.Append("connecting to device BMC")
+	t.Publish(ctx)
 
-	if err := t.ctx.DeviceQueryor.Open(ctx); err != nil {
+	if err := t.DeviceQueryor.Open(ctx); err != nil {
 		return err
 	}
 
-	t.ctx.Task.Status.Append("collecting inventory from device BMC")
-	t.ctx.Publisher.Publish(t.ctx)
+	t.Task.Status.Append("collecting inventory from device BMC")
+	t.Publish(ctx)
 
-	deviceCommon, err := t.ctx.DeviceQueryor.Inventory(ctx)
+	deviceCommon, err := t.DeviceQueryor.Inventory(ctx)
 	if err != nil {
 		return errors.Wrap(errTaskQueryInventory, err.Error())
 	}
 
-	if t.ctx.Asset.Vendor == "" {
-		t.ctx.Asset.Vendor = deviceCommon.Vendor
+	if t.Task.Asset.Vendor == "" {
+		t.Task.Asset.Vendor = deviceCommon.Vendor
 	}
 
-	if t.ctx.Asset.Model == "" {
-		t.ctx.Asset.Model = common.FormatProductName(deviceCommon.Model)
+	if t.Task.Asset.Model == "" {
+		t.Task.Asset.Model = common.FormatProductName(deviceCommon.Model)
 	}
 
 	components, err := model.NewComponentConverter().CommonDeviceToComponents(deviceCommon)
@@ -107,7 +91,7 @@ func (t *handler) Query(ctx context.Context) error {
 
 	// component inventory was identified
 	if len(components) > 0 {
-		t.ctx.Asset.Components = components
+		t.Task.Asset.Components = components
 
 		return nil
 	}
@@ -116,19 +100,19 @@ func (t *handler) Query(ctx context.Context) error {
 }
 
 func (t *handler) PlanActions(ctx context.Context) error {
-	switch t.ctx.Task.FirmwarePlanMethod {
+	switch t.Task.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
 		return t.planFromFirmwareSet(ctx)
 	case model.FromRequestedFirmware:
 		return errors.Wrap(errTaskPlanActions, "firmware plan method not implemented"+string(model.FromRequestedFirmware))
 	default:
-		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.ctx.Task.FirmwarePlanMethod))
+		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.Task.FirmwarePlanMethod))
 	}
 }
 
 // planFromFirmwareSet
 func (t *handler) planFromFirmwareSet(ctx context.Context) error {
-	applicable, err := t.ctx.Store.FirmwareSetByID(ctx, t.ctx.Task.Parameters.FirmwareSetID)
+	applicable, err := t.Store.FirmwareSetByID(ctx, t.Task.Parameters.FirmwareSetID)
 	if err != nil {
 		return errors.Wrap(errTaskPlanActions, err.Error())
 	}
@@ -139,7 +123,7 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 	}
 
 	// plan actions based and update task action list
-	t.ctx.ActionStateMachines, t.ctx.Task.ActionsPlanned, err = t.planInstall(ctx, applicable)
+	t.Task.ActionsPlanned, err = t.planInstall(ctx, applicable)
 	if err != nil {
 		return err
 	}
@@ -229,7 +213,7 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 	var toInstall []*model.Firmware
 
 	invMap := make(map[string]string)
-	for _, cmp := range t.ctx.Asset.Components {
+	for _, cmp := range t.Task.Asset.Components {
 		invMap[strings.ToLower(cmp.Slug)] = cmp.FirmwareInstalled
 	}
 
@@ -251,23 +235,23 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 		switch {
 		case !ok:
 			cause := "component not found in inventory"
-			t.ctx.Logger.WithFields(logrus.Fields{
+			t.Logger.WithFields(logrus.Fields{
 				"component": fw.Component,
 			}).Warn(cause)
 
-			t.ctx.Task.Status.Append(fmtCause(fw.Component, cause, "", ""))
+			t.Task.Status.Append(fmtCause(fw.Component, cause, "", ""))
 
 		case strings.EqualFold(currentVersion, fw.Version):
 			cause := "component firmware version equal"
-			t.ctx.Logger.WithFields(logrus.Fields{
+			t.Logger.WithFields(logrus.Fields{
 				"component": fw.Component,
 				"version":   fw.Version,
 			}).Debug(cause)
 
-			t.ctx.Task.Status.Append(fmtCause(fw.Component, cause, currentVersion, fw.Version))
+			t.Task.Status.Append(fmtCause(fw.Component, cause, currentVersion, fw.Version))
 
 		default:
-			t.ctx.Logger.WithFields(logrus.Fields{
+			t.Logger.WithFields(logrus.Fields{
 				"component":         fw.Component,
 				"installed.version": currentVersion,
 				"mandated.version":  fw.Version,
@@ -275,7 +259,7 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 
 			toInstall = append(toInstall, fw)
 
-			t.ctx.Task.Status.Append(
+			t.Task.Status.Append(
 				fmtCause(fw.Component, "firmware queued for install", currentVersion, fw.Version),
 			)
 		}
@@ -285,22 +269,22 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 }
 
 func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
-	if t.ctx.DeviceQueryor == nil {
+	if t.DeviceQueryor == nil {
 		return
 	}
 
-	if err := t.ctx.DeviceQueryor.Close(ctx); err != nil {
-		t.ctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+	if err := t.DeviceQueryor.Close(ctx); err != nil {
+		t.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
 
 func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
-	if t.ctx.DeviceQueryor == nil {
+	if t.DeviceQueryor == nil {
 		return
 	}
 
-	if err := t.ctx.DeviceQueryor.Close(ctx); err != nil {
-		t.ctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+	if err := t.DeviceQueryor.Close(ctx); err != nil {
+		t.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
 

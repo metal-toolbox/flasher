@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/metal-toolbox/flasher/internal/fixtures"
+	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/rivets/events/registry"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	rctypes "github.com/metal-toolbox/rivets/condition"
@@ -108,26 +108,28 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		},
 	}
 	serverID := uuid.MustParse("fa125199-e9dd-47d4-8667-ce1d26f58c4a")
-	ctx := &sm.HandlerContext{
+
+	taskHandlerCtx := &runner.TaskHandlerContext{
 		Logger: logrus.NewEntry(logrus.New()),
-		Asset: &model.Asset{
-			ID: serverID,
-			Components: model.Components{
-				{
-					Slug:              "BiOs",
-					FirmwareInstalled: "2.6.6",
-				},
-				{
-					Slug:              "nic",
-					FirmwareInstalled: "some-different-version",
+		Task: &model.Task{
+			ID:       serverID, // it just needs to be a UUID
+			WorkerID: registry.GetID("test-app").String(),
+			Asset: &model.Asset{
+				ID: serverID,
+				Components: model.Components{
+					{
+						Slug:              "BiOs",
+						FirmwareInstalled: "2.6.6",
+					},
+					{
+						Slug:              "nic",
+						FirmwareInstalled: "some-different-version",
+					},
 				},
 			},
 		},
-		Task: &model.Task{
-			ID: serverID, // it just needs to be a UUID
-		},
-		WorkerID: registry.GetID("test-app").String(),
 	}
+
 	expected := []*model.Firmware{
 		{
 			Version:   "20.5.13",
@@ -139,9 +141,9 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		},
 	}
 
-	h := handler{ctx}
+	h := handler{taskHandlerCtx}
 	got := h.removeFirmwareAlreadyAtDesiredVersion(fwSet)
-	require.Equal(t, 3, len(ctx.Task.Status.StatusMsgs))
+	require.Equal(t, 3, len(h.Task.Status.StatusMsgs))
 	require.Equal(t, 1, len(got))
 	require.Equal(t, expected[0], got[0])
 }
@@ -178,9 +180,7 @@ func TestPlanInstall(t *testing.T) {
 		},
 	}
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	q := fixtures.NewMockDeviceQueryor(ctrl)
+	dq := new(device.MockQueryor)
 
 	serverID := uuid.MustParse("fa125199-e9dd-47d4-8667-ce1d26f58c4a")
 	taskID := uuid.MustParse("05c3296d-be5d-473a-b90c-4ce66cfdec65")
@@ -212,10 +212,10 @@ func TestPlanInstall(t *testing.T) {
 			},
 		},
 
-		DeviceQueryor: q,
+		DeviceQueryor: dq,
 	}
 
-	q.EXPECT().FirmwareInstallSteps(gomock.Any(), gomock.Any()).
+	dq.EXPECT().FirmwareInstallSteps(mock.Anything, mock.Anything).
 		Times(2).
 		Return([]bconsts.FirmwareInstallStep{
 			bconsts.FirmwareInstallStepUploadInitiateInstall,
@@ -264,9 +264,7 @@ func TestPlanInstall2(t *testing.T) {
 		},
 	}
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	q := fixtures.NewMockDeviceQueryor(ctrl)
+	dq := new(device.MockQueryor)
 
 	serverID := uuid.MustParse("fa125199-e9dd-47d4-8667-ce1d26f58c4a")
 	taskID := uuid.MustParse("05c3296d-be5d-473a-b90c-4ce66cfdec65")
@@ -297,10 +295,10 @@ func TestPlanInstall2(t *testing.T) {
 				},
 			},
 		},
-		DeviceQueryor: q,
+		DeviceQueryor: dq,
 	}
 
-	q.EXPECT().FirmwareInstallSteps(gomock.Any(), gomock.Any()).
+	dq.EXPECT().FirmwareInstallSteps(mock.Anything, mock.Anything).
 		Times(3).
 		Return([]bconsts.FirmwareInstallStep{
 			bconsts.FirmwareInstallStepResetBMCOnInstallFailure,
