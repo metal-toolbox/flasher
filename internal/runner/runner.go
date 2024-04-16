@@ -12,8 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-
-	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 // A Runner instance runs a single task, setting up and executing the actions required to install firmware
@@ -91,7 +89,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 		_ = task.SetState(model.StateFailed)
 		task.Status.Append("task failed")
 		task.Status.Append(err.Error())
-		handler.Publish()
+		handler.Publish(ctx)
 
 		handler.OnFailure(ctx, task)
 
@@ -102,7 +100,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 		// no error returned
 		_ = task.SetState(model.StateSucceeded)
 		task.Status.Append("task completed successfully")
-		handler.Publish()
+		handler.Publish(ctx)
 
 		handler.OnSuccess(ctx, task)
 
@@ -120,10 +118,11 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 
 	// no error returned
 	_ = task.SetState(model.StateActive)
-	handler.Publish()
+	handler.Publish(ctx)
 
+	// initialize, plan actions
 	for _, f := range funcs {
-		if cferr := r.conditionalFault(f.name, task, handler); cferr != nil {
+		if cferr := r.conditionalFault(ctx, f.name, task, handler); cferr != nil {
 			return taskFailed(cferr)
 		}
 
@@ -136,7 +135,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 }
 
 // conditionalFault is invoked before each runner method to induce a fault if specified
-func (r *Runner) conditionalFault(fname string, task *model.Task, handler Handler) error {
+func (r *Runner) conditionalFault(ctx context.Context, fname string, task *model.Task, handler Handler) error {
 	var errConditionFault = errors.New("condition induced fault")
 
 	if task.Fault == nil {
@@ -160,7 +159,7 @@ func (r *Runner) conditionalFault(fname string, task *model.Task, handler Handle
 		}
 
 		task.Status.Append("condition induced delay: " + td.String())
-		handler.Publish()
+		handler.Publish(ctx)
 
 		r.logger.WithField("delay", td.String()).Warn("condition induced delay in execution")
 		time.Sleep(td)
@@ -171,4 +170,14 @@ func (r *Runner) conditionalFault(fname string, task *model.Task, handler Handle
 	}
 
 	return nil
+}
+
+func registerActionMetric(startTS time.Time, action *model.Action, state string) {
+	metrics.ActionRuntimeSummary.With(
+		prometheus.Labels{
+			"vendor":    action.Firmware.Vendor,
+			"component": action.Firmware.Component,
+			"state":     state,
+		},
+	).Observe(time.Since(startTS).Seconds())
 }
