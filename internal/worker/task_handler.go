@@ -150,102 +150,70 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) (sm.ActionStateMachines, model.Actions, error) {
-	actionMachines := make(sm.ActionStateMachines, 0)
-	actions := make(model.Actions, 0)
+func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
+	actions := model.Actions{}
 
-	// final is set to true in the final action
-	var final bool
-
-	t.ctx.Logger.WithFields(logrus.Fields{
-		"condition.id":             t.ctx.Task.ID,
+	t.Logger.WithFields(logrus.Fields{
+		"condition.id":             t.Task.ID,
 		"requested.firmware.count": fmt.Sprintf("%d", len(firmwares)),
 	}).Debug("checking against current inventory")
 
 	toInstall := firmwares
 
-	if !t.ctx.Task.Parameters.ForceInstall {
+	// purge any firmware that are already installed
+	if !t.Task.Parameters.ForceInstall {
 		toInstall = t.removeFirmwareAlreadyAtDesiredVersion(firmwares)
 	}
 
 	if len(toInstall) == 0 {
 		info := "no actions required for this task"
 
-		t.ctx.Publisher.Publish(t.ctx)
-		t.ctx.Logger.Info(info)
+		t.Publish(ctx)
+		t.Logger.Info(info)
 
-		return actionMachines, actions, nil
+		return nil, nil
 	}
 
+	// sort firmware in order of install
 	t.sortFirmwareByInstallOrder(toInstall)
+
 	// each firmware applicable results in an ActionPlan and an Action
 	for idx, firmware := range toInstall {
-		// set final bool when its the last firmware in the slice
-		final = (idx == len(toInstall)-1)
+		actionCtx := &runner.ActionHandlerContext{
+			TaskHandlerContext: t.TaskHandlerContext,
+			Firmware:           firmware,
+			First:              (idx == 0),
+			Last:               (idx == len(toInstall)-1),
+		}
 
-		// generate an action ID
-		actionID := sm.ActionID(t.ctx.Task.ID.String(), firmware.Component, idx)
+		// rig install method until field is added into firmware table
+		firmware.InstallMethod = model.InstallMethodOutofband
 
-		steps, err := t.ctx.DeviceQueryor.FirmwareInstallSteps(ctx, firmware.Component)
+		var aHandler runner.ActionHandler
+
+		switch firmware.InstallMethod {
+		case model.InstallMethodInband:
+			return nil, errors.Wrap(errTaskPlanActions, "inband install method not supported")
+		case model.InstallMethodOutofband:
+			aHandler = &outofband.ActionHandler{}
+		default:
+			return nil, errors.Wrap(
+				errTaskPlanActions,
+				"unsupported install method: "+string(firmware.InstallMethod))
+		}
+
+		action, err := aHandler.ComposeAction(ctx, actionCtx)
 		if err != nil {
-			return nil, nil, err
+			return nil, errors.Wrap(errTaskPlanActions, err.Error())
 		}
 
-		errFirmwareInstallSteps := errors.New("no firmware install steps identified for component")
-		if len(steps) == 0 {
-			return nil, nil, errors.Wrap(errFirmwareInstallSteps, firmware.Component)
-		}
+		action.SetID(t.Task.ID.String(), firmware.Component, idx)
+		action.SetState(model.StatePending)
 
-		bmcResetOnInstallFailure, bmcResetPostInstall := outofband.BmcResetParams(steps)
-
-		// TODO: The firmware is to define the preferred install method
-		// based on that the action plan is setup.
-		//
-		// For now this is hardcoded to outofband.
-		m, err := outofband.NewActionStateMachine(actionID, steps, t.ctx.Task.Parameters.ResetBMCBeforeInstall)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// include action state machines that will be executed.
-		actionMachines = append(actionMachines, m)
-
-		newAction := model.Action{
-			ID:     actionID,
-			TaskID: t.ctx.Task.ID.String(),
-
-			// TODO: The firmware is to define the preferred install method
-			// based on that the action plan is setup.
-			//
-			// For now this is hardcoded to outofband.
-			InstallMethod: model.InstallMethodOutofband,
-
-			// Firmware is the firmware to be installed
-			Firmware: *firmware,
-
-			// VerifyCurrentFirmware is disabled when ForceInstall is true.
-			VerifyCurrentFirmware: !t.ctx.Task.Parameters.ForceInstall,
-
-			// Final is set to true when its the last action in the list.
-			Final: final,
-
-			BMCResetPostInstall:      bmcResetPostInstall,
-			BMCResetOnInstallFailure: bmcResetOnInstallFailure,
-		}
-
-		// The BMC requires to be reset only on the first action
-		if idx == 0 {
-			newAction.BMCResetPreInstall = t.ctx.Task.Parameters.ResetBMCBeforeInstall
-		}
-
-		//nolint:errcheck  // SetState never returns an error
-		newAction.SetState(model.StatePending)
-
-		// create action thats added to the task
-		actions = append(actions, &newAction)
+		actions = append(actions, action)
 	}
 
-	return actionMachines, actions, nil
+	return actions, nil
 }
 
 func (t *handler) sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
