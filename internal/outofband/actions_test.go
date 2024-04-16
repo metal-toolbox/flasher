@@ -2,142 +2,293 @@ package outofband
 
 import (
 	"context"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"reflect"
-	"runtime"
 	"testing"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
-	sw "github.com/filanov/stateswitch"
-	"github.com/metal-toolbox/flasher/internal/fixtures"
+	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
-	"github.com/metal-toolbox/flasher/internal/store"
+	"github.com/metal-toolbox/flasher/internal/runner"
+	rctypes "github.com/metal-toolbox/rivets/condition"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
+	"github.com/stretchr/testify/mock"
 )
 
-func newTaskFixture(status string) *model.Task {
-	task := &model.Task{}
-	task.Status.Append(status)
-
-	// task.Parameters.Device =
-	return task
-}
-
-// eventEmitter implements the statemachine.Publisher interface
-type eventEmitter struct{}
-
-func (e *eventEmitter) Publish(_ *sm.HandlerContext) {}
-
-func newtaskHandlerContextFixture(t *testing.T, task *model.Task, asset *model.Asset) *sm.HandlerContext {
-	repository, _ := store.NewMockInventory()
-
-	logger := logrus.New().WithField("test", "true")
-
-	return &sm.HandlerContext{
-		Task:      task,
-		Publisher: &eventEmitter{},
-		Asset:     asset,
-		Store:     repository,
-		Ctx:       context.Background(),
-		Logger:    logger,
-		Data:      map[string]string{},
+func TestComposeAction(t *testing.T) {
+	newTestActionCtx := func() *runner.ActionHandlerContext {
+		return &runner.ActionHandlerContext{
+			TaskHandlerContext: &runner.TaskHandlerContext{
+				Task: &model.Task{
+					Parameters: rctypes.FirmwareInstallTaskParameters{},
+					Asset:      &model.Asset{},
+				},
+				Logger: logrus.NewEntry(logrus.New()),
+			},
+			Firmware: &model.Firmware{
+				Version:   "DL6R",
+				URL:       "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+				FileName:  "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
+				Models:    []string{"r6515"},
+				Checksum:  "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
+				Component: "drive",
+			},
+		}
 	}
-}
 
-func TestComposeTransitions(t *testing.T) {
-	defined := definitions()
 	tests := []struct {
-		name                    string
-		installSteps            []bconsts.FirmwareInstallStep
-		expectedTransitionNames []sw.TransitionType
-		expectErrContains       string
+		name                           string
+		mockSetup                      func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor)
+		expectBMCResetPreInstall       bool
+		expectForceInstall             bool
+		expectBMCResetPostInstall      bool
+		expectBMCResetOnInstallFailure bool
+		expectErrContains              string
 	}{
 		{
-			"with firmware install, status steps",
-			[]bconsts.FirmwareInstallStep{
-				bconsts.FirmwareInstallStepUploadInitiateInstall,
-				bconsts.FirmwareInstallStepInstallStatus,
+			name:                     "test bmc-reset pre-install is true on first action",
+			expectBMCResetPreInstall: true,
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+				actionCtx.Task.Parameters.ResetBMCBeforeInstall = true
+				actionCtx.First = true
+
+				actionCtx.DeviceQueryor = m
+				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
+					[]bconsts.FirmwareInstallStep{
+						bconsts.FirmwareInstallStepUploadInitiateInstall,
+						bconsts.FirmwareInstallStepInstallStatus,
+					},
+					nil,
+				)
 			},
-			[]sw.TransitionType{
-				powerOnDevice,
-				checkInstalledFirmware,
-				downloadFirmware,
-				preInstallResetBMC,
-				uploadFirmwareInitiateInstall,
-				pollInstallStatus,
-			},
-			"",
 		},
 		{
-			"with firmware upload and install steps",
-			[]bconsts.FirmwareInstallStep{
-				bconsts.FirmwareInstallStepUpload,
-				bconsts.FirmwareInstallStepUploadStatus,
-				bconsts.FirmwareInstallStepInstallUploaded,
-				bconsts.FirmwareInstallStepInstallStatus,
+			name:               "test bmc-reset pre-install is false on first action, force is true",
+			expectForceInstall: true,
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+				actionCtx.First = true
+				actionCtx.Task.Parameters.ForceInstall = true
+				actionCtx.Task.Parameters.ResetBMCBeforeInstall = false
+
+				actionCtx.DeviceQueryor = m
+				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
+					[]bconsts.FirmwareInstallStep{
+						bconsts.FirmwareInstallStepUploadInitiateInstall,
+						bconsts.FirmwareInstallStepInstallStatus,
+					},
+					nil,
+				)
 			},
-			[]sw.TransitionType{
-				powerOnDevice,
-				checkInstalledFirmware,
-				downloadFirmware,
-				preInstallResetBMC,
-				uploadFirmware,
-				pollUploadStatus,
-				installUploadedFirmware,
-				pollInstallStatus,
-			},
-			"",
 		},
 		{
-			"with host power off for install",
-			[]bconsts.FirmwareInstallStep{
-				bconsts.FirmwareInstallStepPowerOffHost,
-				bconsts.FirmwareInstallStepUploadInitiateInstall,
-				bconsts.FirmwareInstallStepInstallStatus,
+			name:                      "test bmc reset post install",
+			expectBMCResetPostInstall: true,
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+				actionCtx.DeviceQueryor = m
+				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
+					[]bconsts.FirmwareInstallStep{
+						bconsts.FirmwareInstallStepResetBMCPostInstall,
+						bconsts.FirmwareInstallStepUploadInitiateInstall,
+						bconsts.FirmwareInstallStepInstallStatus,
+					},
+					nil,
+				)
 			},
-			[]sw.TransitionType{
-				checkInstalledFirmware,
-				downloadFirmware,
-				preInstallResetBMC,
-				powerOffDevice,
-				uploadFirmwareInitiateInstall,
-				pollInstallStatus,
-			},
-			"",
 		},
 		{
-			"with power off, firmware upload and install steps",
-			[]bconsts.FirmwareInstallStep{
-				bconsts.FirmwareInstallStepPowerOffHost,
-				bconsts.FirmwareInstallStepUpload,
-				bconsts.FirmwareInstallStepUploadStatus,
-				bconsts.FirmwareInstallStepInstallUploaded,
-				bconsts.FirmwareInstallStepInstallStatus,
+			name:                           "test bmc reset on install failure",
+			expectBMCResetOnInstallFailure: true,
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+				actionCtx.DeviceQueryor = m
+				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
+					[]bconsts.FirmwareInstallStep{
+						bconsts.FirmwareInstallStepResetBMCOnInstallFailure,
+						bconsts.FirmwareInstallStepUploadInitiateInstall,
+						bconsts.FirmwareInstallStepInstallStatus,
+					},
+					nil,
+				)
 			},
-			[]sw.TransitionType{
-				checkInstalledFirmware,
-				downloadFirmware,
-				preInstallResetBMC,
-				powerOffDevice,
-				uploadFirmware,
-				pollUploadStatus,
-				installUploadedFirmware,
-				pollInstallStatus,
+		},
+		{
+			name: "test error - no install steps",
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+				actionCtx.DeviceQueryor = m
+				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
+					[]bconsts.FirmwareInstallStep{},
+					nil,
+				)
 			},
-			"",
+			expectErrContains: errNoInstallSteps.Error(),
 		},
 	}
 
-	transitionNames := func(transitions Transitions) []sw.TransitionType {
-		names := []sw.TransitionType{}
-		for _, tr := range transitions {
-			names = append(names, sw.TransitionType(tr.Name))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actx := newTestActionCtx()
+
+			// setup mocks
+			mockDeviceQueryor := new(device.MockQueryor)
+			tc.mockSetup(actx, mockDeviceQueryor)
+
+			// init handler
+			o := ActionHandler{}
+			got, err := o.ComposeAction(context.Background(), actx)
+			if tc.expectErrContains != "" {
+				assert.ErrorContains(t, err, tc.expectErrContains)
+				return
+			}
+
+			// expect no errors
+			assert.Nil(t, err)
+			assert.NotNil(t, got)
+
+			// handler was assigned
+			assert.NotNil(t, o.handler)
+
+			// firmware, task objects on the handler match what was passed in
+			assert.Equal(t, actx.Firmware, o.handler.firmware)
+			assert.Equal(t, actx.Task, o.handler.task)
+			assert.Equal(t, actx.First, o.handler.action.First)
+			assert.Equal(t, actx.Last, o.handler.action.Last)
+
+			// bmc reset before install
+			if tc.expectBMCResetPreInstall {
+				assert.True(t, got.BMCResetPreInstall)
+			} else {
+				assert.False(t, got.BMCResetPreInstall)
+			}
+
+			// force install
+			if tc.expectForceInstall {
+				assert.True(t, got.ForceInstall)
+			} else {
+				assert.False(t, got.ForceInstall)
+			}
+
+			// bmc reset post install
+			if tc.expectBMCResetPostInstall {
+				assert.True(t, got.BMCResetPostInstall)
+			} else {
+				assert.False(t, got.BMCResetPostInstall)
+			}
+
+			// bmc reset on install failure
+			if tc.expectBMCResetOnInstallFailure {
+				assert.True(t, got.BMCResetOnInstallFailure)
+			} else {
+				assert.False(t, got.BMCResetOnInstallFailure)
+			}
+
+			// expect atleast 5 or more steps
+			assert.GreaterOrEqual(t, len(got.Steps), 5)
+		})
+	}
+}
+
+func TestComposeSteps(t *testing.T) {
+	// test all expected steps are composed in order
+	tests := []struct {
+		name              string
+		required          []bconsts.FirmwareInstallStep
+		powerCycleBMC     bool
+		expect            []model.StepName
+		expectErrContains string
+	}{
+		{
+			name:          "with firmware install, status steps and no BMC powercycle",
+			powerCycleBMC: false,
+			required: []bconsts.FirmwareInstallStep{
+				bconsts.FirmwareInstallStepUploadInitiateInstall,
+				bconsts.FirmwareInstallStepInstallStatus,
+			},
+			expect: []model.StepName{
+				powerOnServer,
+				checkInstalledFirmware,
+				downloadFirmware,
+				uploadFirmwareInitiateInstall,
+				pollInstallStatus,
+			},
+		},
+		{
+			name:          "with firmware install, status steps and BMC powercycle",
+			powerCycleBMC: true,
+			required: []bconsts.FirmwareInstallStep{
+				bconsts.FirmwareInstallStepUploadInitiateInstall,
+				bconsts.FirmwareInstallStepInstallStatus,
+			},
+			expect: []model.StepName{
+				powerOnServer,
+				checkInstalledFirmware,
+				downloadFirmware,
+				preInstallResetBMC,
+				uploadFirmwareInitiateInstall,
+				pollInstallStatus,
+			},
+		},
+		{
+			name:          "with firmware upload and install steps",
+			powerCycleBMC: true,
+			required: []bconsts.FirmwareInstallStep{
+				bconsts.FirmwareInstallStepUpload,
+				bconsts.FirmwareInstallStepUploadStatus,
+				bconsts.FirmwareInstallStepInstallUploaded,
+				bconsts.FirmwareInstallStepInstallStatus,
+			},
+			expect: []model.StepName{
+				powerOnServer,
+				checkInstalledFirmware,
+				downloadFirmware,
+				preInstallResetBMC,
+				uploadFirmware,
+				pollUploadStatus,
+				installUploadedFirmware,
+				pollInstallStatus,
+			},
+		},
+		{
+			name:          "with host power off required for install",
+			powerCycleBMC: true,
+			required: []bconsts.FirmwareInstallStep{
+				bconsts.FirmwareInstallStepPowerOffHost,
+				bconsts.FirmwareInstallStepUploadInitiateInstall,
+				bconsts.FirmwareInstallStepInstallStatus,
+			},
+			expect: []model.StepName{
+				checkInstalledFirmware,
+				downloadFirmware,
+				preInstallResetBMC,
+				powerOffServer,
+				uploadFirmwareInitiateInstall,
+				pollInstallStatus,
+			},
+		},
+		{
+			name:          "with power off, firmware upload and install steps",
+			powerCycleBMC: true,
+			required: []bconsts.FirmwareInstallStep{
+				bconsts.FirmwareInstallStepPowerOffHost,
+				bconsts.FirmwareInstallStepUpload,
+				bconsts.FirmwareInstallStepUploadStatus,
+				bconsts.FirmwareInstallStepInstallUploaded,
+				bconsts.FirmwareInstallStepInstallStatus,
+			},
+			expect: []model.StepName{
+				checkInstalledFirmware,
+				downloadFirmware,
+				preInstallResetBMC,
+				powerOffServer,
+				uploadFirmware,
+				pollUploadStatus,
+				installUploadedFirmware,
+				pollInstallStatus,
+			},
+		},
+	}
+
+	stepNames := func(steps model.Steps) []model.StepName {
+		names := []model.StepName{}
+		for _, s := range steps {
+			names = append(names, s.Name)
 		}
 
 		return names
@@ -145,37 +296,37 @@ func TestComposeTransitions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := composeTransitions(defined, tc.installSteps, true)
+			o := ActionHandler{}
+			got, err := o.composeSteps(tc.required, tc.powerCycleBMC)
 			if tc.expectErrContains != "" {
 				assert.ErrorContains(t, err, tc.expectErrContains)
 				return
 			}
 
 			assert.Nil(t, err)
-			assert.Equal(t, tc.expectedTransitionNames, transitionNames(got))
+			assert.Equal(t, tc.expect, stepNames(got))
 		})
 	}
-
 }
 
 func TestConvFirmwareInstallSteps(t *testing.T) {
 	tests := []struct {
-		name                    string
-		installSteps            []bconsts.FirmwareInstallStep
-		expectedTransitionNames []string
-		expectErrContains       string
+		name              string
+		installSteps      []bconsts.FirmwareInstallStep
+		expectedStepNames []model.StepName
+		expectErrContains string
 	}{
 		{
 			"const not supported",
 			[]bconsts.FirmwareInstallStep{"foo"},
-			[]string{},
+			[]model.StepName{},
 			"constant not supported",
 		},
 		{
 			"no install transitions",
 			[]bconsts.FirmwareInstallStep{},
-			[]string{},
-			"no required install transitions",
+			[]model.StepName{},
+			errNoInstallSteps.Error(),
 		},
 		{
 			"firmware install steps converted to transitions",
@@ -185,331 +336,35 @@ func TestConvFirmwareInstallSteps(t *testing.T) {
 				bconsts.FirmwareInstallStepInstallUploaded,
 				bconsts.FirmwareInstallStepInstallStatus,
 			},
-			[]string{
-				"uploadFirmware",
-				"pollUploadStatus",
-				"installUploadedFirmware",
-				"pollInstallStatus",
+			[]model.StepName{
+				uploadFirmware,
+				pollUploadStatus,
+				installUploadedFirmware,
+				pollInstallStatus,
 			},
 			"",
 		},
 	}
-
-	transitionNames := func(transitions Transitions) []string {
-		names := []string{}
-		for _, tr := range transitions {
-			names = append(names, string(tr.Name))
+	stepNames := func(steps model.Steps) []model.StepName {
+		names := []model.StepName{}
+		for _, s := range steps {
+			names = append(names, s.Name)
 		}
 
 		return names
 	}
 
+	o := ActionHandler{}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := convFirmwareInstallSteps(tc.installSteps, definitions())
+			got, err := o.convFirmwareInstallSteps(tc.installSteps)
 			if tc.expectErrContains != "" {
 				assert.ErrorContains(t, err, tc.expectErrContains)
 				return
 			}
 
 			assert.Nil(t, err)
-			assert.Equal(t, tc.expectedTransitionNames, transitionNames(got))
+			assert.Equal(t, tc.expectedStepNames, stepNames(got))
 		})
 	}
-
-}
-
-type mockHandler struct{}
-
-func (h *mockHandler) powerOnDevice(a sw.StateSwitch, c sw.TransitionArgs) error {
-	return nil
-}
-func (h *mockHandler) publishStatus(a sw.StateSwitch, c sw.TransitionArgs) error {
-	return nil
-}
-func (h *mockHandler) install(a sw.StateSwitch, c sw.TransitionArgs) error {
-	return nil
-}
-
-func TestPrepareTransitions(t *testing.T) {
-	handler := &mockHandler{}
-
-	tests := []struct {
-		name        string
-		transitions Transitions
-		expected    []sw.TransitionRule
-	}{
-		{
-			name: "Test transitions are prepared",
-			transitions: Transitions{
-				{
-					Name:           "powerOnDevice",
-					Kind:           PowerStateOn,
-					DestState:      "devicePoweredOn",
-					Handler:        handler.powerOnDevice,
-					PostTransition: handler.publishStatus,
-					TransitionDoc: sw.TransitionRuleDoc{
-						Name:        "Power on device",
-						Description: "Power on device - if it's currently powered off.",
-					},
-					DestStateDoc: sw.StateDoc{
-						Name:        "devicePoweredOn",
-						Description: "This action state indicates the device has been (conditionally) powered on for a component firmware install.",
-					},
-				},
-				{
-					Name:           "checkInstalledFirmware",
-					Kind:           PreInstall,
-					DestState:      "installedFirmwareChecked",
-					Handler:        handler.install,
-					PostTransition: handler.publishStatus,
-					TransitionDoc: sw.TransitionRuleDoc{
-						Name:        "Check installed firmware",
-						Description: "Check firmware installed on component",
-					},
-					DestStateDoc: sw.StateDoc{
-						Name:        "installedFirmwareChecked",
-						Description: "This action state indicates the installed firmware on the component has been checked.",
-					},
-				},
-			},
-			expected: []sw.TransitionRule{
-				{
-					TransitionType:   "powerOnDevice",
-					SourceStates:     sw.States{model.StateActive},
-					DestinationState: "devicePoweredOn",
-					Condition:        nil,
-					Transition:       handler.powerOnDevice,
-					PostTransition:   handler.publishStatus,
-					Documentation: sw.TransitionRuleDoc{
-						Name:        "Power on device",
-						Description: "Power on device - if it's currently powered off.",
-					},
-				},
-				{
-					TransitionType:   "checkInstalledFirmware",
-					SourceStates:     sw.States{"devicePoweredOn"},
-					DestinationState: "installedFirmwareChecked",
-					Condition:        nil,
-					Transition:       handler.install,
-					PostTransition:   handler.publishStatus,
-					Documentation: sw.TransitionRuleDoc{
-						Name:        "Check installed firmware",
-						Description: "Check firmware installed on component",
-					},
-				},
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := tc.transitions.prepare()
-			assert.Equal(t, len(tc.transitions), len(got))
-
-			for idx, tr := range tc.transitions {
-				assert.Equal(t, tr.Name, got[idx].TransitionType)
-				assert.Equal(t, tr.DestState, got[idx].DestinationState)
-				assert.Equal(t, tr.TransitionDoc, got[idx].Documentation)
-				assert.Equal(t, tc.expected[idx].SourceStates, got[idx].SourceStates)
-
-				// compare func names
-				// credits to https://github.com/stretchr/testify/issues/182#issuecomment-495359313
-				expectFunc := runtime.FuncForPC(reflect.ValueOf(tr.Handler).Pointer()).Name()
-				gotFunc := runtime.FuncForPC(reflect.ValueOf(got[idx].Transition).Pointer()).Name()
-				assert.Equal(t, expectFunc, gotFunc)
-			}
-		})
-	}
-}
-
-func serverMux(t *testing.T, serveblob []byte) *http.ServeMux {
-	t.Helper()
-
-	handler := http.NewServeMux()
-	handler.HandleFunc(
-		"/dummy.bin",
-		func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodGet:
-				// the response here is
-				resp := serveblob
-
-				_, err := io.ReadAll(r.Body)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write(resp)
-			default:
-				t.Fatal("expected GET request, got: " + r.Method)
-			}
-		},
-	)
-
-	return handler
-}
-
-// Test runs an action state machine on a task
-func TestActionStateMachine(t *testing.T) {
-	ctx := context.Background()
-
-	// task fixture
-	task := newTaskFixture(string(model.StateActive))
-
-	// task handler context fixture
-	tctx := newtaskHandlerContextFixture(t, task, &model.Asset{})
-
-	// firmware blob served
-	blob := []byte(`blob`)
-	blobMD5Checksum := "ee26908bf9629eeb4b37dac350f4754a"
-
-	server := httptest.NewServer(serverMux(t, blob))
-	defer server.Close()
-
-	firmware := model.Firmware{
-		Component: "bios",
-		Vendor:    "snowflake",
-		Models:    []string{"never", "works"},
-		URL:       server.URL + "/dummy.bin",
-		FileName:  "dummy.bin",
-		Checksum:  blobMD5Checksum,
-	}
-
-	tests := []struct {
-		name                      string
-		installSteps              []bconsts.FirmwareInstallStep
-		action                    func() model.Action
-		mock                      func() (*gomock.Controller, *fixtures.MockDeviceQueryor)
-		expectTransitionsComplete []sw.TransitionType
-		expectActionState         sw.State
-	}{
-		{
-			"successful run",
-			[]bconsts.FirmwareInstallStep{
-				bconsts.FirmwareInstallStepUploadInitiateInstall,
-				bconsts.FirmwareInstallStepInstallStatus,
-			},
-			func() model.Action {
-				a := model.Action{
-					ID:       "foobar",
-					TaskID:   task.ID.String(),
-					Firmware: firmware,
-				}
-
-				a.SetState(model.StateActive)
-
-				return a
-			},
-			func() (*gomock.Controller, *fixtures.MockDeviceQueryor) {
-				ctrl := gomock.NewController(t)
-				q := fixtures.NewMockDeviceQueryor(ctrl)
-				q.EXPECT().Open(gomock.Any()).Return(nil).Times(1)
-				q.EXPECT().PowerStatus(gomock.Any()).Return("on", nil).Times(1)
-				q.EXPECT().ResetBMC(gomock.Any()).Return(nil).Times(1)
-				q.EXPECT().FirmwareInstallUploadAndInitiate(gomock.Any(), gomock.Any(), gomock.Any()).Return("123", nil).Times(1)
-				q.EXPECT().FirmwareTaskStatus(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).AnyTimes().Return(bconsts.Complete, "some status", nil)
-
-				return ctrl, q
-			},
-			[]sw.TransitionType{
-				powerOnDevice,
-				checkInstalledFirmware,
-				downloadFirmware,
-				preInstallResetBMC,
-				uploadFirmwareInitiateInstall,
-				pollInstallStatus,
-			},
-			model.StateSucceeded,
-		},
-		{
-			"failed run",
-			[]bconsts.FirmwareInstallStep{
-				bconsts.FirmwareInstallStepUploadInitiateInstall,
-				bconsts.FirmwareInstallStepInstallStatus,
-			},
-			func() model.Action {
-				a := model.Action{
-					ID:       "foobar",
-					TaskID:   task.ID.String(),
-					Firmware: firmware,
-				}
-
-				a.SetState(model.StateActive)
-
-				return a
-			},
-			func() (*gomock.Controller, *fixtures.MockDeviceQueryor) {
-				ctrl := gomock.NewController(t)
-				q := fixtures.NewMockDeviceQueryor(ctrl)
-
-				q.EXPECT().Open(gomock.Any()).Return(nil).Times(1)
-				q.EXPECT().PowerStatus(gomock.Any()).Return("on", nil).Times(1)
-				q.EXPECT().ResetBMC(gomock.Any()).Return(nil).Times(1)
-				q.EXPECT().FirmwareInstallUploadAndInitiate(gomock.Any(), gomock.Any(), gomock.Any()).Return("123", nil).Times(1)
-				q.EXPECT().FirmwareTaskStatus(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).AnyTimes().Return(bconsts.Failed, "some status", nil)
-
-				return ctrl, q
-			},
-			[]sw.TransitionType{
-				powerOnDevice,
-				checkInstalledFirmware,
-				downloadFirmware,
-				preInstallResetBMC,
-				uploadFirmwareInitiateInstall,
-				pollInstallStatus,
-				resetDevice,
-			},
-			model.StateFailed,
-		},
-	}
-
-	// env var set to cause the polling loop to skip long sleeps
-	os.Setenv(envTesting, "1")
-	defer os.Unsetenv(envTesting)
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			mock, queryor := tc.mock()
-			defer mock.Finish()
-
-			tctx.DeviceQueryor = queryor
-
-			action := tc.action()
-			task.ActionsPlanned = model.Actions{&action}
-
-			// init new state machine to run actions
-			m, err := NewActionStateMachine("testing", tc.installSteps, true)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// run action state machine
-			err = m.Run(ctx, task.ActionsPlanned[0], tctx)
-			assert.Equal(t, tc.expectActionState, task.ActionsPlanned[0].State())
-
-			if tc.expectActionState == model.StateFailed {
-				assert.NotNil(t, err)
-
-				return
-			}
-
-			assert.Nil(t, err)
-			assert.Equal(t, tc.expectTransitionsComplete, m.TransitionsCompleted())
-		})
-	}
-
 }
