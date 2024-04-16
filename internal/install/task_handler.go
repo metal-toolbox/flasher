@@ -2,12 +2,11 @@ package install
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
-	sm "github.com/metal-toolbox/flasher/internal/statemachine"
+	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -22,24 +21,23 @@ var (
 //
 // The handler is instantiated to run a single task
 type handler struct {
-	ctx                *sm.HandlerContext
-	fwFile             string
-	fwComponent        string
-	fwVersion          string
-	model              string
-	vendor             string
-	onlyPlan           bool
-	bmcResetPreInstall bool
+	taskCtx     *runner.TaskHandlerContext
+	fwFile      string
+	fwComponent string
+	fwVersion   string
+	model       string
+	vendor      string
+	onlyPlan    bool
 }
 
 func (t *handler) Initialize(ctx context.Context) error {
-	if t.ctx.DeviceQueryor == nil {
+	if t.taskCtx.DeviceQueryor == nil {
 		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
 		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.ctx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.ctx.Asset, t.ctx.Logger)
+		t.taskCtx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.taskCtx.Task.Asset, t.taskCtx.Logger)
 	}
 
 	return nil
@@ -47,7 +45,7 @@ func (t *handler) Initialize(ctx context.Context) error {
 
 // Query looks up the device component inventory and sets it in the task handler context.
 func (t *handler) Query(ctx context.Context) error {
-	t.ctx.Logger.Debug("run query step")
+	t.taskCtx.Logger.Debug("run query step")
 
 	// attempt to fetch component inventory from the device
 	components, err := t.queryFromDevice(ctx)
@@ -57,7 +55,7 @@ func (t *handler) Query(ctx context.Context) error {
 
 	// component inventory was identified
 	if len(components) > 0 {
-		t.ctx.Asset.Components = components
+		t.taskCtx.Task.Asset.Components = components
 
 		return nil
 	}
@@ -66,7 +64,7 @@ func (t *handler) Query(ctx context.Context) error {
 }
 
 func (t *handler) PlanActions(ctx context.Context) error {
-	t.ctx.Logger.Debug("create the plan")
+	t.taskCtx.Logger.Debug("create the plan")
 
 	firmware := &model.Firmware{
 		Component: t.fwComponent,
@@ -75,119 +73,82 @@ func (t *handler) PlanActions(ctx context.Context) error {
 		Vendor:    t.vendor,
 	}
 
-	steps, err := t.ctx.DeviceQueryor.FirmwareInstallSteps(ctx, firmware.Component)
+	actionCtx := &runner.ActionHandlerContext{
+		TaskHandlerContext: t.taskCtx,
+		Firmware:           firmware,
+		First:              true,
+		Last:               true,
+	}
+
+	aHandler := &outofband.ActionHandler{}
+	action, err := aHandler.ComposeAction(ctx, actionCtx)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
-
-	errFirmwareInstallSteps := errors.New("no firmware install steps identified for component")
-	if len(steps) == 0 {
-		return nil, nil, errors.Wrap(errFirmwareInstallSteps, firmware.Component)
-	}
-
-	bmcResetOnInstallFailure, bmcResetPostInstall := outofband.BmcResetParams(steps)
-
-	actionMachines := make(sm.ActionStateMachines, 0)
-	actions := make(model.Actions, 0)
-
-	actionID := sm.ActionID(t.ctx.Task.ID.String(), firmware.Component, 1)
-	m, err := outofband.NewActionStateMachine(actionID, steps, t.bmcResetPreInstall)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// include action state machines that will be executed.
-	actionMachines = append(actionMachines, m)
-
-	newAction := model.Action{
-		ID:     actionID,
-		TaskID: t.ctx.Task.ID.String(),
-
-		// TODO: The firmware is to define the preferred install method
-		// based on that the action plan is setup.
-		//
-		// For now this is hardcoded to outofband.
-		InstallMethod: model.InstallMethodOutofband,
-
-		// Firmware is the firmware to be installed
-		Firmware: *firmware,
-
-		// VerifyCurrentFirmware is disabled when ForceInstall is true.
-		VerifyCurrentFirmware: !t.ctx.Task.Parameters.ForceInstall,
-
-		// Setting this causes the action SM to not download the file
-		FirmwareTempFile: t.fwFile,
-
-		// Final is set to true when its the last action in the list.
-		Final: true,
-
-		BMCResetPreInstall:       t.bmcResetPreInstall,
-		BMCResetPostInstall:      bmcResetPostInstall,
-		BMCResetOnInstallFailure: bmcResetOnInstallFailure,
-	}
+	// Setting this causes the action SM to not download the file
+	//		FirmwareTempFile: t.fwFile,\
 
 	//nolint:errcheck  // SetState never returns an error
-	newAction.SetState(model.StatePending)
+	action.SetState(model.StatePending)
 
-	// create action thats added to the task
-	actions = append(actions, &newAction)
+	t.taskCtx.Task.ActionsPlanned = []*model.Action{action}
 
-	return actionMachines, actions, nil
+	return nil
 }
+
+func (t *handler) Publish(context.Context) {}
 
 // query device components inventory from the device itself.
 func (t *handler) queryFromDevice(ctx context.Context) (model.Components, error) {
-	if t.ctx.DeviceQueryor == nil {
+	if t.taskCtx.DeviceQueryor == nil {
 		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
 		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.ctx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.ctx.Asset, t.ctx.Logger)
+		t.taskCtx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.taskCtx.Task.Asset, t.taskCtx.Logger)
 	}
 
-	t.ctx.Task.Status.Append("connecting to device BMC")
-	t.ctx.Publisher.Publish(t.ctx)
+	t.taskCtx.Task.Status.Append("connecting to device BMC")
 
-	if err := t.ctx.DeviceQueryor.Open(ctx); err != nil {
+	if err := t.taskCtx.DeviceQueryor.Open(ctx); err != nil {
 		return nil, err
 	}
 
-	t.ctx.Task.Status.Append("collecting inventory from device BMC")
-	t.ctx.Publisher.Publish(t.ctx)
+	t.taskCtx.Task.Status.Append("collecting inventory from device BMC")
 
-	deviceCommon, err := t.ctx.DeviceQueryor.Inventory(ctx)
+	deviceCommon, err := t.taskCtx.DeviceQueryor.Inventory(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if t.ctx.Asset.Vendor == "" {
-		t.ctx.Asset.Vendor = deviceCommon.Vendor
+	if t.taskCtx.Task.Asset.Vendor == "" {
+		t.taskCtx.Task.Asset.Vendor = deviceCommon.Vendor
 	}
 
-	if t.ctx.Asset.Model == "" {
-		t.ctx.Asset.Model = common.FormatProductName(deviceCommon.Model)
+	if t.taskCtx.Task.Asset.Model == "" {
+		t.taskCtx.Task.Asset.Model = common.FormatProductName(deviceCommon.Model)
 	}
 
 	return model.NewComponentConverter().CommonDeviceToComponents(deviceCommon)
 }
 
 func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
-	if t.ctx.DeviceQueryor == nil {
+	if t.taskCtx.DeviceQueryor == nil {
 		return
 	}
 
-	if err := t.ctx.DeviceQueryor.Close(ctx); err != nil {
-		t.ctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+	if err := t.taskCtx.DeviceQueryor.Close(ctx); err != nil {
+		t.taskCtx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
 
 func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
-	if t.ctx.DeviceQueryor == nil {
+	if t.taskCtx.DeviceQueryor == nil {
 		return
 	}
 
-	if err := t.ctx.DeviceQueryor.Close(ctx); err != nil {
-		t.ctx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
+	if err := t.taskCtx.DeviceQueryor.Close(ctx); err != nil {
+		t.taskCtx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
