@@ -316,63 +316,6 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 	return toInstall
 }
 
-func (t *handler) RunActions(ctx context.Context) error {
-	t.ctx.Logger.WithField("plan.actions", len(t.ctx.ActionStateMachines)).Debug("running the plan")
-
-	// each actionSM (state machine) corresponds to a firmware to be installed
-	for _, actionSM := range t.ctx.ActionStateMachines {
-		startTS := time.Now()
-
-		// fetch action attributes from task
-		action := t.ctx.Task.ActionsPlanned.ByID(actionSM.ActionID())
-		if err := action.SetState(model.StateActive); err != nil {
-			return err
-		}
-
-		// return on context cancellation
-		if ctx.Err() != nil {
-			t.registerActionMetrics(startTS, action, string(rctypes.Failed))
-
-			return ctx.Err()
-		}
-
-		t.ctx.Logger.WithFields(logrus.Fields{
-			"statemachineID": actionSM.ActionID(),
-			"final":          action.Final,
-		}).Debug("action state machine start")
-
-		// run the action state machine
-		err := actionSM.Run(ctx, action, t.ctx)
-		if err != nil {
-			t.registerActionMetrics(startTS, action, string(rctypes.Failed))
-
-			return errors.Wrap(
-				err,
-				"while running action to install firmware on component "+action.Firmware.Component,
-			)
-		}
-
-		t.ctx.Logger.WithFields(logrus.Fields{
-			"action":    action.ID,
-			"condition": action.TaskID,
-			"component": action.Firmware.Component,
-			"version":   action.Firmware.Version,
-		}).Info("action for component completed successfully")
-
-		if !action.Final {
-			continue
-		}
-
-		t.registerActionMetrics(startTS, action, string(rctypes.Succeeded))
-		t.ctx.Logger.WithFields(logrus.Fields{
-			"statemachineID": actionSM.ActionID(),
-		}).Debug("state machine end")
-	}
-
-	t.ctx.Logger.Debug("plan finished")
-	return nil
-}
-
 func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
 	if t.ctx.DeviceQueryor == nil {
 		return
@@ -393,16 +336,6 @@ func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
 	}
 }
 
-func (t *handler) Publish() {
-	t.ctx.Publisher.Publish(t.ctx)
-}
-
-func (t *handler) registerActionMetrics(startTS time.Time, action *model.Action, state string) {
-	metrics.ActionRuntimeSummary.With(
-		prometheus.Labels{
-			"vendor":    action.Firmware.Vendor,
-			"component": action.Firmware.Component,
-			"state":     state,
-		},
-	).Observe(time.Since(startTS).Seconds())
+func (t *handler) Publish(ctx context.Context) {
+	t.Publisher.Publish(ctx, t.Task)
 }
