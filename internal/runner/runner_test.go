@@ -8,42 +8,34 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
+	mock "github.com/stretchr/testify/mock"
 )
 
 func TestRunTask(t *testing.T) {
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockHandler := NewMockHandler(ctrl)
-
 	tests := []struct {
 		name          string
-		setupMock     func()
+		mockSetup     func(*MockTaskHandler)
 		expectedState string
 		expectedError error
 	}{
 		{
 			name: "Successful execution",
-			setupMock: func() {
-				mockHandler.EXPECT().Initialize(gomock.Any()).Return(nil)
-				mockHandler.EXPECT().Query(gomock.Any()).Return(nil)
-				mockHandler.EXPECT().PlanActions(gomock.Any()).Return(nil)
-				mockHandler.EXPECT().RunActions(gomock.Any()).Return(nil)
-				mockHandler.EXPECT().OnSuccess(gomock.Any(), gomock.Any())
-				mockHandler.EXPECT().Publish().AnyTimes()
+			mockSetup: func(m *MockTaskHandler) {
+				m.On("Initialize", mock.Anything).Return(nil)
+				m.On("Query", mock.Anything).Return(nil)
+				m.On("PlanActions", mock.Anything).Return(nil)
+				m.On("OnSuccess", mock.Anything, mock.Anything).Once()
+				m.On("Publish", mock.Anything).Maybe()
 			},
 			expectedState: string(model.StateSucceeded),
 			expectedError: nil,
 		},
 		{
 			name: "Failure during Initialize",
-			setupMock: func() {
-				mockHandler.EXPECT().Initialize(gomock.Any()).Return(errors.New("Initialize failed"))
-				mockHandler.EXPECT().OnFailure(gomock.Any(), gomock.Any())
+			mockSetup: func(m *MockTaskHandler) {
+				m.On("Initialize", mock.Anything).Return(errors.New("Initialize failed"))
+				m.On("OnFailure", mock.Anything, mock.Anything).Once()
+				m.On("Publish", mock.Anything, mock.Anything).Twice()
 			},
 			expectedState: string(model.StateFailed),
 			expectedError: errors.New("Initialize failed"),
@@ -52,23 +44,23 @@ func TestRunTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setupMock()
+			mockHandler := new(MockTaskHandler)
+			tt.mockSetup(mockHandler) // Set up the mock expectations
 
 			r := New(logrus.NewEntry(logrus.New()))
 			task := &model.Task{}
+
 			err := r.RunTask(context.Background(), task, mockHandler)
 
-			if string(task.State()) != tt.expectedState {
-				t.Errorf("Expected task state %s, but got %s", tt.expectedState, task.State())
-			}
-
+			// Assert task state and error expectations
+			assert.Equal(t, tt.expectedState, string(task.State))
 			if tt.expectedError != nil {
-				assert.EqualError(t, tt.expectedError, err.Error())
+				assert.EqualError(t, err, tt.expectedError.Error())
+			} else {
+				assert.NoError(t, err)
 			}
 
-			if tt.expectedState == string(model.StateSucceeded) {
-				assert.Nil(t, err)
-			}
+			mockHandler.AssertExpectations(t)
 		})
 	}
 }

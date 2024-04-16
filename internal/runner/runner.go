@@ -14,17 +14,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// A Runner instance runs a single task, setting up and executing the actions required to install firmware
-// on one or more server components.
+// A Runner instance runs a single task, to install firmware on one or more server components.
 type Runner struct {
 	logger *logrus.Entry
 }
 
-type Handler interface {
+type TaskHandler interface {
 	Initialize(ctx context.Context) error
 	Query(ctx context.Context) error
 	PlanActions(ctx context.Context) error
-	RunActions(ctx context.Context) error
 	OnSuccess(ctx context.Context, task *model.Task)
 	OnFailure(ctx context.Context, task *model.Task)
 	Publish(ctx context.Context)
@@ -81,7 +79,6 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 		{"Initialize", handler.Initialize},
 		{"Query", handler.Query},
 		{"PlanActions", handler.PlanActions},
-		{"RunActions", handler.RunActions},
 	}
 
 	taskFailed := func(err error) error {
@@ -131,7 +128,86 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 		}
 	}
 
+	r.logger.WithField("planned.actions", len(task.ActionsPlanned)).Debug("start running planned actions")
+
+	if err := r.runActions(ctx, task, handler); err != nil {
+		return taskFailed(err)
+	}
+
+	r.logger.WithField("planned.actions", len(task.ActionsPlanned)).Debug("finished running planned actions")
+
 	return taskSuccess()
+}
+
+func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskHandler) error {
+	registerMetric := func(startTS time.Time, action *model.Action, state rctypes.State) {
+		registerActionMetric(startTS, action, string(state))
+	}
+
+	// helper func to log and publish step status
+	publish := func(state rctypes.State, action *model.Action, stepName model.StepName, logger *logrus.Entry) {
+		logger.WithField("step", stepName).Debug("running step")
+		task.Status.Append(fmt.Sprintf(
+			"[%s] install version: %s, method: %s, state: %s, step %s",
+			action.Firmware.Component,
+			action.Firmware.Version,
+			action.Firmware.InstallMethod,
+			state,
+			stepName,
+		))
+
+		handler.Publish(ctx)
+	}
+
+	// each action corresponds to a firmware to be installed
+	for _, action := range task.ActionsPlanned {
+		startTS := time.Now()
+
+		actionLogger := r.logger.WithFields(logrus.Fields{
+			"action":    action.ID,
+			"component": action.Firmware.Component,
+			"fwversion": action.Firmware.Version,
+		})
+
+		// fetch action attributes from task
+		action.SetState(model.StateActive)
+
+		// return on context cancellation
+		if ctx.Err() != nil {
+			registerMetric(startTS, action, rctypes.Failed)
+			return ctx.Err()
+		}
+
+		actionLogger.Info("running action steps for firmware install")
+		for _, step := range action.Steps {
+			publish(model.StateActive, action, step.Name, actionLogger)
+
+			// run step
+			if err := step.Handler(ctx); err != nil {
+				action.SetState(model.StateFailed)
+				publish(model.StateFailed, action, step.Name, actionLogger)
+
+				registerMetric(startTS, action, rctypes.Failed)
+				return errors.Wrap(
+					err,
+					fmt.Sprintf(
+						"error while running step=%s to install firmware on component=%s",
+						step.Name,
+						action.Firmware.Component,
+					),
+				)
+			}
+
+			// log and publish status
+			action.SetState(model.StateSucceeded)
+			publish(model.StateSucceeded, action, step.Name, actionLogger)
+		}
+
+		registerMetric(startTS, action, rctypes.Succeeded)
+		actionLogger.Info("action steps for component completed successfully")
+	}
+
+	return nil
 }
 
 // conditionalFault is invoked before each runner method to induce a fault if specified
