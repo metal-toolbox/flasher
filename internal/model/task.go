@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	sw "github.com/filanov/stateswitch"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 
 	rctypes "github.com/metal-toolbox/rivets/condition"
 )
@@ -21,6 +21,7 @@ type FirmwarePlanMethod string
 const (
 	// InstallMethodOutofband indicates the out of band firmware install method.
 	InstallMethodOutofband InstallMethod = "outofband"
+	InstallMethodInband    InstallMethod = "inband"
 
 	// FromFirmwareSet is a TaskParameter attribute that declares the
 	// the firmware versions to be installed are to be planned from the given firmware set ID.
@@ -34,84 +35,17 @@ const (
 	// task states
 	//
 	// states the task state machine transitions through
-	StatePending   sw.State = sw.State(rctypes.Pending)
-	StateActive    sw.State = sw.State(rctypes.Active)
-	StateSucceeded sw.State = sw.State(rctypes.Succeeded)
-	StateFailed    sw.State = sw.State(rctypes.Failed)
+	StatePending   = rctypes.Pending
+	StateActive    = rctypes.Active
+	StateSucceeded = rctypes.Succeeded
+	StateFailed    = rctypes.Failed
+
+	TaskVersion = "0.1"
 )
 
-// Action holds attributes of a Task sub-statemachine
-type Action struct {
-	// ID is a unique identifier for this action
-	ID string
-
-	// The parent task identifier
-	TaskID string
-
-	// BMCTaskID is the task identifier to track a BMC job
-	// these are returned when the firmware is uploaded and is being verified
-	// or an install was initiated on the BMC .
-	BMCTaskID string
-
-	// Method of install
-	InstallMethod InstallMethod
-
-	// status indicates the action state
-	state rctypes.State
-
-	// Firmware to be installed, this is set in the Task Plan phase.
-	Firmware Firmware
-
-	FirmwareInstallStep string
-
-	// FirwareTempFile is the temporary file downloaded to be installed.
-	//
-	// This is declared once the firmware file has been downloaded for install.
-	FirmwareTempFile string
-
-	// VerifyCurrentFirmware will cause the action to verify the current firmware
-	// on the component is not equal to one being installed. If its equal, the action will return an error.
-	VerifyCurrentFirmware bool
-
-	// BMC reset required before install
-	BMCResetPreInstall bool
-
-	// BMC reset required after install
-	BMCResetPostInstall bool
-
-	// BMC reset required on install failure
-	BMCResetOnInstallFailure bool
-
-	// HostPowerCycled is set when the host has been power cycled for the action.
-	HostPowerCycled bool
-
-	// Final is set to true when its the last action being executed
-	Final bool
-}
-
-func (a *Action) SetState(state sw.State) error {
-	a.state = rctypes.State(state)
-
-	return nil
-}
-
-func (a *Action) State() sw.State {
-	return sw.State(a.state)
-}
-
-// Actions is a list of actions
-type Actions []*Action
-
-// ByID returns the Action matched by the identifier
-func (a Actions) ByID(id string) *Action {
-	for _, action := range a {
-		if action.ID == id {
-			return action
-		}
-	}
-
-	return nil
-}
+var (
+	errTaskFirmwareParam = errors.New("firmware task parameters error")
+)
 
 // Task is a top level unit of work handled by flasher.
 //
@@ -119,43 +53,79 @@ func (a Actions) ByID(id string) *Action {
 //
 // nolint:govet // fieldalignment - struct is better readable in its current form.
 type Task struct {
+	// StructVersion indicates the Task object version and is used to determine Task  compatibility.
+	StructVersion string `json:"task_version"`
+
 	// Task unique identifier, this is set to the Condition identifier.
-	ID uuid.UUID
+	ID uuid.UUID `json:"id"`
 
 	// state is the state of the install
-	state rctypes.State
+	State rctypes.State `json:"state"`
 
 	// status holds informational data on the state
-	Status StatusRecord
+	Status StatusRecord `json:"status"`
 
 	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
-	FirmwarePlanMethod FirmwarePlanMethod
+	FirmwarePlanMethod FirmwarePlanMethod `json:"firmware_plan_method,omitempty"`
 
-	// ActionsPlanned to be executed for task are generated from the InstallFirmwares and install parameters
-	// these are generated in the `pending` stage of the task.
-	ActionsPlanned Actions
+	// ActionsPlanned to be executed for each firmware to be installed.
+	ActionsPlanned Actions `json:"actions_planned,omitempty"`
 
 	// Parameters for this task
-	Parameters rctypes.FirmwareInstallTaskParameters
+	Parameters rctypes.FirmwareInstallTaskParameters `json:"parameters,omitempty"`
 
 	// Fault is a field to inject failures into a flasher task execution,
 	// this is set from the Condition only when the worker is run with fault-injection enabled.
 	Fault *rctypes.Fault `json:"fault,omitempty"`
 
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	CompletedAt time.Time
+	// FacilityCode identifies the facility this task is to be executed in.
+	FacilityCode string `json:"facility_code"`
+
+	// Data is an arbitrary key values map available to all task, action handler methods.
+	Data map[string]string `json:"data,omitempty"`
+
+	// Asset holds attributes about the device under firmware install.
+	Asset *Asset `json:"asset,omitempty"`
+
+	// WorkerID is the identifier for the worker executing this task.
+	WorkerID string `json:"worker_id,omitempty"`
+
+	CreatedAt   time.Time `json:"created_at,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+	CompletedAt time.Time `json:"completed_at,omitempty"`
 }
 
-// SetState implements the stateswitch statemachine interface
-func (t *Task) SetState(state sw.State) error {
-	t.state = rctypes.State(state)
+// SetState implements the Task runner interface
+func (t *Task) SetState(state rctypes.State) error {
+	t.State = state
 	return nil
 }
 
-// State implements the stateswitch statemachine interface
-func (t *Task) State() sw.State {
-	return sw.State(t.state)
+func NewTask(conditionID uuid.UUID, params *rctypes.FirmwareInstallTaskParameters) (Task, error) {
+	t := Task{
+		StructVersion: TaskVersion,
+		ID:            conditionID,
+		Status:        NewTaskStatusRecord("initialized task"),
+		State:         StatePending,
+		Parameters:    *params,
+		Data:          make(map[string]string),
+	}
+
+	if len(params.Firmwares) > 0 {
+		t.Parameters.Firmwares = params.Firmwares
+		t.FirmwarePlanMethod = FromRequestedFirmware
+
+		return t, nil
+	}
+
+	if params.FirmwareSetID != uuid.Nil {
+		t.Parameters.FirmwareSetID = params.FirmwareSetID
+		t.FirmwarePlanMethod = FromFirmwareSet
+
+		return t, nil
+	}
+
+	return t, errors.Wrap(errTaskFirmwareParam, "no firmware list or firmwareSetID specified")
 }
 
 func NewTaskStatusRecord(s string) StatusRecord {
