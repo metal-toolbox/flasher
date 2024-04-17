@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"runtime/debug"
 	"time"
 
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -65,6 +66,15 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler)
 
 		return nil
 	}
+
+	defer func() error {
+		if rec := recover(); rec != nil {
+			r.logger.Printf("!!panic %s: %s", rec, debug.Stack())
+			r.logger.Error("Panic occurred while running task")
+			return taskFailed(errors.New("Task fatal error, check logs for details"))
+		}
+		return nil
+	}() // nolint:errcheck // nope
 
 	// no error returned
 	_ = task.SetState(model.StateActive)
