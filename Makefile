@@ -70,10 +70,10 @@ push-image-devel: build-image
 push-image:
 	docker push ${DOCKER_IMAGE}:latest
 
-## generate statemachine graphs and docs
+## generate doc and flowchart
 gen-docs:
 	CGO_ENABLED=0 go build -o flasher
-	./docs/statemachine/generate.sh
+	./docs/generate.sh
 
 # https://gist.github.com/prwhite/8168133
 # COLORS
