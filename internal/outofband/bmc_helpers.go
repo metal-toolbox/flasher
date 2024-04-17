@@ -146,14 +146,26 @@ func (b *bmc) with(provider string) *bmclib.Client {
 
 	if !slices.Contains(b.availableProviders, provider) {
 		b.logger.WithFields(
-			logrus.Fields{"require": provider, "available": strings.Join(b.availableProviders, ",")},
-		).Trace(funcName + ": required provider not in available list")
+			logrus.Fields{
+				"vendor":    b.asset.Vendor,
+				"model":     b.asset.Model,
+				"required":  provider,
+				"available": strings.Join(b.availableProviders, ","),
+				"caller":    funcName,
+			},
+		).Trace("required provider not in available list")
 
 		return b.client
 	}
 
 	b.logger.WithFields(
-		logrus.Fields{"require": provider, "available": strings.Join(b.availableProviders, ",")},
+		logrus.Fields{
+			"vendor":    b.asset.Vendor,
+			"model":     b.asset.Model,
+			"required":  provider,
+			"available": strings.Join(b.availableProviders, ","),
+			"caller":    funcName,
+		},
 	).Info(funcName + ": with bmclib provider")
 
 	return b.client.For(provider)
@@ -196,12 +208,13 @@ func (b *bmc) loginWithRetries(ctx context.Context, maxAttempts int, provider st
 		}
 
 		// attempt login
-		err := b.with(provider).Open(attemptCtx)
-		if err != nil {
+		errLogin := b.with(provider).Open(attemptCtx)
+		if errLogin != nil {
+			var errRetry error
 			// failed to open connection
-			attempts, err = b.retry(ctx, maxAttempts, attempts, err, provider)
-			if err != nil {
-				return err
+			attempts, errRetry = b.retry(ctx, maxAttempts, attempts, errLogin, provider)
+			if errRetry != nil {
+				return errRetry
 			}
 
 			continue
@@ -215,10 +228,11 @@ func (b *bmc) loginWithRetries(ctx context.Context, maxAttempts int, provider st
 				_ = b.client.Close(attemptCtx)
 			}
 
-			err := errors.New("required bmclib install provider not available: " + provider)
-			attempts, err = b.retry(ctx, maxAttempts, attempts, err, provider)
-			if err != nil {
-				return err
+			var errRetry error
+			errFmt := errors.New("required bmclib install provider not available: " + provider)
+			attempts, errRetry = b.retry(ctx, maxAttempts, attempts, errFmt, provider)
+			if errRetry != nil {
+				return errRetry
 			}
 
 			continue
@@ -252,7 +266,7 @@ func (b *bmc) retry(ctx context.Context, maxAttempts, attempts int, cause error,
 			"attempt":         trystr,
 			"successfulOpens": b.client.GetMetadata().SuccessfulOpenConns,
 			"cause":           cause,
-		}).Debug("bmc login to be retried")
+		}).Debug("retrying bmc login")
 
 	// return if attempts match tries
 	if attempts >= maxAttempts {

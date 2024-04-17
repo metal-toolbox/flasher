@@ -92,6 +92,8 @@ func (b *bmc) tracelog() {
 
 	b.logger.WithFields(
 		logrus.Fields{
+			"asset.Vendor":         b.asset.Vendor,
+			"asset.Model":          b.asset.Model,
 			"attemptedProviders":   strings.Join(b.client.GetMetadata().ProvidersAttempted, ","),
 			"successfulProvider":   b.client.GetMetadata().SuccessfulProvider,
 			"successfulOpens":      strings.Join(b.client.GetMetadata().SuccessfulOpenConns, ","),
@@ -253,14 +255,17 @@ func (b *bmc) FirmwareInstallSteps(ctx context.Context, component string) (steps
 
 	// pin the install provider once its identified
 	// this makes sure the subsequent firmware requests are performed using this provider.
-	b.installProvider = b.client.GetMetadata().SuccessfulProvider
+	provider := b.client.GetMetadata().SuccessfulProvider
 
 	// Validate we have a provider
 	//
 	// generally if the FirmwareInstallSteps method returned successfully this should not occur
-	if b.installProvider == "" {
+	if provider == "" || provider == "unknown" {
 		return nil, ErrFirmwareInstallProvider
 	}
+
+	b.installProvider = provider
+	b.logger.WithField("install-provider", b.installProvider).Trace("install provider")
 
 	return steps, nil
 }
