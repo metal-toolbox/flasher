@@ -1,0 +1,18 @@
+testonly: False
+with-expecter: True
+packages:
+  github.com/metal-toolbox/flasher/internal/runner:
+    config:
+      dir: internal/runner
+      fileName: "mock_{{.InterfaceName | firstLower}}.go"
+      inpackage: true
+    interfaces:
+      TaskHandler:
+      ActionHandler:
+  github.com/metal-toolbox/flasher/internal/device:
+    config:
+      dir: internal/device
+      fileName: "mock_{{.InterfaceName | firstLower}}.go"
+      inpackage: true
+    interfaces:
+      Queryor:
