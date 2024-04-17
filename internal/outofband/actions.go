@@ -227,7 +227,7 @@ func (o *ActionHandler) definitions() model.Steps {
 			Name:        pollInstallStatus,
 			Group:       Install,
 			Handler:     o.handler.pollFirmwareTaskStatus,
-			Description: "Poll BMC with exponential backoff for firmware install status until its in a finalized state (completed/powercyclehost/powercyclebmc/failed).",
+			Description: "Poll BMC for firmware install status until its identified to be in a finalized state.",
 		},
 		{
 			Name:        uploadFirmware,
