@@ -208,7 +208,7 @@ func (h *actionHandler) installedEqualsExpected(tctx *sm.HandlerContext, compone
 			"vendor":    found.Vendor,
 			"model":     found.Model,
 			"serial":    found.Serial,
-			"installed": found.FirmwareInstalled,
+			"current":   found.FirmwareInstalled,
 			"expected":  expectedFirmware,
 		}).Debug("component version check")
 
@@ -217,7 +217,10 @@ func (h *actionHandler) installedEqualsExpected(tctx *sm.HandlerContext, compone
 	}
 
 	if !strings.EqualFold(expectedFirmware, found.FirmwareInstalled) {
-		return ErrInstalledFirmwareNotEqual
+		return errors.Wrap(
+			ErrInstalledFirmwareNotEqual,
+			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, found.FirmwareInstalled),
+		)
 	}
 
 	return nil
