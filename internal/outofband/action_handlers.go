@@ -518,6 +518,15 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 	// a new collection should be attempted.
 	var inventory bool
 
+	// verifyAttempts is the number of times this poller will spend
+	// attempting to verify the installed firmware equals the expected.
+	//
+	// Multiple attempts to verify is required to allow the BMC time to have its information updated,
+	// the Supermicro BMCs on X12SPO-NTFs, complete the update process, but take
+	// a while to update the installed firmware information returned over redfish.
+	var verifyAttempts int
+	var maxVerifyAttempts = 15
+
 	// helper func
 	componentIsBMC := func(c string) bool {
 		return strings.EqualFold(strings.ToUpper(c), common.SlugBMC)
@@ -558,6 +567,8 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 
 		// TODO: break into its own method
 		if inventory {
+			verifyAttempts++
+
 			err := h.installedEqualsExpected(
 				tctx,
 				action.Firmware.Component,
@@ -579,7 +590,7 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			case ErrInstalledFirmwareNotEqual:
 				// if the BMC came online and is still running the previous version
 				// the install failed
-				if componentIsBMC(action.Firmware.Component) {
+				if componentIsBMC(action.Firmware.Component) && verifyAttempts >= maxVerifyAttempts {
 					errInstall := errors.New("BMC failed to install expected firmware")
 					return errInstall
 				}
