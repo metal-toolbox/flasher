@@ -39,6 +39,16 @@ const (
 	// 600 (maxAttempts) * 10s (delayPollInstallStatus) = 100 minutes (1.6hours)
 	maxPollStatusAttempts = 600
 
+	// maxVerifyAttempts is the number of times - after a firmware install this poller will spend
+	// attempting to verify the installed firmware equals the expected.
+	//
+	// Multiple attempts to verify is required to allow the BMC time to have its information updated,
+	// the Supermicro BMCs on X12SPO-NTFs, complete the update process, but take
+	// a while to update the installed firmware information returned over redfish.
+	//
+	// 30 (maxVerifyAttempts) * 10 (delayPollStatus) = 300s (5 minutes)
+	maxVerifyAttempts = 30
+
 	// this value indicates the device was powered on by flasher
 	devicePoweredOn = "devicePoweredOn"
 
@@ -510,22 +520,13 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 	startTS := time.Now()
 
 	// number of status queries attempted
-	var attempts int
+	var attempts, verifyAttempts int
 
 	var attemptErrors *multierror.Error
 
 	// inventory is set when the loop below determines that
 	// a new collection should be attempted.
 	var inventory bool
-
-	// verifyAttempts is the number of times this poller will spend
-	// attempting to verify the installed firmware equals the expected.
-	//
-	// Multiple attempts to verify is required to allow the BMC time to have its information updated,
-	// the Supermicro BMCs on X12SPO-NTFs, complete the update process, but take
-	// a while to update the installed firmware information returned over redfish.
-	var verifyAttempts int
-	var maxVerifyAttempts = 15
 
 	// helper func
 	componentIsBMC := func(c string) bool {
