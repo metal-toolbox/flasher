@@ -241,13 +241,13 @@ func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVend
 	params := &fleetdbapi.ComponentFirmwareSetListParams{
 		AttributeListParams: []fleetdbapi.AttributeListParams{
 			{
-				Namespace: rfleetdb.FirmwareAttributeNSFirmwareSetLabels,
+				Namespace: rfleetdb.FirmwareSetAttributeNS,
 				Keys:      []string{"model"},
 				Operator:  "eq",
 				Value:     deviceModel,
 			},
 			{
-				Namespace: rfleetdb.FirmwareAttributeNSFirmwareSetLabels,
+				Namespace: rfleetdb.FirmwareSetAttributeNS,
 				Keys:      []string{"vendor"},
 				Operator:  "eq",
 				Value:     deviceVendor,
