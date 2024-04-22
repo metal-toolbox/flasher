@@ -80,7 +80,7 @@ func (s *FleetDBAPI) bmcAddressFromAttributes(attributes []fleetdbapi.Attributes
 func (s *FleetDBAPI) vendorModelFromAttributes(attributes []fleetdbapi.Attributes) (deviceVendor, deviceModel, deviceSerial string, err error) {
 	vendorAttrs := map[string]string{}
 
-	vendorAttribute := findAttribute(rfleetdb.ServerAttributeNSVendor, attributes)
+	vendorAttribute := findAttribute(rfleetdb.ServerVendorAttributeNS, attributes)
 	if vendorAttribute == nil {
 		return deviceVendor,
 			deviceModel,
