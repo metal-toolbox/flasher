@@ -98,7 +98,6 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 		return controller.ErrRetryHandler
 	}
 
-	// TODO: encrypt BMC credentials before store in prod
 	task.Asset = asset
 	task.FacilityCode = h.facilityCode
 	task.WorkerID = h.controllerID

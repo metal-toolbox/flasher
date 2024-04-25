@@ -40,7 +40,7 @@ const (
 	StateSucceeded = rctypes.Succeeded
 	StateFailed    = rctypes.Failed
 
-	TaskVersion = "0.1"
+	TaskVersion = "1.0"
 )
 
 var (
