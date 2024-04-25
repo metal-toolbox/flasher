@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 )
@@ -517,6 +518,16 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 		return nil
 	}
 
+	var installTask bool
+	installTaskTypes := []string{
+		string(bconsts.FirmwareInstallStepUploadInitiateInstall),
+		string(bconsts.FirmwareInstallStepInstallUploaded),
+	}
+
+	if slices.Contains(installTaskTypes, action.FirmwareInstallStep) {
+		installTask = true
+	}
+
 	startTS := time.Now()
 
 	// number of status queries attempted
@@ -535,9 +546,11 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 
 	tctx.Logger.WithFields(
 		logrus.Fields{
-			"component": action.Firmware.Component,
-			"version":   action.Firmware.Version,
-			"bmc":       tctx.Asset.BmcAddress,
+			"component":   action.Firmware.Component,
+			"version":     action.Firmware.Version,
+			"bmc":         tctx.Asset.BmcAddress,
+			"step":        action.FirmwareInstallStep,
+			"installTask": installTask,
 		}).Info("polling BMC for firmware task status")
 
 	// the prefix we'll be using for all the poll status updates
@@ -656,7 +669,7 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			//
 			// And so if we get an error and its a BMC component that was being updated, we wait for
 			// the BMC to be available again and validate its firmware matches the one expected.
-			if componentIsBMC(action.Firmware.Component) {
+			if componentIsBMC(action.Firmware.Component) && installTask {
 				tctx.Logger.WithFields(
 					logrus.Fields{
 						"bmc":       tctx.Asset.BmcAddress,
@@ -721,7 +734,7 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 			}
 
 			// A BMC reset is required if the BMC install fails - to get it out of flash mode
-			if componentIsBMC(action.Firmware.Component) && action.BMCResetOnInstallFailure {
+			if componentIsBMC(action.Firmware.Component) && installTask && action.BMCResetOnInstallFailure {
 				if err := h.powerCycleBMC(tctx); err != nil {
 					tctx.Logger.WithFields(
 						logrus.Fields{
@@ -744,7 +757,7 @@ func (h *actionHandler) pollFirmwareTaskStatus(a sw.StateSwitch, c sw.Transition
 		case bconsts.Complete:
 			// The BMC would reset itself and returning now would mean the next install fails,
 			// wait until the BMC is available again and verify its on the expected version.
-			if componentIsBMC(action.Firmware.Component) {
+			if componentIsBMC(action.Firmware.Component) && installTask {
 				inventory = true
 				// re-initialize the client to make sure we're not re-using old sessions.
 				tctx.DeviceQueryor.ReinitializeClient(tctx.Ctx)
