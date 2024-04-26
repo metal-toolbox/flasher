@@ -42,6 +42,7 @@ func TestComposeAction(t *testing.T) {
 		expectForceInstall             bool
 		expectBMCResetPostInstall      bool
 		expectBMCResetOnInstallFailure bool
+		expectHostPowerOffPreInstall   bool
 		expectErrContains              string
 	}{
 		{
@@ -87,6 +88,23 @@ func TestComposeAction(t *testing.T) {
 				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
 					[]bconsts.FirmwareInstallStep{
 						bconsts.FirmwareInstallStepResetBMCPostInstall,
+						bconsts.FirmwareInstallStepUploadInitiateInstall,
+						bconsts.FirmwareInstallStepInstallStatus,
+					},
+					nil,
+				)
+			},
+		},
+		{
+			name:                         "test host power off pre-install",
+			expectHostPowerOffPreInstall: true,
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+				actionCtx.First = true
+
+				actionCtx.DeviceQueryor = m
+				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
+					[]bconsts.FirmwareInstallStep{
+						bconsts.FirmwareInstallStepPowerOffHost,
 						bconsts.FirmwareInstallStepUploadInitiateInstall,
 						bconsts.FirmwareInstallStepInstallStatus,
 					},
@@ -177,6 +195,13 @@ func TestComposeAction(t *testing.T) {
 				assert.True(t, got.BMCResetOnInstallFailure)
 			} else {
 				assert.False(t, got.BMCResetOnInstallFailure)
+			}
+
+			// host power off required before install
+			if tc.expectHostPowerOffPreInstall {
+				assert.True(t, got.HostPowerOffPreInstall)
+			} else {
+				assert.False(t, got.HostPowerOffPreInstall)
 			}
 
 			// expect atleast 5 or more steps

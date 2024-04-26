@@ -29,6 +29,11 @@ import (
 )
 
 // NOTE: the constants.FirmwareInstallStep type will be moved to the FirmwareInstallProperties struct type which will make this easier
+func hostPowerOffRequired(steps []constants.FirmwareInstallStep) bool {
+	return slices.Contains(steps, constants.FirmwareInstallStepPowerOffHost)
+}
+
+// NOTE: the constants.FirmwareInstallStep type will be moved to the FirmwareInstallProperties struct type which will make this easier
 func bmcResetParams(steps []constants.FirmwareInstallStep) (bmcResetOnInstallFailure, bmcResetPostInstall bool) {
 	for _, step := range steps {
 		switch step {

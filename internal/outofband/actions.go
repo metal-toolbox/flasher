@@ -87,6 +87,7 @@ func (o *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.Act
 		BMCResetPreInstall:       bmcResetBeforeInstall,
 		BMCResetPostInstall:      bmcResetPostInstall,
 		BMCResetOnInstallFailure: bmcResetOnInstallFailure,
+		HostPowerOffPreInstall:   hostPowerOffRequired(required),
 		ForceInstall:             actionCtx.Task.Parameters.ForceInstall,
 		Steps:                    steps,
 		First:                    actionCtx.First,

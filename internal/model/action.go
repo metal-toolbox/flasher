@@ -51,6 +51,10 @@ type Action struct {
 	// HostPowerCycled is set when the host has been power cycled for the action.
 	HostPowerCycled bool `json:"host_power_cycled"`
 
+	// HostPowerOffPreInstall is set when the firmware install provider indicates
+	// the host must be powered off before proceeding with the install step.
+	HostPowerOffPreInstall bool `json:"host_power_off_pre_install"`
+
 	// First is set to true when its the first action being executed
 	First bool `json:"first"`
 
