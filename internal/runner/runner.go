@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"runtime/debug"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 // A Runner instance runs a single task, to install firmware on one or more server components.
@@ -70,7 +73,7 @@ func New(logger *logrus.Entry) *Runner {
 	}
 }
 
-func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler Handler) error {
+func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHandler) error {
 	// nolint:govet // struct field optimization not required
 	funcs := []struct {
 		name   string
@@ -211,7 +214,7 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 }
 
 // conditionalFault is invoked before each runner method to induce a fault if specified
-func (r *Runner) conditionalFault(ctx context.Context, fname string, task *model.Task, handler Handler) error {
+func (r *Runner) conditionalFault(ctx context.Context, fname string, task *model.Task, handler TaskHandler) error {
 	var errConditionFault = errors.New("condition induced fault")
 
 	if task.Fault == nil {
