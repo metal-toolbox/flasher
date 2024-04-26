@@ -785,6 +785,11 @@ func (h *handler) powerCycleServer(ctx context.Context) error {
 }
 
 func (h *handler) conditionalPowerOffDevice(_ context.Context) (bool, error) {
+	// The install provider indicated the host must be powered off
+	if h.action.HostPowerOffPreInstall {
+		return true, nil
+	}
+
 	// proceed to power off the device if this is the final action
 	if !h.action.Last {
 		return false, nil
