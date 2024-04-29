@@ -46,6 +46,14 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 	taskParams := &rctypes.FirmwareInstallTaskParameters{
 		ForceInstall: params.Force,
 		DryRun:       params.DryRun,
+		Firmwares: []rctypes.Firmware{
+			{
+				Component: params.Component,
+				Version:   params.Version,
+				Models:    []string{params.Model},
+				Vendor:    params.Vendor,
+			},
+		},
 	}
 
 	task, err := model.NewTask(uuid.New(), taskParams)
@@ -53,6 +61,7 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		i.logger.Fatal(err)
 	}
 
+	task.Parameters.DryRun = params.DryRun
 	task.Asset = &model.Asset{
 		BmcAddress:  net.ParseIP(params.BmcAddr),
 		BmcUsername: params.User,
@@ -75,12 +84,8 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 
 func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Task, le *logrus.Entry) {
 	h := &handler{
-		fwFile:      params.File,
-		fwComponent: params.Component,
-		fwVersion:   params.Version,
-		model:       params.Model,
-		vendor:      params.Vendor,
-		onlyPlan:    params.OnlyPlan,
+		fwFile:   params.File,
+		onlyPlan: params.OnlyPlan,
 		taskCtx: &runner.TaskHandlerContext{
 			Task:      task,
 			Publisher: nil,

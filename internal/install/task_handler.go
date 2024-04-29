@@ -21,13 +21,9 @@ var (
 //
 // The handler is instantiated to run a single task
 type handler struct {
-	taskCtx     *runner.TaskHandlerContext
-	fwFile      string
-	fwComponent string
-	fwVersion   string
-	model       string
-	vendor      string
-	onlyPlan    bool
+	taskCtx  *runner.TaskHandlerContext
+	fwFile   string
+	onlyPlan bool
 }
 
 func (t *handler) Initialize(ctx context.Context) error {
@@ -66,11 +62,13 @@ func (t *handler) Query(ctx context.Context) error {
 func (t *handler) PlanActions(ctx context.Context) error {
 	t.taskCtx.Logger.Debug("create the plan")
 
+	param := t.taskCtx.Task.Parameters.Firmwares[0]
+
 	firmware := &model.Firmware{
-		Component: t.fwComponent,
-		Version:   t.fwVersion,
-		Models:    []string{t.model},
-		Vendor:    t.vendor,
+		Component: param.Component,
+		Vendor:    param.Vendor,
+		Models:    []string{param.Vendor},
+		Version:   param.Version,
 	}
 
 	actionCtx := &runner.ActionHandlerContext{
@@ -85,8 +83,8 @@ func (t *handler) PlanActions(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// Setting this causes the action SM to not download the file
-	//		FirmwareTempFile: t.fwFile,\
+
+	action.FirmwareTempFile = t.fwFile
 
 	//nolint:errcheck  // SetState never returns an error
 	action.SetState(model.StatePending)
