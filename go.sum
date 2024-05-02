@@ -107,6 +107,8 @@ github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6r
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
 github.com/bmc-toolbox/bmclib/v2 v2.2.4 h1:agAQuDLI/NNpKkxU+c+NfPZAu8ENBDE+kcTfz7WTCrw=
 github.com/bmc-toolbox/bmclib/v2 v2.2.4/go.mod h1:V2XVg0Scpm16+0gE7WnI+5bU/M0c/o/nPZKHKzyVjAo=
+github.com/bmc-toolbox/bmclib/v2 v2.2.5 h1:m6uSekJuCxE871EItBuUuAWMpm3fhL3YGUntdWEVSHM=
+github.com/bmc-toolbox/bmclib/v2 v2.2.5/go.mod h1:V2XVg0Scpm16+0gE7WnI+5bU/M0c/o/nPZKHKzyVjAo=
 github.com/bmc-toolbox/common v0.0.0-20240416132216-a56a09c16f4e h1:MepqMSwXZPngO7KWD0MyaUKuQkZD/yNfpRJhYZszbr4=
 github.com/bmc-toolbox/common v0.0.0-20240416132216-a56a09c16f4e/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
