@@ -7,7 +7,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.2.6
 	github.com/bmc-toolbox/common v0.0.0-20240806132831-ba8adc6a35e3
 	github.com/bombsimon/logrusr/v2 v2.0.1
-	github.com/coreos/go-oidc/v3 v3.11.0
+	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/emicklei/dot v1.6.2
 	github.com/equinix-labs/otel-init-go v0.0.9
 	github.com/google/uuid v1.6.0
