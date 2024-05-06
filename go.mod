@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
-	github.com/bmc-toolbox/bmclib/v2 v2.2.5
+	github.com/bmc-toolbox/bmclib/v2 v2.2.6
 	github.com/bmc-toolbox/common v0.0.0-20240416132216-a56a09c16f4e
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/coreos/go-oidc v2.2.1+incompatible

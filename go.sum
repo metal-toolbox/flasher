@@ -109,6 +109,10 @@ github.com/bmc-toolbox/bmclib/v2 v2.2.4 h1:agAQuDLI/NNpKkxU+c+NfPZAu8ENBDE+kcTfz
 github.com/bmc-toolbox/bmclib/v2 v2.2.4/go.mod h1:V2XVg0Scpm16+0gE7WnI+5bU/M0c/o/nPZKHKzyVjAo=
 github.com/bmc-toolbox/bmclib/v2 v2.2.5 h1:m6uSekJuCxE871EItBuUuAWMpm3fhL3YGUntdWEVSHM=
 github.com/bmc-toolbox/bmclib/v2 v2.2.5/go.mod h1:V2XVg0Scpm16+0gE7WnI+5bU/M0c/o/nPZKHKzyVjAo=
+github.com/bmc-toolbox/bmclib/v2 v2.2.6-0.20240506063921-8d28227d3d73 h1:Mkx/wB7sZPQ1RiB3q38l7gO4CH80RCdHrDXAgGurY7A=
+github.com/bmc-toolbox/bmclib/v2 v2.2.6-0.20240506063921-8d28227d3d73/go.mod h1:V2XVg0Scpm16+0gE7WnI+5bU/M0c/o/nPZKHKzyVjAo=
+github.com/bmc-toolbox/bmclib/v2 v2.2.6 h1:ol2jVa1ERfBFZS5Ye1chORai+nkzt9J1LgTTMxjZ0mw=
+github.com/bmc-toolbox/bmclib/v2 v2.2.6/go.mod h1:V2XVg0Scpm16+0gE7WnI+5bU/M0c/o/nPZKHKzyVjAo=
 github.com/bmc-toolbox/common v0.0.0-20240416132216-a56a09c16f4e h1:MepqMSwXZPngO7KWD0MyaUKuQkZD/yNfpRJhYZszbr4=
 github.com/bmc-toolbox/common v0.0.0-20240416132216-a56a09c16f4e/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
