@@ -11,6 +11,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/flasher/internal/store"
+	"github.com/metal-toolbox/rivets/events/controller"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -33,14 +34,16 @@ func newHandler(
 	task *model.Task,
 	storage store.Repository,
 	publisher model.Publisher,
+	conditionRequestor controller.ConditionRequestor,
 	logger *logrus.Entry,
 ) runner.TaskHandler {
 	return &handler{
 		&runner.TaskHandlerContext{
-			Task:      task,
-			Publisher: publisher,
-			Store:     storage,
-			Logger:    logger,
+			Task:               task,
+			Publisher:          publisher,
+			ConditionRequestor: conditionRequestor,
+			Store:              storage,
+			Logger:             logger,
 		},
 	}
 }
@@ -100,13 +103,14 @@ func (t *handler) Query(ctx context.Context) error {
 }
 
 func (t *handler) PlanActions(ctx context.Context) error {
-	switch t.Task.FirmwarePlanMethod {
+	switch t.Task.Data.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
 		return t.planFromFirmwareSet(ctx)
 	case model.FromRequestedFirmware:
+		// inband worker code will go down this route
 		return errors.Wrap(errTaskPlanActions, "firmware plan method not implemented"+string(model.FromRequestedFirmware))
 	default:
-		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.Task.FirmwarePlanMethod))
+		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.Task.Data.FirmwarePlanMethod))
 	}
 }
 
@@ -122,19 +126,65 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 		return errors.Wrap(errTaskPlanActions, "planFromFirmwareSet(): firmware set lacks any members")
 	}
 
-	// plan actions based and update task action list
-	t.Task.ActionsPlanned, err = t.planInstall(ctx, applicable)
+	// split inband and out-of-band firmware into two slices
+	var oobFW, inbFW []*model.Firmware
+	for _, f := range applicable {
+		if f.InstallInband {
+			inbFW = append(inbFW, f)
+		} else {
+			oobFW = append(oobFW, f)
+		}
+	}
+
+	t.Task.Data.ActionsPlanned = []*model.Action{}
+
+	// first plan out-of-band install actions
+	oobActions, err := t.planInstallOutofband(ctx, oobFW)
 	if err != nil {
 		return err
+	}
+
+	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, oobActions...)
+
+	// second plan inband install actions
+	inbActions, err := t.planInstallInband(ctx, inbFW)
+	if err != nil {
+		return err
+	}
+
+	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, inbActions...)
+
+	if len(inbActions) > 0 {
+
 	}
 
 	return nil
 }
 
+func (t *handler) planInstallInband(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
+	// sort firmware in order of install
+	t.sortFirmwareByInstallOrder(firmwares)
+
+	var info string
+	if len(firmwares) > 0 {
+		info = "no in-band firmware installs required"
+	} else {
+		info = fmt.Sprintf("%d in-band firmware installs required", len(t.Task.Data.ActionsPlanned))
+	}
+
+	t.Task.Status.Append(info)
+	t.Publish(ctx)
+	t.Logger.Info(info)
+
+	// TODO: implement delegate action handler
+
+	return nil, nil
+}
+
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
+func (t *handler) planInstallOutofband(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
 	actions := model.Actions{}
 
 	t.Logger.WithFields(logrus.Fields{
@@ -150,11 +200,6 @@ func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) 
 	}
 
 	if len(toInstall) == 0 {
-		info := "no actions required for this task"
-
-		t.Publish(ctx)
-		t.Logger.Info(info)
-
 		return nil, nil
 	}
 
@@ -170,23 +215,8 @@ func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) 
 			Last:               (idx == len(toInstall)-1),
 		}
 
-		// rig install method until field is added into firmware table
-		firmware.InstallMethod = model.InstallMethodOutofband
-
-		var aHandler runner.ActionHandler
-
-		switch firmware.InstallMethod {
-		case model.InstallMethodInband:
-			return nil, errors.Wrap(errTaskPlanActions, "inband install method not supported")
-		case model.InstallMethodOutofband:
-			aHandler = &outofband.ActionHandler{}
-		default:
-			return nil, errors.Wrap(
-				errTaskPlanActions,
-				"unsupported install method: "+string(firmware.InstallMethod))
-		}
-
-		action, err := aHandler.ComposeAction(ctx, actionCtx)
+		actionHandler := &outofband.ActionHandler{}
+		action, err := actionHandler.ComposeAction(ctx, actionCtx)
 		if err != nil {
 			return nil, errors.Wrap(errTaskPlanActions, err.Error())
 		}
@@ -196,6 +226,17 @@ func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) 
 
 		actions = append(actions, action)
 	}
+
+	var info string
+	if len(toInstall) > 0 {
+		info = "no out-of-band firmware installs required"
+	} else {
+		info = fmt.Sprintf("%d out-of-band firmware installs required", len(t.Task.Data.ActionsPlanned))
+	}
+
+	t.Task.Status.Append(info)
+	t.Publish(ctx)
+	t.Logger.Info(info)
 
 	return actions, nil
 }
@@ -214,7 +255,7 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 
 	invMap := make(map[string]string)
 	for _, cmp := range t.Task.Asset.Components {
-		invMap[strings.ToLower(cmp.Slug)] = cmp.FirmwareInstalled
+		invMap[strings.ToLower(cmp.Name)] = cmp.Firmware.Installed
 	}
 
 	fmtCause := func(component, cause, currentV, requestedV string) string {

@@ -56,13 +56,13 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		},
 	}
 
-	task, err := model.NewTask(uuid.New(), taskParams)
+	task, err := model.NewTask(uuid.New(), rctypes.FirmwareInstall, taskParams)
 	if err != nil {
 		i.logger.Fatal(err)
 	}
 
 	task.Parameters.DryRun = params.DryRun
-	task.Asset = &model.Asset{
+	task.Asset = &rctypes.Asset{
 		BmcAddress:  net.ParseIP(params.BmcAddr),
 		BmcUsername: params.User,
 		BmcPassword: params.Pass,
@@ -70,7 +70,7 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		Vendor:      params.Vendor,
 	}
 
-	task.Status = model.NewTaskStatusRecord("initialized task")
+	task.Status = rctypes.NewTaskStatusRecord("initialized task")
 
 	le := i.logger.WithFields(
 		logrus.Fields{

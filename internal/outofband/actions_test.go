@@ -20,7 +20,7 @@ func TestComposeAction(t *testing.T) {
 			TaskHandlerContext: &runner.TaskHandlerContext{
 				Task: &model.Task{
 					Parameters: rctypes.FirmwareInstallTaskParameters{},
-					Asset:      &model.Asset{},
+					Asset:      &rctypes.Asset{},
 				},
 				Logger: logrus.NewEntry(logrus.New()),
 			},

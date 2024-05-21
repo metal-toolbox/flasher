@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -39,8 +38,6 @@ const (
 	StateActive    = rctypes.Active
 	StateSucceeded = rctypes.Succeeded
 	StateFailed    = rctypes.Failed
-
-	TaskVersion = "1.0"
 )
 
 var (
@@ -52,143 +49,103 @@ var (
 // A task performs one or more actions, each of the action corresponds to a Firmware planned for install.
 //
 // nolint:govet // fieldalignment - struct is better readable in its current form.
-type Task struct {
-	// StructVersion indicates the Task object version and is used to determine Task  compatibility.
-	StructVersion string `json:"task_version"`
+//type Task struct {
+//	// StructVersion indicates the Task object version and is used to determine Task  compatibility.
+//	StructVersion string `json:"task_version"`
+//
+//	// Task unique identifier, this is set to the Condition identifier.
+//	ID uuid.UUID `json:"id"`
+//
+//	// state is the state of the install
+//	State rctypes.State `json:"state"`
+//
+//	// status holds informational data on the state
+//	Status StatusRecord `json:"status"`
+//
+//	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
+//	FirmwarePlanMethod FirmwarePlanMethod `json:"firmware_plan_method,omitempty"`
+//
+//	// ActionsPlanned to be executed for each firmware to be installed.
+//	ActionsPlanned Actions `json:"actions_planned,omitempty"`
+//
+//	// Parameters for this task
+//	Parameters rctypes.FirmwareInstallTaskParameters `json:"parameters,omitempty"`
+//
+//	// Fault is a field to inject failures into a flasher task execution,
+//	// this is set from the Condition only when the worker is run with fault-injection enabled.
+//	Fault *rctypes.Fault `json:"fault,omitempty"`
+//
+//	// FacilityCode identifies the facility this task is to be executed in.
+//	FacilityCode string `json:"facility_code"`
+//
+//	// Data is an arbitrary key values map available to all task, action handler methods.
+//	Data map[string]string `json:"data,omitempty"`
+//
+//	// Asset holds attributes about the device under firmware install.
+//	Asset *Asset `json:"asset,omitempty"`
+//
+//	// WorkerID is the identifier for the worker executing this task.
+//	WorkerID string `json:"worker_id,omitempty"`
+//
+//	// Delegations holds the statuses for each of the conditions delegated by this task
+//	Delegations []*rctypes.StatusValue
+//
+//	CreatedAt   time.Time `json:"created_at,omitempty"`
+//	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+//	CompletedAt time.Time `json:"completed_at,omitempty"`
+//}
 
-	// Task unique identifier, this is set to the Condition identifier.
-	ID uuid.UUID `json:"id"`
+// Alias parameterized model.Task
+type Task rctypes.Task[rctypes.FirmwareInstallTaskParameters, *TaskData]
 
-	// state is the state of the install
-	State rctypes.State `json:"state"`
+func (t *Task) SetState(s rctypes.State) {
+	t.State = s
+}
 
-	// status holds informational data on the state
-	Status StatusRecord `json:"status"`
+func (t *Task) MustMarshal() json.RawMessage {
+	b, err := json.Marshal(t)
+	if err != nil {
+		panic(err)
+	}
 
+	return b
+}
+
+type TaskData struct {
 	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
 	FirmwarePlanMethod FirmwarePlanMethod `json:"firmware_plan_method,omitempty"`
 
 	// ActionsPlanned to be executed for each firmware to be installed.
 	ActionsPlanned Actions `json:"actions_planned,omitempty"`
 
-	// Parameters for this task
-	Parameters rctypes.FirmwareInstallTaskParameters `json:"parameters,omitempty"`
-
-	// Fault is a field to inject failures into a flasher task execution,
-	// this is set from the Condition only when the worker is run with fault-injection enabled.
-	Fault *rctypes.Fault `json:"fault,omitempty"`
-
-	// FacilityCode identifies the facility this task is to be executed in.
-	FacilityCode string `json:"facility_code"`
-
-	// Data is an arbitrary key values map available to all task, action handler methods.
-	Data map[string]string `json:"data,omitempty"`
-
-	// Asset holds attributes about the device under firmware install.
-	Asset *Asset `json:"asset,omitempty"`
-
-	// WorkerID is the identifier for the worker executing this task.
-	WorkerID string `json:"worker_id,omitempty"`
-
-	CreatedAt   time.Time `json:"created_at,omitempty"`
-	UpdatedAt   time.Time `json:"updated_at,omitempty"`
-	CompletedAt time.Time `json:"completed_at,omitempty"`
+	// Scratch is an arbitrary key values map available to all task, action handler methods.
+	Scratch map[string]string `json:"data,omitempty"`
 }
 
-// SetState implements the Task runner interface
-func (t *Task) SetState(state rctypes.State) error {
-	t.State = state
-	return nil
-}
-
-func NewTask(conditionID uuid.UUID, params *rctypes.FirmwareInstallTaskParameters) (Task, error) {
+func NewTask(conditionID uuid.UUID, kind rctypes.Kind, params *rctypes.FirmwareInstallTaskParameters) (Task, error) {
 	t := Task{
-		StructVersion: TaskVersion,
+		StructVersion: rctypes.TaskVersion1,
 		ID:            conditionID,
-		Status:        NewTaskStatusRecord("initialized task"),
+		Kind:          kind,
+		Status:        rctypes.NewTaskStatusRecord("initialized task"),
 		State:         StatePending,
 		Parameters:    *params,
-		Data:          make(map[string]string),
 	}
 
+	t.Data.Scratch = make(map[string]string)
 	if len(params.Firmwares) > 0 {
 		t.Parameters.Firmwares = params.Firmwares
-		t.FirmwarePlanMethod = FromRequestedFirmware
+		t.Data.FirmwarePlanMethod = FromRequestedFirmware
 
 		return t, nil
 	}
 
 	if params.FirmwareSetID != uuid.Nil {
 		t.Parameters.FirmwareSetID = params.FirmwareSetID
-		t.FirmwarePlanMethod = FromFirmwareSet
+		t.Data.FirmwarePlanMethod = FromFirmwareSet
 
 		return t, nil
 	}
 
 	return t, errors.Wrap(errTaskFirmwareParam, "no firmware list or firmwareSetID specified")
-}
-
-func NewTaskStatusRecord(s string) StatusRecord {
-	sr := StatusRecord{}
-	if s == "" {
-		return sr
-	}
-
-	sr.Append(s)
-
-	return sr
-}
-
-type StatusRecord struct {
-	StatusMsgs []StatusMsg `json:"records"`
-}
-
-type StatusMsg struct {
-	Timestamp time.Time `json:"ts,omitempty"`
-	Msg       string    `json:"msg,omitempty"`
-}
-
-func (sr *StatusRecord) Append(s string) {
-	if s == "" {
-		return
-	}
-
-	for _, r := range sr.StatusMsgs {
-		if r.Msg == s {
-			return
-		}
-	}
-
-	if len(sr.StatusMsgs) > 4 {
-		sr.StatusMsgs = sr.StatusMsgs[1:]
-	}
-
-	n := StatusMsg{Timestamp: time.Now(), Msg: s}
-
-	sr.StatusMsgs = append(sr.StatusMsgs, n)
-}
-
-func (sr *StatusRecord) Last() string {
-	if len(sr.StatusMsgs) == 0 {
-		return ""
-	}
-
-	return sr.StatusMsgs[len(sr.StatusMsgs)-1].Msg
-}
-
-func (sr *StatusRecord) Update(currentMsg, newMsg string) {
-	for idx, r := range sr.StatusMsgs {
-		if r.Msg == currentMsg {
-			sr.StatusMsgs[idx].Msg = newMsg
-		}
-	}
-}
-
-func (sr *StatusRecord) MustMarshal() json.RawMessage {
-	b, err := json.Marshal(sr)
-	if err != nil {
-		panic(err)
-	}
-
-	return b
 }

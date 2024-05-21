@@ -29,6 +29,7 @@ func TestNewTaskFromCondition(t *testing.T) {
 			func() *model.Task {
 				t, _ := model.NewTask(
 					uuid.MustParse("abc81024-f62a-4288-8730-3fab8ccea777"),
+					rctypes.FirmwareInstall,
 					&rctypes.FirmwareInstallTaskParameters{
 						AssetID:               uuid.MustParse("ede81024-f62a-4288-8730-3fab8cceab78"),
 						FirmwareSetID:         uuid.MustParse("9d70c28c-5f65-4088-b014-205c54ad4ac7"),

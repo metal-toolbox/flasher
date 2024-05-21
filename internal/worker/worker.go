@@ -79,7 +79,7 @@ func Run(
 }
 
 // Handle implements the controller.ConditionHandler interface
-func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Condition, publisher controller.ConditionStatusPublisher) error {
+func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Condition, helpers *controller.Helpers) error {
 	task, err := newTaskFromCondition(condition, h.dryrun, h.faultInjection)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
@@ -119,7 +119,12 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 	handler := newHandler(
 		task,
 		h.store,
-		model.NewNatsTaskStatusPublisher(publisher),
+		model.NewNatsTaskStatusPublisher(
+			hLogger,
+			helpers.ConditionStatusPublisher,
+			helpers.ConditionTaskRepository,
+		),
+		helpers.ConditionRequestor,
 		hLogger,
 	)
 
@@ -143,7 +148,7 @@ func newTaskFromCondition(condition *rctypes.Condition, dryRun, faultInjection b
 		return nil, errors.Wrap(errInitTask, "Firmware install task parameters error: "+err.Error())
 	}
 
-	t, err := model.NewTask(condition.ID, parameters)
+	t, err := model.NewTask(condition.ID, condition.Kind, parameters)
 	if err != nil {
 		return nil, err
 	}

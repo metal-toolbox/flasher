@@ -9,6 +9,8 @@ import (
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 var (
@@ -89,7 +91,7 @@ func (t *handler) PlanActions(ctx context.Context) error {
 	//nolint:errcheck  // SetState never returns an error
 	action.SetState(model.StatePending)
 
-	t.taskCtx.Task.ActionsPlanned = []*model.Action{action}
+	t.taskCtx.Task.Data.ActionsPlanned = []*model.Action{action}
 
 	return nil
 }
@@ -97,7 +99,7 @@ func (t *handler) PlanActions(ctx context.Context) error {
 func (t *handler) Publish(context.Context) {}
 
 // query device components inventory from the device itself.
-func (t *handler) queryFromDevice(ctx context.Context) (model.Components, error) {
+func (t *handler) queryFromDevice(ctx context.Context) (rtypes.Components, error) {
 	if t.taskCtx.DeviceQueryor == nil {
 		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
 		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and

@@ -29,6 +29,9 @@ type Action struct {
 	// Firmware to be installed, this is set in the Task Plan phase.
 	Firmware Firmware `json:"firmware"`
 
+	// In the remote inband case a list of firmwares will be delegated for install
+	Firmwares []Firmware `json:"firmwares"`
+
 	FirmwareInstallStep string `json:"firmware_install_step"`
 
 	// FirmwareTempFile is the temporary file downloaded to be installed.
@@ -85,4 +88,9 @@ func (a Actions) ByID(id string) *Action {
 	}
 
 	return nil
+}
+
+func (a Actions) Prepend(action *Action) Actions {
+	a = append([]*Action{action}, a...)
+	return a
 }

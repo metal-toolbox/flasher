@@ -5,11 +5,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 type Repository interface {
 	// AssetByID returns asset.
-	AssetByID(ctx context.Context, id string) (*model.Asset, error)
+	AssetByID(ctx context.Context, id string) (*rctypes.Asset, error)
 
 	FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*model.Firmware, error)
 

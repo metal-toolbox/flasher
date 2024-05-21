@@ -16,7 +16,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/fleetdb v0.17.1
-	github.com/metal-toolbox/rivets v1.0.4
+	github.com/metal-toolbox/rivets v1.0.5-0.20240507101451-ee305d6c8428
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
@@ -143,3 +143,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/metal-toolbox/rivets => ../rivets

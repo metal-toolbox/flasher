@@ -136,7 +136,7 @@ func (h *handler) powerOnServer(ctx context.Context) error {
 	}
 
 	// server is currently powered on and it wasn't powered on by flasher
-	if !serverIsPoweredOff && h.task.Data[devicePoweredOn] != "true" {
+	if !serverIsPoweredOff && h.task.Data.Scratch[devicePoweredOn] != "true" {
 		if h.task.Parameters.RequireHostPoweredOff {
 			return ErrRequireHostPoweredOff
 		}
@@ -160,7 +160,7 @@ func (h *handler) powerOnServer(ctx context.Context) error {
 		}
 	}
 
-	h.task.Data[devicePoweredOn] = "true"
+	h.task.Data.Scratch[devicePoweredOn] = "true"
 
 	return nil
 }
@@ -201,22 +201,22 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 
 	h.logger.WithFields(
 		logrus.Fields{
-			"component": found.Slug,
+			"component": found.Name,
 			"vendor":    found.Vendor,
 			"model":     found.Model,
 			"serial":    found.Serial,
-			"current":   found.FirmwareInstalled,
+			"current":   found.Firmware.Installed,
 			"expected":  expectedFirmware,
 		}).Debug("component version check")
 
-	if strings.TrimSpace(found.FirmwareInstalled) == "" {
+	if strings.TrimSpace(found.Firmware.Installed) == "" {
 		return ErrInstalledVersionUnknown
 	}
 
-	if !strings.EqualFold(expectedFirmware, found.FirmwareInstalled) {
+	if !strings.EqualFold(expectedFirmware, found.Firmware.Installed) {
 		return errors.Wrap(
 			ErrInstalledFirmwareNotEqual,
-			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, found.FirmwareInstalled),
+			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, found.Firmware.Installed),
 		)
 	}
 
@@ -261,6 +261,7 @@ func (h *handler) checkCurrentFirmware(ctx context.Context) error {
 			"expected":     h.firmware.Version,
 		}).Info("Installed firmware version equals expected")
 
+	// TODO: fix caller check on method
 	return ErrInstalledFirmwareEqual
 }
 
@@ -795,7 +796,7 @@ func (h *handler) conditionalPowerOffDevice(_ context.Context) (bool, error) {
 		return false, nil
 	}
 
-	wasPoweredOn, keyExists := h.task.Data[devicePoweredOn]
+	wasPoweredOn, keyExists := h.task.Data.Scratch[devicePoweredOn]
 	if !keyExists {
 		return false, nil
 	}

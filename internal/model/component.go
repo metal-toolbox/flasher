@@ -6,57 +6,18 @@ import (
 
 	"github.com/bmc-toolbox/common"
 	"github.com/pkg/errors"
+
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 // Component is a device component
-type Component struct {
-	Slug              string
-	Serial            string
-	Vendor            string
-	Model             string
-	FirmwareInstalled string
-}
-
-// Components is a slice of Component on which one or more methods may be available.
-type Components []*Component
-
-// BySlug returns a component that matches the slug value.
-func (c Components) BySlugModel(cSlug string, cModels []string) *Component {
-	// identify components that match the slug
-	slugsMatch := []*Component{}
-	for _, component := range c {
-		component := component
-		// skip non matching component slug
-		if !strings.EqualFold(cSlug, component.Slug) {
-			continue
-		}
-
-		// since theres a single BIOS, BMC (:fingers_crossed) component on a machine
-		// we look for further and return the found component
-		if strings.EqualFold(common.SlugBIOS, cSlug) || strings.EqualFold(common.SlugBMC, cSlug) {
-			return component
-		}
-
-		slugsMatch = append(slugsMatch, component)
-	}
-
-	// none found
-	if len(slugsMatch) == 0 {
-		return nil
-	}
-
-	// multiple components identified, match component by model
-	for _, find := range cModels {
-		for _, component := range slugsMatch {
-			find = strings.ToLower(strings.TrimSpace(find))
-			if strings.Contains(strings.ToLower(component.Model), find) {
-				return component
-			}
-		}
-	}
-
-	return nil
-}
+//type Component struct {
+//	Slug              string
+//	Serial            string
+//	Vendor            string
+//	Model             string
+//	FirmwareInstalled string
+//}
 
 // ComponentConvertor provides methods to convert a common.Device to its Component equivalents.
 type ComponentConverter struct {
@@ -77,7 +38,7 @@ func NewComponentConverter() *ComponentConverter { return &ComponentConverter{} 
 // TODO(joel): the bmc-toolbox/common Device component types could implement an interface with
 // methods to retrieve component - firmware installed, vendor, model, serial, slug attributes
 // this method can then call the interface methods instead of multiple small methods for each device component type.
-func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (Components, error) {
+func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (rtypes.Components, error) {
 	if device == nil {
 		return nil, errors.Wrap(ErrComponentConverter, "device object is nil")
 	}
@@ -85,7 +46,7 @@ func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (C
 	cc.deviceModel = common.FormatProductName(device.Model)
 	cc.deviceVendor = device.Vendor
 
-	componentsTmp := []*Component{}
+	componentsTmp := []*rtypes.Component{}
 	componentsTmp = append(componentsTmp,
 		cc.bios(device.BIOS),
 		cc.bmc(device.BMC),
@@ -103,7 +64,7 @@ func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (C
 	componentsTmp = append(componentsTmp, cc.storageControllers(device.StorageControllers)...)
 	componentsTmp = append(componentsTmp, cc.enclosures(device.Enclosures)...)
 
-	components := []*Component{}
+	components := []*rtypes.Component{}
 
 	for _, component := range componentsTmp {
 		if component == nil {
@@ -116,7 +77,7 @@ func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (C
 	return components, nil
 }
 
-func (cc *ComponentConverter) newComponent(slug, cvendor, cmodel, cserial string) (*Component, error) {
+func (cc *ComponentConverter) newComponent(slug, cvendor, cmodel, cserial string) (*rtypes.Component, error) {
 	slug = strings.ToLower(slug)
 
 	if cvendor == "" {
@@ -127,11 +88,11 @@ func (cc *ComponentConverter) newComponent(slug, cvendor, cmodel, cserial string
 		cmodel = cc.deviceModel
 	}
 
-	return &Component{
+	return &rtypes.Component{
 		Vendor: common.FormatVendorName(cvendor),
 		Model:  common.FormatProductName(cmodel),
 		Serial: cserial,
-		Slug:   slug,
+		Name:   slug,
 	}, nil
 }
 
@@ -143,12 +104,12 @@ func (cc *ComponentConverter) firmwareInstalled(firmware *common.Firmware) strin
 	return strings.TrimSpace(firmware.Installed)
 }
 
-func (cc *ComponentConverter) gpus(gpus []*common.GPU) []*Component {
+func (cc *ComponentConverter) gpus(gpus []*common.GPU) []*rtypes.Component {
 	if gpus == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(gpus))
+	components := make([]*rtypes.Component, 0, len(gpus))
 
 	for idx, c := range gpus {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -160,19 +121,19 @@ func (cc *ComponentConverter) gpus(gpus []*common.GPU) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) cplds(cplds []*common.CPLD) []*Component {
+func (cc *ComponentConverter) cplds(cplds []*common.CPLD) []*rtypes.Component {
 	if cplds == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(cplds))
+	components := make([]*rtypes.Component, 0, len(cplds))
 
 	for idx, c := range cplds {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -184,19 +145,19 @@ func (cc *ComponentConverter) cplds(cplds []*common.CPLD) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) tpms(tpms []*common.TPM) []*Component {
+func (cc *ComponentConverter) tpms(tpms []*common.TPM) []*rtypes.Component {
 	if tpms == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(tpms))
+	components := make([]*rtypes.Component, 0, len(tpms))
 
 	for idx, c := range tpms {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -208,19 +169,19 @@ func (cc *ComponentConverter) tpms(tpms []*common.TPM) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) cpus(cpus []*common.CPU) []*Component {
+func (cc *ComponentConverter) cpus(cpus []*common.CPU) []*rtypes.Component {
 	if cpus == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(cpus))
+	components := make([]*rtypes.Component, 0, len(cpus))
 
 	for idx, c := range cpus {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -232,19 +193,19 @@ func (cc *ComponentConverter) cpus(cpus []*common.CPU) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) storageControllers(controllers []*common.StorageController) []*Component {
+func (cc *ComponentConverter) storageControllers(controllers []*common.StorageController) []*rtypes.Component {
 	if controllers == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(controllers))
+	components := make([]*rtypes.Component, 0, len(controllers))
 
 	for idx, c := range controllers {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -256,19 +217,19 @@ func (cc *ComponentConverter) storageControllers(controllers []*common.StorageCo
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) psus(psus []*common.PSU) []*Component {
+func (cc *ComponentConverter) psus(psus []*common.PSU) []*rtypes.Component {
 	if psus == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(psus))
+	components := make([]*rtypes.Component, 0, len(psus))
 
 	for idx, c := range psus {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -280,19 +241,19 @@ func (cc *ComponentConverter) psus(psus []*common.PSU) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) drives(drives []*common.Drive) []*Component {
+func (cc *ComponentConverter) drives(drives []*common.Drive) []*rtypes.Component {
 	if drives == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(drives))
+	components := make([]*rtypes.Component, 0, len(drives))
 
 	for idx, c := range drives {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -304,19 +265,19 @@ func (cc *ComponentConverter) drives(drives []*common.Drive) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) nics(nics []*common.NIC) []*Component {
+func (cc *ComponentConverter) nics(nics []*common.NIC) []*rtypes.Component {
 	if nics == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(nics))
+	components := make([]*rtypes.Component, 0, len(nics))
 
 	for idx, c := range nics {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -328,19 +289,19 @@ func (cc *ComponentConverter) nics(nics []*common.NIC) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) dimms(dimms []*common.Memory) []*Component {
+func (cc *ComponentConverter) dimms(dimms []*common.Memory) []*rtypes.Component {
 	if dimms == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(dimms))
+	components := make([]*rtypes.Component, 0, len(dimms))
 
 	for idx, c := range dimms {
 		// skip empty dimm slots
@@ -361,19 +322,19 @@ func (cc *ComponentConverter) dimms(dimms []*common.Memory) []*Component {
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) enclosures(enclosures []*common.Enclosure) []*Component {
+func (cc *ComponentConverter) enclosures(enclosures []*common.Enclosure) []*rtypes.Component {
 	if enclosures == nil {
 		return nil
 	}
 
-	components := make([]*Component, 0, len(enclosures))
+	components := make([]*rtypes.Component, 0, len(enclosures))
 
 	for idx, c := range enclosures {
 		if strings.TrimSpace(c.Serial) == "" {
@@ -385,14 +346,14 @@ func (cc *ComponentConverter) enclosures(enclosures []*common.Enclosure) []*Comp
 			return nil
 		}
 
-		sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+		sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 		components = append(components, sc)
 	}
 
 	return components
 }
 
-func (cc *ComponentConverter) bmc(c *common.BMC) *Component {
+func (cc *ComponentConverter) bmc(c *common.BMC) *rtypes.Component {
 	if c == nil {
 		return nil
 	}
@@ -406,12 +367,12 @@ func (cc *ComponentConverter) bmc(c *common.BMC) *Component {
 		return nil
 	}
 
-	sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+	sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 
 	return sc
 }
 
-func (cc *ComponentConverter) bios(c *common.BIOS) *Component {
+func (cc *ComponentConverter) bios(c *common.BIOS) *rtypes.Component {
 	if c == nil {
 		return nil
 	}
@@ -425,12 +386,12 @@ func (cc *ComponentConverter) bios(c *common.BIOS) *Component {
 		return nil
 	}
 
-	sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+	sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 
 	return sc
 }
 
-func (cc *ComponentConverter) mainboard(c *common.Mainboard) *Component {
+func (cc *ComponentConverter) mainboard(c *common.Mainboard) *rtypes.Component {
 	if c == nil {
 		return nil
 	}
@@ -444,7 +405,7 @@ func (cc *ComponentConverter) mainboard(c *common.Mainboard) *Component {
 		return nil
 	}
 
-	sc.FirmwareInstalled = cc.firmwareInstalled(c.Firmware)
+	sc.Firmware.Installed = cc.firmwareInstalled(c.Firmware)
 
 	return sc
 }

@@ -7,8 +7,9 @@ import (
 	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
 	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
 
+	rtypes "github.com/metal-toolbox/rivets/types"
+
 	"github.com/bmc-toolbox/common"
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 )
 
@@ -116,18 +117,17 @@ func (s *FleetDBAPI) vendorModelFromAttributes(attributes []fleetdbapi.Attribute
 	return
 }
 
-func (s *FleetDBAPI) fromServerserviceComponents(scomponents fleetdbapi.ServerComponentSlice) model.Components {
-	components := make(model.Components, 0, len(scomponents))
+func (s *FleetDBAPI) fromServerserviceComponents(scomponents fleetdbapi.ServerComponentSlice) []*rtypes.Component {
+	components := make([]*rtypes.Component, 0, len(scomponents))
 
 	// nolint:gocritic // rangeValCopy - this type is returned in the current form by fleetdb API.
 	for _, sc := range scomponents {
-		components = append(components, &model.Component{
-			Slug:              sc.ComponentTypeSlug,
-			Serial:            sc.Serial,
-			Vendor:            sc.Vendor,
-			Model:             sc.Model,
-			FirmwareInstalled: s.firmwareFromVersionedAttributes(sc.VersionedAttributes),
-		})
+		c, err := rfleetdb.RecordToComponent(&sc)
+		if err != nil {
+			s.logger.WithError(err).Warn("failed to convert component from fleetdb record: " + c.Name)
+		}
+
+		components = append(components)
 	}
 
 	return components

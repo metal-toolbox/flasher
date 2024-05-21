@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/equinix-labs/otel-init-go/otelinit"
 	"github.com/metal-toolbox/flasher/internal/app"
@@ -12,6 +11,8 @@ import (
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/worker"
 	"github.com/metal-toolbox/rivets/events/controller"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -88,7 +89,7 @@ func runWorker(ctx context.Context) {
 		"firmwareInstall",
 		natsCfg.NatsURL,
 		natsCfg.CredsFile,
-		"firmwareInstall",
+		rctypes.FirmwareInstall,
 		controller.WithConcurrency(flasher.Config.Concurrency),
 		controller.WithKVReplicas(natsCfg.KVReplicas),
 		controller.WithLogger(flasher.Logger),
@@ -110,11 +111,7 @@ func runWorker(ctx context.Context) {
 }
 
 func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
-	switch {
-	// from CLI flags
-	case strings.HasSuffix(storeKind, ".yml"), strings.HasSuffix(storeKind, ".yaml"):
-		return store.NewYamlInventory(storeKind)
-	case storeKind == string(model.InventoryStoreServerservice):
+	if storeKind == string(model.InventoryStoreServerservice) {
 		return store.NewServerserviceStore(ctx, config.FleetDBAPIOptions, logger)
 	}
 
@@ -122,7 +119,7 @@ func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Lo
 }
 
 func init() {
-	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "Inventory store to lookup devices for update - 'serverservice' or an inventory file with a .yml/.yaml extenstion")
+	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "Inventory store to lookup devices for update - fleetdb.")
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
 	cmdRun.PersistentFlags().BoolVarP(&faultInjection, "fault-injection", "", false, "Tasks can include a Fault attribute to allow fault injection for development purposes")
 	cmdRun.PersistentFlags().StringVar(&facilityCode, "facility-code", "", "The facility code this flasher instance is associated with")

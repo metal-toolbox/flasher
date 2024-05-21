@@ -19,12 +19,12 @@ import (
 	logrusrv2 "github.com/bombsimon/logrusr/v2"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
+	rctypes "github.com/metal-toolbox/rivets/condition"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/exp/slices"
 	"golang.org/x/net/publicsuffix"
 
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -73,7 +73,7 @@ func newHTTPClient() *http.Client {
 }
 
 // newBmclibv2Client initializes a bmclib client with the given credentials
-func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *bmclib.Client {
+func newBmclibv2Client(_ context.Context, asset *rctypes.Asset, l *logrus.Entry) *bmclib.Client {
 	logger := logrus.New()
 	if l != nil {
 		logger.Formatter = l.Logger.Formatter

@@ -23,7 +23,6 @@ const (
 	uploadFirmwareInitiateInstall model.StepName = "uploadFirmwareInitiateInstall"
 	installUploadedFirmware       model.StepName = "installUploadedFirmware"
 	pollInstallStatus             model.StepName = "pollInstallStatus"
-	resetDevice                   model.StepName = "resetDevice"
 )
 
 const (

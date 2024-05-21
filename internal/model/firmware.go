@@ -10,15 +10,15 @@ import (
 //
 // nolint:govet // fieldalignment struct is easier to read in the current format
 type Firmware struct {
-	ID            string        `yaml:"id"`
-	Vendor        string        `yaml:"vendor"`
-	Models        []string      `yaml:"models"`
-	FileName      string        `yaml:"filename"`
-	Version       string        `yaml:"version"`
-	URL           string        `yaml:"URL"`
-	Component     string        `yaml:"component"`
-	Checksum      string        `yaml:"checksum"`
-	InstallMethod InstallMethod `yaml:"install_method"`
+	ID            string   `yaml:"id"`
+	Vendor        string   `yaml:"vendor"`
+	Models        []string `yaml:"models"`
+	FileName      string   `yaml:"filename"`
+	Version       string   `yaml:"version"`
+	URL           string   `yaml:"URL"`
+	Component     string   `yaml:"component"`
+	Checksum      string   `yaml:"checksum"`
+	InstallInband bool     `yaml:"install_inband"`
 }
 
 var (

@@ -15,7 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
+	"github.com/bmc-toolbox/common"
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 func TestSortFirmwareByInstallOrder(t *testing.T) {
@@ -114,16 +116,16 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		Task: &model.Task{
 			ID:       serverID, // it just needs to be a UUID
 			WorkerID: registry.GetID("test-app").String(),
-			Asset: &model.Asset{
+			Asset: &rctypes.Asset{
 				ID: serverID,
-				Components: model.Components{
+				Components: rtypes.Components{
 					{
-						Slug:              "BiOs",
-						FirmwareInstalled: "2.6.6",
+						Name:     "BiOs",
+						Firmware: &common.Firmware{Installed: "2.6.6"},
 					},
 					{
-						Slug:              "nic",
-						FirmwareInstalled: "some-different-version",
+						Name:     "nic",
+						Firmware: &common.Firmware{Installed: "some-different-version"},
 					},
 				},
 			},
@@ -148,7 +150,7 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 	require.Equal(t, expected[0], got[0])
 }
 
-func TestPlanInstall(t *testing.T) {
+func TestPlanInstallOutofband(t *testing.T) {
 	t.Parallel()
 	fwSet := []*model.Firmware{
 		{
@@ -158,7 +160,7 @@ func TestPlanInstall(t *testing.T) {
 			Models:        []string{"r6515"},
 			Checksum:      "4189d3cb123a781d09a4f568bb686b23c6d8e6b82038eba8222b91c380a25281",
 			Component:     "bmc",
-			InstallMethod: model.InstallMethodOutofband,
+			InstallInband: false,
 		},
 		{
 			Version:       "2.19.6",
@@ -167,7 +169,7 @@ func TestPlanInstall(t *testing.T) {
 			Models:        []string{"r6515"},
 			Checksum:      "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c6368b6c5f4",
 			Component:     "bios",
-			InstallMethod: model.InstallMethodOutofband,
+			InstallInband: false,
 		},
 		{
 			Version:       "1.2.3",
@@ -176,7 +178,7 @@ func TestPlanInstall(t *testing.T) {
 			Models:        []string{"r6515"},
 			Checksum:      "1ddcb3c3d0fc5925ef03a3dde768e9e245c579039dd958fc0f3a9c63aaaaaaa",
 			Component:     "nic",
-			InstallMethod: model.InstallMethodOutofband,
+			InstallInband: false,
 		},
 	}
 
@@ -193,20 +195,20 @@ func TestPlanInstall(t *testing.T) {
 				AssetID:               serverID,
 				ResetBMCBeforeInstall: true,
 			},
-			Asset: &model.Asset{
+			Asset: &rctypes.Asset{
 				ID: serverID,
-				Components: model.Components{
+				Components: rtypes.Components{
 					{
-						Slug:              "BiOs",
-						FirmwareInstalled: "2.6.6",
+						Name:     "BiOs",
+						Firmware: &common.Firmware{Installed: "2.6.6"},
 					},
 					{
-						Slug:              "bmc",
-						FirmwareInstalled: "5.10.00.00",
+						Name:     "bmc",
+						Firmware: &common.Firmware{Installed: "5.10.00.00"},
 					},
 					{
-						Slug:              "nic",
-						FirmwareInstalled: "1.2.2",
+						Name:     "nic",
+						Firmware: &common.Firmware{Installed: "1.2.2"},
 					},
 				},
 			},
@@ -223,7 +225,7 @@ func TestPlanInstall(t *testing.T) {
 		}, nil)
 
 	h := &handler{taskHandlerCtx}
-	actions, err := h.planInstall(context.Background(), fwSet)
+	actions, err := h.planInstallOutofband(context.Background(), fwSet)
 	require.NoError(t, err, "no errors returned")
 	require.Equal(t, 2, len(actions), "expect two actions to be performed")
 	require.True(t, actions[0].BMCResetPreInstall, "expect BMCResetPreInstall is true on the first action")
@@ -235,7 +237,7 @@ func TestPlanInstall(t *testing.T) {
 	require.Equal(t, "nic", actions[1].Firmware.Component, "expect nic component action")
 }
 
-func TestPlanInstall2(t *testing.T) {
+func TestPlanInstallOutofband2(t *testing.T) {
 	t.Parallel()
 	fwSet := []*model.Firmware{
 		{
@@ -277,20 +279,20 @@ func TestPlanInstall2(t *testing.T) {
 				AssetID:      serverID,
 				ForceInstall: true,
 			},
-			Asset: &model.Asset{
+			Asset: &rctypes.Asset{
 				ID: serverID,
-				Components: model.Components{
+				Components: rtypes.Components{
 					{
-						Slug:              "BiOs",
-						FirmwareInstalled: "2.6.6",
+						Name:     "BiOs",
+						Firmware: &common.Firmware{Installed: "2.6.6"},
 					},
 					{
-						Slug:              "bmc",
-						FirmwareInstalled: "5.10.00.00",
+						Name:     "bmc",
+						Firmware: &common.Firmware{Installed: "5.10.00.00"},
 					},
 					{
-						Slug:              "nic",
-						FirmwareInstalled: "1.2.2",
+						Name:     "nic",
+						Firmware: &common.Firmware{Installed: "1.2.2"},
 					},
 				},
 			},
@@ -307,7 +309,7 @@ func TestPlanInstall2(t *testing.T) {
 		}, nil)
 
 	h := &handler{taskHandlerCtx}
-	actions, err := h.planInstall(context.Background(), fwSet)
+	actions, err := h.planInstallOutofband(context.Background(), fwSet)
 	require.NoError(t, err, "no errors returned")
 	require.Equal(t, 3, len(actions), "expect three actions to be performed")
 	require.False(t, actions[0].BMCResetPreInstall, "expect BMCResetPreInstall is false on the first action")

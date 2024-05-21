@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	"github.com/metal-toolbox/rivets/events/controller"
 )
 
 // A Runner instance runs a single task, to install firmware on one or more server components.
@@ -35,6 +36,9 @@ type TaskHandler interface {
 type TaskHandlerContext struct {
 	// Publisher provides a method to publish task information
 	Publisher model.Publisher
+
+	// ConditionRequestor provides methods to delegate and query a condition status
+	ConditionRequestor controller.ConditionRequestor
 
 	// The task this action belongs to
 	Task *model.Task
@@ -86,7 +90,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 
 	taskFailed := func(err error) error {
 		// no error returned
-		_ = task.SetState(model.StateFailed)
+		task.SetState(model.StateFailed)
 		task.Status.Append("task failed")
 		task.Status.Append(err.Error())
 		handler.Publish(ctx)
@@ -98,7 +102,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 
 	taskSuccess := func() error {
 		// no error returned
-		_ = task.SetState(model.StateSucceeded)
+		task.SetState(model.StateSucceeded)
 		task.Status.Append("task completed successfully")
 		handler.Publish(ctx)
 
@@ -117,7 +121,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 	}() // nolint:errcheck // nope
 
 	// no error returned
-	_ = task.SetState(model.StateActive)
+	task.SetState(model.StateActive)
 	handler.Publish(ctx)
 
 	// initialize, plan actions
@@ -131,13 +135,13 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 		}
 	}
 
-	r.logger.WithField("planned.actions", len(task.ActionsPlanned)).Debug("start running planned actions")
+	r.logger.WithField("planned.actions", len(task.Data.ActionsPlanned)).Debug("start running planned actions")
 
 	if err := r.runActions(ctx, task, handler); err != nil {
 		return taskFailed(err)
 	}
 
-	r.logger.WithField("planned.actions", len(task.ActionsPlanned)).Debug("finished running planned actions")
+	r.logger.WithField("planned.actions", len(task.Data.ActionsPlanned)).Debug("finished running planned actions")
 
 	return taskSuccess()
 }
@@ -151,10 +155,10 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 	publish := func(state rctypes.State, action *model.Action, stepName model.StepName, logger *logrus.Entry) {
 		logger.WithField("step", stepName).Debug("running step")
 		task.Status.Append(fmt.Sprintf(
-			"[%s] install version: %s, method: %s, state: %s, step %s",
+			"[%s] install version: %s, inband: %s, state: %s, step %s",
 			action.Firmware.Component,
 			action.Firmware.Version,
-			action.Firmware.InstallMethod,
+			action.Firmware.InstallInband,
 			state,
 			stepName,
 		))
@@ -163,7 +167,7 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 	}
 
 	// each action corresponds to a firmware to be installed
-	for _, action := range task.ActionsPlanned {
+	for _, action := range task.Data.ActionsPlanned {
 		startTS := time.Now()
 
 		actionLogger := r.logger.WithFields(logrus.Fields{

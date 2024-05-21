@@ -31,7 +31,7 @@ func GraphSteps(ctx context.Context, g *dot.Graph) error {
 				Parameters: rctypes.FirmwareInstallTaskParameters{
 					ResetBMCBeforeInstall: true,
 				},
-				Asset: &model.Asset{},
+				Asset: &rctypes.Asset{},
 			},
 			Logger:        logrus.NewEntry(logrus.New()),
 			DeviceQueryor: m,
