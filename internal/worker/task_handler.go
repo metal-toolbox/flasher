@@ -11,7 +11,6 @@ import (
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/flasher/internal/store"
-	"github.com/metal-toolbox/rivets/events/controller"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -34,16 +33,14 @@ func newHandler(
 	task *model.Task,
 	storage store.Repository,
 	publisher model.Publisher,
-	conditionRequestor controller.ConditionRequestor,
 	logger *logrus.Entry,
 ) runner.TaskHandler {
 	return &handler{
 		&runner.TaskHandlerContext{
-			Task:               task,
-			Publisher:          publisher,
-			ConditionRequestor: conditionRequestor,
-			Store:              storage,
-			Logger:             logger,
+			Task:      task,
+			Publisher: publisher,
+			Store:     storage,
+			Logger:    logger,
 		},
 	}
 }

@@ -79,7 +79,13 @@ func RunOutofband(
 }
 
 // Handle implements the controller.ConditionHandler interface
-func (h *OobConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Condition, helpers *controller.Helpers) error {
+func (h *OobConditionTaskHandler) Handle(
+	ctx context.Context,
+	condition *rctypes.Condition,
+	genericTask *rctypes.Task[any, any],
+	conditionStatuspublisher controller.ConditionStatusPublisher,
+	taskRepository controller.ConditionTaskRepository,
+) error {
 	task, err := newTaskFromCondition(condition, h.dryrun, h.faultInjection)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
@@ -121,10 +127,9 @@ func (h *OobConditionTaskHandler) Handle(ctx context.Context, condition *rctypes
 		h.store,
 		model.NewTaskStatusPublisher(
 			hLogger,
-			helpers.ConditionStatusPublisher,
-			helpers.ConditionTaskRepository,
+			conditionStatuspublisher,
+			taskRepository,
 		),
-		helpers.ConditionRequestor,
 		hLogger,
 	)
 
