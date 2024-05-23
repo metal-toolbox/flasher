@@ -2,32 +2,21 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/version"
+	rctypes "github.com/metal-toolbox/rivets/condition"
+	"github.com/metal-toolbox/rivets/events/controller"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
-
-	rctypes "github.com/metal-toolbox/rivets/condition"
-	"github.com/metal-toolbox/rivets/events/controller"
 )
 
-const (
-	pkgName = "internal/worker"
-)
-
-var (
-	errInitTask = errors.New("error initializing new task from condition")
-)
-
-type ConditionTaskHandler struct {
+type InbandConditionTaskHandler struct {
 	store          store.Repository
-	syncWG         *sync.WaitGroup
 	logger         *logrus.Logger
 	facilityCode   string
 	controllerID   string
@@ -35,8 +24,8 @@ type ConditionTaskHandler struct {
 	faultInjection bool
 }
 
-// NewOutofbandWorker returns a out of band firmware install worker instance
-func Run(
+// RunInband initializes the inband installer
+func RunInband(
 	ctx context.Context,
 	dryrun,
 	faultInjection bool,
@@ -59,10 +48,10 @@ func Run(
 			"dry-run":        dryrun,
 			"faultInjection": faultInjection,
 		},
-	).Info("flasher worker running")
+	).Info("flasher inband installer running")
 
 	handlerFactory := func() controller.ConditionHandler {
-		return &ConditionTaskHandler{
+		return &OobConditionTaskHandler{
 			store:          repository,
 			syncWG:         &sync.WaitGroup{},
 			logger:         logger,
@@ -79,7 +68,7 @@ func Run(
 }
 
 // Handle implements the controller.ConditionHandler interface
-func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Condition, helpers *controller.Helpers) error {
+func (h *InbandConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Condition, ) error {
 	task, err := newTaskFromCondition(condition, h.dryrun, h.faultInjection)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
@@ -119,7 +108,7 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 	handler := newHandler(
 		task,
 		h.store,
-		model.NewNatsTaskStatusPublisher(
+		model.NewTaskStatusPublisher(
 			hLogger,
 			helpers.ConditionStatusPublisher,
 			helpers.ConditionTaskRepository,
@@ -139,27 +128,4 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 
 	hLogger.Info("task for device completed")
 	return nil
-}
-
-// newTaskFromMsg returns a new task object with the given parameters
-func newTaskFromCondition(condition *rctypes.Condition, dryRun, faultInjection bool) (*model.Task, error) {
-	parameters := &rctypes.FirmwareInstallTaskParameters{}
-	if err := json.Unmarshal(condition.Parameters, parameters); err != nil {
-		return nil, errors.Wrap(errInitTask, "Firmware install task parameters error: "+err.Error())
-	}
-
-	t, err := model.NewTask(condition.ID, condition.Kind, parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	if faultInjection && condition.Fault != nil {
-		t.Fault = condition.Fault
-	}
-
-	if dryRun {
-		t.Parameters.DryRun = true
-	}
-
-	return &t, nil
 }

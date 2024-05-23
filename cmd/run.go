@@ -32,6 +32,8 @@ var cmdRun = &cobra.Command{
 // run worker command
 var (
 	dryrun         bool
+	runsInband     bool
+	runsOutofband  bool
 	faultInjection bool
 	facilityCode   string
 	storeKind      string
@@ -78,6 +80,17 @@ func runWorker(ctx context.Context) {
 		flasher.Logger.Fatal("--facility-code parameter required")
 	}
 
+	if runsOutofband {
+		runOutoband(ctx, flasher, repository)
+		return
+	}
+
+	if runsInband {
+
+	}
+}
+
+func runOutoband(ctx context.Context, flasher *app.App, repository store.Repository) {
 	natsCfg, err := flasher.NatsParams()
 	if err != nil {
 		flasher.Logger.Fatal(err)
@@ -100,7 +113,7 @@ func runWorker(ctx context.Context) {
 		flasher.Logger.Fatal(err)
 	}
 
-	worker.Run(
+	worker.RunOutofband(
 		ctx,
 		dryrun,
 		faultInjection,
@@ -121,12 +134,17 @@ func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Lo
 func init() {
 	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "Inventory store to lookup devices for update - fleetdb.")
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
+	cmdRun.PersistentFlags().BoolVarP(&runsInband, "inband", "", false, "Runs worker in inband firmware install mode")
+	cmdRun.PersistentFlags().BoolVarP(&runsOutofband, "outofband", "", false, "Runs worker in out-of-band firmware install mode")
 	cmdRun.PersistentFlags().BoolVarP(&faultInjection, "fault-injection", "", false, "Tasks can include a Fault attribute to allow fault injection for development purposes")
 	cmdRun.PersistentFlags().StringVar(&facilityCode, "facility-code", "", "The facility code this flasher instance is associated with")
 
 	if err := cmdRun.MarkPersistentFlagRequired("store"); err != nil {
 		log.Fatal(err)
 	}
+
+	cmdRun.MarkFlagsMutuallyExclusive("inband", "outofband")
+	cmdRun.MarkFlagsOneRequired("inband", "outofband")
 
 	rootCmd.AddCommand(cmdRun)
 }

@@ -26,7 +26,7 @@ type StatusPublisher struct {
 	ctp    controller.ConditionTaskRepository
 }
 
-func NewNatsTaskStatusPublisher(logger *logrus.Entry, csp controller.ConditionStatusPublisher, ctp controller.ConditionTaskRepository) Publisher {
+func NewTaskStatusPublisher(logger *logrus.Entry, csp controller.ConditionStatusPublisher, ctp controller.ConditionTaskRepository) Publisher {
 	return &StatusPublisher{
 		logger,
 		csp,

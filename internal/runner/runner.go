@@ -37,7 +37,7 @@ type TaskHandlerContext struct {
 	// Publisher provides a method to publish task information
 	Publisher model.Publisher
 
-	// ConditionRequestor provides methods to delegate and query a condition status
+	// ConditionRequestor provides methods to retrieve a condition from the queue and query its status
 	ConditionRequestor controller.ConditionRequestor
 
 	// The task this action belongs to
