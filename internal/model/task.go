@@ -149,3 +149,50 @@ func NewTask(conditionID uuid.UUID, kind rctypes.Kind, params *rctypes.FirmwareI
 
 	return t, errors.Wrap(errTaskFirmwareParam, "no firmware list or firmwareSetID specified")
 }
+
+func ConvToFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
+	fwInstallParams, ok := task.Parameters.(rctypes.FirmwareInstallTaskParameters)
+	if !ok {
+		return nil, errors.New("parameters are not of type FirmwareInstallTaskParameters")
+	}
+
+	return &Task{
+		StructVersion: task.StructVersion,
+		ID:            task.ID,
+		Kind:          task.Kind,
+		State:         task.State,
+		Status:        task.Status,
+		Data:          &TaskData{},
+		Parameters:    fwInstallParams,
+		Fault:         task.Fault,
+		FacilityCode:  task.FacilityCode,
+		Asset:         task.Asset,
+		WorkerID:      task.WorkerID,
+		TraceID:       task.TraceID,
+		SpanID:        task.SpanID,
+		CreatedAt:     task.CreatedAt,
+		UpdatedAt:     task.UpdatedAt,
+		CompletedAt:   task.CompletedAt,
+	}, nil
+}
+
+func ConvToGenericTask(task *Task) *rctypes.Task[any, any] {
+	return &rctypes.Task[any, any]{
+		StructVersion: task.StructVersion,
+		ID:            task.ID,
+		Kind:          task.Kind,
+		State:         task.State,
+		Status:        task.Status,
+		Data:          task.Data,
+		Parameters:    task.Parameters,
+		Fault:         task.Fault,
+		FacilityCode:  task.FacilityCode,
+		Asset:         task.Asset,
+		WorkerID:      task.WorkerID,
+		TraceID:       task.TraceID,
+		SpanID:        task.SpanID,
+		CreatedAt:     task.CreatedAt,
+		UpdatedAt:     task.UpdatedAt,
+		CompletedAt:   task.CompletedAt,
+	}
+}

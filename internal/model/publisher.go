@@ -49,7 +49,7 @@ func (s *StatusPublisher) Publish(ctx context.Context, task *Task) error {
 
 	s.logger.Trace("Condition Status publish successful")
 
-	if err := s.ctp.Publish(ctx, task.MustMarshal()); err != nil {
+	if err := s.ctp.Publish(ctx, ConvToGenericTask(task)); err != nil {
 		err = errors.Wrap(ErrPublishTask, err.Error())
 		s.logger.WithError(err).Warn("Task publish error")
 

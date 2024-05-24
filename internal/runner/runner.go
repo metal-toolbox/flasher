@@ -15,7 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	rctypes "github.com/metal-toolbox/rivets/condition"
-	"github.com/metal-toolbox/rivets/events/controller"
 )
 
 // A Runner instance runs a single task, to install firmware on one or more server components.
@@ -36,9 +35,6 @@ type TaskHandler interface {
 type TaskHandlerContext struct {
 	// Publisher provides a method to publish task information
 	Publisher model.Publisher
-
-	// ConditionRequestor provides methods to retrieve a condition from the queue and query its status
-	ConditionRequestor controller.ConditionRequestor
 
 	// The task this action belongs to
 	Task *model.Task

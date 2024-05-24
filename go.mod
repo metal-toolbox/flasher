@@ -149,3 +149,5 @@ require (
 )
 
 replace github.com/metal-toolbox/rivets => ../rivets
+
+replace github.com/metal-toolbox/conditionorc => ../conditionorc

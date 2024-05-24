@@ -86,7 +86,8 @@ func runWorker(ctx context.Context) {
 	}
 
 	if runsInband {
-
+		runInband(ctx, flasher, repository)
+		return
 	}
 }
 
@@ -117,6 +118,42 @@ func runOutoband(ctx context.Context, flasher *app.App, repository store.Reposit
 		ctx,
 		dryrun,
 		faultInjection,
+		repository,
+		nc,
+		flasher.Logger,
+	)
+}
+
+func runInband(ctx context.Context, flasher *app.App, repository store.Repository) {
+	cfgLoadedApi, err := flasher.OrchestratorApi()
+	if err != nil {
+		flasher.Logger.Fatal(err)
+	}
+
+	orcConfig := &controller.OrchestratorApiConfig{
+		Endpoint:     cfgLoadedApi.Endpoint,
+		AuthDisabled: cfgLoadedApi.AuthDisabled,
+		AuthToken:    cfgLoadedApi.AuthToken,
+	}
+
+	cfgLoadedInband, err := flasher.InbandInstallParams()
+	if err != nil {
+		flasher.Logger.Fatal(err)
+	}
+
+	nc := controller.NewNatsHTTPController(
+		facilityCode,
+		cfgLoadedInband.ServerID,
+		rctypes.FirmwareInstallInband,
+		orcConfig,
+		controller.WithNatsHttpLogger(flasher.Logger),
+	)
+
+	worker.RunInband(
+		ctx,
+		dryrun,
+		faultInjection,
+		facilityCode,
 		repository,
 		nc,
 		flasher.Logger,

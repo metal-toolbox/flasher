@@ -184,6 +184,54 @@ func (a *App) NatsParams() (NatsConfig, error) {
 	return cfg, nil
 }
 
+type OrchestratorApi struct {
+	Endpoint     string
+	AuthDisabled bool
+	AuthToken    string
+}
+
+func (a *App) OrchestratorApi() (OrchestratorApi, error) {
+	cfg := OrchestratorApi{}
+
+	if a.v.GetString("orchestrator.api.endpoint") != "" {
+		cfg.Endpoint = a.v.GetString("orchestrator.api.endpoint")
+	} else {
+		return cfg, errors.New("missing parameter: orchestrator.api.endpoint")
+	}
+
+	if a.v.GetBool("orchestrator.api.disable.oauth") == true {
+		cfg.AuthDisabled = true
+	}
+
+	if cfg.AuthDisabled {
+		return cfg, nil
+	}
+
+	if a.v.GetString("orchestrator.api.authtoken") != "" {
+		cfg.AuthToken = a.v.GetString("orchestrator.api.authtoken")
+	} else {
+		return cfg, errors.New("missing parameter: orchestrator.api.authtoken")
+	}
+
+	return cfg, nil
+}
+
+type InbandInstallParams struct {
+	ServerID string
+}
+
+func (a *App) InbandInstallParams() (InbandInstallParams, error) {
+	cfg := InbandInstallParams{}
+
+	if a.v.GetString("serverid") != "" {
+		cfg.ServerID = a.v.GetString("serverid")
+	} else {
+		return cfg, errors.New("missing parameter: serverid")
+	}
+
+	return cfg, nil
+}
+
 // Server service configuration options
 
 // nolint:gocyclo // parameter validation is cyclomatic

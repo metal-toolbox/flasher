@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -16,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+// implements the controller.ConditionHandler interface
 type InbandConditionTaskHandler struct {
 	store          store.Repository
 	logger         *logrus.Logger
@@ -32,8 +32,9 @@ func RunInband(
 	ctx context.Context,
 	dryrun,
 	faultInjection bool,
+	facilityCode string,
 	repository store.Repository,
-	nc *controller.NatsController,
+	nc *controller.NatsHttpController,
 	logger *logrus.Logger,
 ) {
 	ctx, span := otel.Tracer(pkgName).Start(
@@ -53,47 +54,18 @@ func RunInband(
 		},
 	).Info("flasher inband installer running")
 
-	handlerFactory := func() controller.ConditionHandler {
-		return &OobConditionTaskHandler{
-			store:          repository,
-			syncWG:         &sync.WaitGroup{},
-			logger:         logger,
-			dryrun:         dryrun,
-			faultInjection: faultInjection,
-			facilityCode:   nc.FacilityCode(),
-			controllerID:   nc.ID(),
-		}
+	inbHandler := InbandConditionTaskHandler{
+		store:          repository,
+		logger:         logger,
+		dryrun:         dryrun,
+		faultInjection: faultInjection,
+		facilityCode:   facilityCode,
+		controllerID:   nc.ID(),
 	}
 
-	if err := nc.ListenEvents(ctx, handlerFactory); err != nil {
+	if err := nc.Run(ctx, &inbHandler); err != nil {
 		logger.Fatal(err)
 	}
-}
-
-func convToFwInstallTask(task *rctypes.Task[any, any]) (*model.Task, error) {
-	fwInstallParams, ok := task.Parameters.(rctypes.FirmwareInstallTaskParameters)
-	if !ok {
-		return nil, errors.New("parameters are not of type FirmwareInstallTaskParameters")
-	}
-
-	return &model.Task{
-		StructVersion: task.StructVersion,
-		ID:            task.ID,
-		Kind:          task.Kind,
-		State:         task.State,
-		Status:        task.Status,
-		Data:          &model.TaskData{},
-		Parameters:    fwInstallParams,
-		Fault:         task.Fault,
-		FacilityCode:  task.FacilityCode,
-		Asset:         task.Asset,
-		WorkerID:      task.WorkerID,
-		TraceID:       task.TraceID,
-		SpanID:        task.SpanID,
-		CreatedAt:     task.CreatedAt,
-		UpdatedAt:     task.UpdatedAt,
-		CompletedAt:   task.CompletedAt,
-	}, nil
 }
 
 // Handle implements the controller.ConditionHandler interface
@@ -112,7 +84,7 @@ func (h *InbandConditionTaskHandler) Handle(
 		return errors.Wrap(errInitTask, "expected a generic Task object, got nil")
 	}
 
-	task, err := convToFwInstallTask(genericTask)
+	task, err := model.ConvToFwInstallTask(genericTask)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
 	}
