@@ -22,7 +22,7 @@ func newTestActionCtx() *runner.ActionHandlerContext {
 	return &runner.ActionHandlerContext{
 		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task: &model.Task{
-				Parameters: rctypes.FirmwareInstallTaskParameters{},
+				Parameters: &rctypes.FirmwareInstallTaskParameters{},
 				Asset:      &rctypes.Asset{},
 				State:      model.StateActive,
 			},

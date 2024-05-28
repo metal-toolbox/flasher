@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"net"
 
 	"github.com/metal-toolbox/rivets/events/controller"
 	"github.com/pkg/errors"
@@ -49,7 +50,20 @@ func (s *StatusPublisher) Publish(ctx context.Context, task *Task) error {
 
 	s.logger.Trace("Condition Status publish successful")
 
-	if err := s.ctp.Publish(ctx, ConvToGenericTask(task)); err != nil {
+	// overwrite credentials before this gets written back to the repository
+	task.Asset.BmcAddress = net.IP{}
+	task.Asset.BmcPassword = ""
+	task.Asset.BmcUsername = ""
+
+	genericTask, err := ConvToGenericTask(task)
+	if err != nil {
+		err = errors.Wrap(ErrPublishTask, err.Error())
+		s.logger.WithError(err).Warn("Task publish error")
+
+		return err
+	}
+
+	if err := s.ctp.Publish(ctx, genericTask); err != nil {
 		err = errors.Wrap(ErrPublishTask, err.Error())
 		s.logger.WithError(err).Warn("Task publish error")
 

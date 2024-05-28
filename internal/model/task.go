@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -38,65 +39,16 @@ const (
 	StateActive    = rctypes.Active
 	StateSucceeded = rctypes.Succeeded
 	StateFailed    = rctypes.Failed
+
+	TaskDataStructVersion = "1.0"
 )
 
 var (
 	errTaskFirmwareParam = errors.New("firmware task parameters error")
 )
 
-// Task is a top level unit of work handled by flasher.
-//
-// A task performs one or more actions, each of the action corresponds to a Firmware planned for install.
-//
-// nolint:govet // fieldalignment - struct is better readable in its current form.
-//type Task struct {
-//	// StructVersion indicates the Task object version and is used to determine Task  compatibility.
-//	StructVersion string `json:"task_version"`
-//
-//	// Task unique identifier, this is set to the Condition identifier.
-//	ID uuid.UUID `json:"id"`
-//
-//	// state is the state of the install
-//	State rctypes.State `json:"state"`
-//
-//	// status holds informational data on the state
-//	Status StatusRecord `json:"status"`
-//
-//	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
-//	FirmwarePlanMethod FirmwarePlanMethod `json:"firmware_plan_method,omitempty"`
-//
-//	// ActionsPlanned to be executed for each firmware to be installed.
-//	ActionsPlanned Actions `json:"actions_planned,omitempty"`
-//
-//	// Parameters for this task
-//	Parameters rctypes.FirmwareInstallTaskParameters `json:"parameters,omitempty"`
-//
-//	// Fault is a field to inject failures into a flasher task execution,
-//	// this is set from the Condition only when the worker is run with fault-injection enabled.
-//	Fault *rctypes.Fault `json:"fault,omitempty"`
-//
-//	// FacilityCode identifies the facility this task is to be executed in.
-//	FacilityCode string `json:"facility_code"`
-//
-//	// Data is an arbitrary key values map available to all task, action handler methods.
-//	Data map[string]string `json:"data,omitempty"`
-//
-//	// Asset holds attributes about the device under firmware install.
-//	Asset *Asset `json:"asset,omitempty"`
-//
-//	// WorkerID is the identifier for the worker executing this task.
-//	WorkerID string `json:"worker_id,omitempty"`
-//
-//	// Delegations holds the statuses for each of the conditions delegated by this task
-//	Delegations []*rctypes.StatusValue
-//
-//	CreatedAt   time.Time `json:"created_at,omitempty"`
-//	UpdatedAt   time.Time `json:"updated_at,omitempty"`
-//	CompletedAt time.Time `json:"completed_at,omitempty"`
-//}
-
 // Alias parameterized model.Task
-type Task rctypes.Task[rctypes.FirmwareInstallTaskParameters, *TaskData]
+type Task rctypes.Task[*rctypes.FirmwareInstallTaskParameters, *TaskData]
 
 func (t *Task) SetState(s rctypes.State) {
 	t.State = s
@@ -112,6 +64,7 @@ func (t *Task) MustMarshal() json.RawMessage {
 }
 
 type TaskData struct {
+	StructVersion string `json:"struct_version"`
 	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
 	FirmwarePlanMethod FirmwarePlanMethod `json:"firmware_plan_method,omitempty"`
 
@@ -122,14 +75,32 @@ type TaskData struct {
 	Scratch map[string]string `json:"data,omitempty"`
 }
 
+func (td *TaskData) MapStringInterfaceToStruct(m map[string]interface{}) error {
+	jsonData, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(jsonData, td)
+}
+
+func (td *TaskData) JSON() (json.RawMessage, error) {
+	return json.Marshal(td)
+}
+
+func (td *TaskData) Unmarshal(r json.RawMessage) error {
+	return json.Unmarshal(r, td)
+}
+
 func NewTask(conditionID uuid.UUID, kind rctypes.Kind, params *rctypes.FirmwareInstallTaskParameters) (Task, error) {
 	t := Task{
 		StructVersion: rctypes.TaskVersion1,
 		ID:            conditionID,
 		Kind:          kind,
+		Data:          &TaskData{},
 		Status:        rctypes.NewTaskStatusRecord("initialized task"),
 		State:         StatePending,
-		Parameters:    *params,
+		Parameters:    params,
 	}
 
 	t.Data.Scratch = make(map[string]string)
@@ -151,9 +122,29 @@ func NewTask(conditionID uuid.UUID, kind rctypes.Kind, params *rctypes.FirmwareI
 }
 
 func ConvToFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
-	fwInstallParams, ok := task.Parameters.(rctypes.FirmwareInstallTaskParameters)
+	errTaskConv := errors.New("error in generic Task conversion")
+
+	// convert task.Parameters which is of type json.RawMessage
+	taskParamsMap, ok := task.Parameters.(map[string]interface{})
 	if !ok {
-		return nil, errors.New("parameters are not of type FirmwareInstallTaskParameters")
+		msg := "Task.Parameters expected to be of type map[string]interface{}, current type: " + reflect.TypeOf(task.Parameters).String()
+		return nil, errors.Wrap(errTaskConv, msg)
+	}
+
+	fwInstallParams := &rctypes.FirmwareInstallTaskParameters{}
+	if err := fwInstallParams.MapStringInterfaceToStruct(taskParamsMap); err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Parameters")
+	}
+
+	taskDataMap, ok := task.Data.(map[string]interface{})
+	if !ok {
+		msg := "Task.Data expected to be of type map[string]interface{}, current type: " + reflect.TypeOf(task.Data).String()
+		return nil, errors.Wrap(errTaskConv, msg)
+	}
+
+	taskData := &TaskData{}
+	if err := taskData.MapStringInterfaceToStruct(taskDataMap); err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Data")
 	}
 
 	return &Task{
@@ -162,7 +153,7 @@ func ConvToFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
 		Kind:          task.Kind,
 		State:         task.State,
 		Status:        task.Status,
-		Data:          &TaskData{},
+		Data:          taskData,
 		Parameters:    fwInstallParams,
 		Fault:         task.Fault,
 		FacilityCode:  task.FacilityCode,
@@ -176,15 +167,27 @@ func ConvToFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
 	}, nil
 }
 
-func ConvToGenericTask(task *Task) *rctypes.Task[any, any] {
+func ConvToGenericTask(task *Task) (*rctypes.Task[any, any], error) {
+	errTaskConv := errors.New("error in firmware install Task conversion")
+
+	paramsJSON, err := task.Parameters.JSON()
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Parameters")
+	}
+
+	dataJSON, err := task.Data.JSON()
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Data")
+	}
+
 	return &rctypes.Task[any, any]{
 		StructVersion: task.StructVersion,
 		ID:            task.ID,
 		Kind:          task.Kind,
 		State:         task.State,
 		Status:        task.Status,
-		Data:          task.Data,
-		Parameters:    task.Parameters,
+		Data:          dataJSON,
+		Parameters:    paramsJSON,
 		Fault:         task.Fault,
 		FacilityCode:  task.FacilityCode,
 		Asset:         task.Asset,
@@ -194,5 +197,5 @@ func ConvToGenericTask(task *Task) *rctypes.Task[any, any] {
 		CreatedAt:     task.CreatedAt,
 		UpdatedAt:     task.UpdatedAt,
 		CompletedAt:   task.CompletedAt,
-	}
+	}, nil
 }

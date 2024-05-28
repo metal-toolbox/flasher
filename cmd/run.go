@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/equinix-labs/otel-init-go/otelinit"
+	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/app"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -141,9 +142,14 @@ func runInband(ctx context.Context, flasher *app.App, repository store.Repositor
 		flasher.Logger.Fatal(err)
 	}
 
+	serverID, err := uuid.Parse(cfgLoadedInband.ServerID)
+	if err != nil {
+		flasher.Logger.Fatal(err)
+	}
+
 	nc := controller.NewNatsHTTPController(
 		facilityCode,
-		cfgLoadedInband.ServerID,
+		serverID,
 		rctypes.FirmwareInstallInband,
 		orcConfig,
 		controller.WithNatsHttpLogger(flasher.Logger),

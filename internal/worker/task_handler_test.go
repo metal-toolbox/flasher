@@ -191,7 +191,7 @@ func TestPlanInstallOutofband(t *testing.T) {
 		Task: &model.Task{
 			ID:       taskID,
 			WorkerID: registry.GetID("test-app").String(),
-			Parameters: rctypes.FirmwareInstallTaskParameters{
+			Parameters: &rctypes.FirmwareInstallTaskParameters{
 				AssetID:               serverID,
 				ResetBMCBeforeInstall: true,
 			},
@@ -275,7 +275,7 @@ func TestPlanInstallOutofband2(t *testing.T) {
 		Task: &model.Task{
 			ID:       taskID,
 			WorkerID: registry.GetID("test-app").String(),
-			Parameters: rctypes.FirmwareInstallTaskParameters{
+			Parameters: &rctypes.FirmwareInstallTaskParameters{
 				AssetID:      serverID,
 				ForceInstall: true,
 			},

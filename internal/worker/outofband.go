@@ -79,7 +79,7 @@ func RunOutofband(
 }
 
 // Handle implements the controller.ConditionHandler interface
-func (h *OobConditionTaskHandler) Handle(
+func (h *OobConditionTaskHandler) HandleCondition(
 	ctx context.Context,
 	condition *rctypes.Condition,
 	genericTask *rctypes.Task[any, any],

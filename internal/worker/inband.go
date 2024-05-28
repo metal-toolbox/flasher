@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -15,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-// implements the controller.ConditionHandler interface
+// implements the controller.TaskHandler interface
 type InbandConditionTaskHandler struct {
 	store          store.Repository
 	logger         *logrus.Logger
@@ -23,8 +22,6 @@ type InbandConditionTaskHandler struct {
 	controllerID   string
 	dryrun         bool
 	faultInjection bool
-	// indicates the handler has resumed work after a restart
-	resumedWork bool
 }
 
 // RunInband initializes the inband installer
@@ -69,20 +66,17 @@ func RunInband(
 }
 
 // Handle implements the controller.ConditionHandler interface
-func (h *InbandConditionTaskHandler) Handle(
+func (h *InbandConditionTaskHandler) HandleTask(
 	ctx context.Context,
-	condition *rctypes.Condition,
 	genericTask *rctypes.Task[any, any],
 	publisher controller.ConditionStatusPublisher,
-	taskRepository controller.ConditionTaskRepository,
 ) error {
-	if condition == nil {
-		h.resumedWork = true
-	}
 
 	if genericTask == nil {
 		return errors.Wrap(errInitTask, "expected a generic Task object, got nil")
 	}
+
+	spew.Dump(genericTask)
 
 	task, err := model.ConvToFwInstallTask(genericTask)
 	if err != nil {
@@ -95,16 +89,13 @@ func (h *InbandConditionTaskHandler) Handle(
 	l.Level = h.logger.Level
 	hLogger := l.WithFields(
 		logrus.Fields{
-			"conditionID":  condition.ID.String(),
+			"conditionID":  genericTask.ID.String(),
 			"controllerID": h.controllerID,
 			"assetID":      task.Asset.ID.String(),
 		},
 	)
 
-	spew.Dump(condition)
-	spew.Dump(task)
-
-	time.Sleep(600 * time.Second)
+	_ = publisher.Publish(ctx, task.Asset.ID.String(), rctypes.Succeeded, []byte(`{"woop woop done!!"}`))
 
 	hLogger.Info("task for device completed")
 	return nil

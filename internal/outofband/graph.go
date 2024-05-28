@@ -28,7 +28,7 @@ func GraphSteps(ctx context.Context, g *dot.Graph) error {
 	testActionCtx := &runner.ActionHandlerContext{
 		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task: &model.Task{
-				Parameters: rctypes.FirmwareInstallTaskParameters{
+				Parameters: &rctypes.FirmwareInstallTaskParameters{
 					ResetBMCBeforeInstall: true,
 				},
 				Asset: &rctypes.Asset{},
