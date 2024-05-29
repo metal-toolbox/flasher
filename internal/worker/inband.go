@@ -75,7 +75,7 @@ func (h *InbandConditionTaskHandler) HandleTask(
 		return errors.Wrap(errInitTask, "expected a generic Task object, got nil")
 	}
 
-	task, err := model.ConvToFwInstallTask(genericTask)
+	task, err := model.CopyAsFwInstallTask(genericTask)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
 	}

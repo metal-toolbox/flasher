@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net"
 
-	"github.com/davecgh/go-spew/spew"
 	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
 	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
 
@@ -124,13 +123,10 @@ func (s *FleetDBAPI) fromServerserviceComponents(scomponents fleetdbapi.ServerCo
 	// nolint:gocritic // rangeValCopy - this type is returned in the current form by fleetdb API.
 	for _, sc := range scomponents {
 		sc := sc
-		spew.Dump(sc)
 		c, err := rfleetdb.RecordToComponent(&sc)
 		if err != nil {
 			s.logger.WithError(err).Warn("failed to convert component from fleetdb record: " + sc.Name)
 		}
-
-		spew.Dump(c)
 
 		components = append(components, c)
 	}

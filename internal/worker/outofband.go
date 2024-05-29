@@ -83,7 +83,7 @@ func (h *OobConditionTaskHandler) HandleTask(
 	genericTask *rctypes.Task[any, any],
 	statusPublisher controller.Publisher,
 ) error {
-	task, err := model.ConvToFwInstallTask(genericTask)
+	task, err := model.CopyAsFwInstallTask(genericTask)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
 	}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bmc-toolbox/common"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 
 	rtypes "github.com/metal-toolbox/rivets/types"
@@ -46,6 +47,7 @@ func (cc *ComponentConverter) CommonDeviceToComponents(device *common.Device) (r
 	cc.deviceModel = common.FormatProductName(device.Model)
 	cc.deviceVendor = device.Vendor
 
+	spew.Dump(device.BIOS)
 	componentsTmp := []*rtypes.Component{}
 	componentsTmp = append(componentsTmp,
 		cc.bios(device.BIOS),
@@ -89,10 +91,11 @@ func (cc *ComponentConverter) newComponent(slug, cvendor, cmodel, cserial string
 	}
 
 	return &rtypes.Component{
-		Vendor: common.FormatVendorName(cvendor),
-		Model:  common.FormatProductName(cmodel),
-		Serial: cserial,
-		Name:   slug,
+		Vendor:   common.FormatVendorName(cvendor),
+		Model:    common.FormatProductName(cmodel),
+		Serial:   cserial,
+		Name:     slug,
+		Firmware: &common.Firmware{},
 	}, nil
 }
 

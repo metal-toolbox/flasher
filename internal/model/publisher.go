@@ -34,18 +34,18 @@ func NewTaskStatusPublisher(logger *logrus.Entry, cp controller.Publisher) Publi
 }
 
 func (s *StatusPublisher) Publish(ctx context.Context, task *Task) error {
-	// overwrite credentials before this gets written back to the repository
-	task.Asset.BmcAddress = net.IP{}
-	task.Asset.BmcPassword = ""
-	task.Asset.BmcUsername = ""
-
-	genericTask, err := ConvToGenericTask(task)
+	genericTask, err := CopyAsGenericTask(task)
 	if err != nil {
 		err = errors.Wrap(ErrPublishTask, err.Error())
 		s.logger.WithError(err).Warn("Task publish error")
 
 		return err
 	}
+
+	// overwrite credentials before this gets written back to the repository
+	genericTask.Asset.BmcAddress = net.IP{}
+	genericTask.Asset.BmcPassword = ""
+	genericTask.Asset.BmcUsername = ""
 
 	if err := s.cp.Publish(ctx, genericTask, false); err != nil {
 		err = errors.Wrap(ErrPublishStatus, err.Error())

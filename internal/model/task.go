@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/google/uuid"
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 
 	rctypes "github.com/metal-toolbox/rivets/condition"
@@ -121,63 +122,107 @@ func NewTask(conditionID uuid.UUID, kind rctypes.Kind, params *rctypes.FirmwareI
 	return t, errors.Wrap(errTaskFirmwareParam, "no firmware list or firmwareSetID specified")
 }
 
-func ConvToFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
-	errTaskConv := errors.New("error in generic Task conversion")
-
-	// convert task.Parameters which is of type json.RawMessage
-	taskParamsMap, ok := task.Parameters.(map[string]interface{})
-	if !ok {
-		msg := "Task.Parameters expected to be of type map[string]interface{}, current type: " + reflect.TypeOf(task.Parameters).String()
-		return nil, errors.Wrap(errTaskConv, msg)
-	}
+func convTaskParams(params any) (*rctypes.FirmwareInstallTaskParameters, error) {
+	errParamsConv := errors.New("error in Task.Parameters conversion")
 
 	fwInstallParams := &rctypes.FirmwareInstallTaskParameters{}
-	if err := fwInstallParams.MapStringInterfaceToStruct(taskParamsMap); err != nil {
-		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Parameters")
+	switch v := params.(type) {
+	// When unpacked from a http request by the condition orc client,
+	// Parameters are of this type.
+	case map[string]interface{}:
+		if err := fwInstallParams.MapStringInterfaceToStruct(v); err != nil {
+			return nil, errors.Wrap(errParamsConv, err.Error())
+		}
+	// When received over NATS its of this type.
+	case json.RawMessage:
+		if err := fwInstallParams.Unmarshal(v); err != nil {
+			return nil, errors.Wrap(errParamsConv, err.Error())
+		}
+	default:
+		msg := "Task.Parameters expected to be one of map[string]interface{} or json.RawMessage, current type: " + reflect.TypeOf(params).String()
+		return nil, errors.Wrap(errParamsConv, msg)
 	}
 
-	taskDataMap, ok := task.Data.(map[string]interface{})
-	if !ok {
-		msg := "Task.Data expected to be of type map[string]interface{}, current type: " + reflect.TypeOf(task.Data).String()
-		return nil, errors.Wrap(errTaskConv, msg)
-	}
+	return fwInstallParams, nil
+}
+
+func convTaskData(data any) (*TaskData, error) {
+	errDataConv := errors.New("error in Task.Data conversion")
 
 	taskData := &TaskData{}
-	if err := taskData.MapStringInterfaceToStruct(taskDataMap); err != nil {
-		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Data")
+	switch v := data.(type) {
+	// When unpacked from a http request by the condition orc client,
+	// Parameters are of this type.
+	case map[string]interface{}:
+		if err := taskData.MapStringInterfaceToStruct(v); err != nil {
+			return nil, errors.Wrap(errDataConv, err.Error())
+		}
+	// When received over NATS its of this type.
+	case json.RawMessage:
+		if err := taskData.Unmarshal(v); err != nil {
+			return nil, errors.Wrap(errDataConv, err.Error())
+		}
+	default:
+		msg := "Task.Data expected to be one of map[string]interface{} or json.RawMessage, current type: " + reflect.TypeOf(data).String()
+		return nil, errors.Wrap(errDataConv, msg)
 	}
 
-	fwInstallTask := &Task{
+	return taskData, nil
+}
+
+func CopyAsFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
+	errTaskConv := errors.New("error in generic Task conversion")
+
+	params, err := convTaskParams(task.Parameters)
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error())
+	}
+
+	data, err := convTaskData(task.Data)
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error())
+	}
+
+	// deep copy fields referenced by pointer
+	asset, err := copystructure.Copy(task.Asset)
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Asset")
+	}
+
+	fault, err := copystructure.Copy(task.Fault)
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Fault")
+	}
+
+	if len(params.Firmwares) > 0 {
+		data.FirmwarePlanMethod = FromRequestedFirmware
+	}
+
+	if params.FirmwareSetID != uuid.Nil {
+		data.FirmwarePlanMethod = FromFirmwareSet
+	}
+
+	return &Task{
 		StructVersion: task.StructVersion,
 		ID:            task.ID,
 		Kind:          task.Kind,
 		State:         task.State,
 		Status:        task.Status,
-		Data:          taskData,
-		Parameters:    fwInstallParams,
-		Fault:         task.Fault,
+		Data:          data,
+		Parameters:    params,
+		Fault:         fault.(*rctypes.Fault),
 		FacilityCode:  task.FacilityCode,
-		Asset:         task.Asset,
+		Asset:         asset.(*rctypes.Asset),
 		WorkerID:      task.WorkerID,
 		TraceID:       task.TraceID,
 		SpanID:        task.SpanID,
 		CreatedAt:     task.CreatedAt,
 		UpdatedAt:     task.UpdatedAt,
 		CompletedAt:   task.CompletedAt,
-	}
-
-	if len(fwInstallTask.Parameters.Firmwares) > 0 {
-		fwInstallTask.Data.FirmwarePlanMethod = FromRequestedFirmware
-	}
-
-	if fwInstallTask.Parameters.FirmwareSetID != uuid.Nil {
-		fwInstallTask.Data.FirmwarePlanMethod = FromFirmwareSet
-	}
-
-	return fwInstallTask, nil
+	}, nil
 }
 
-func ConvToGenericTask(task *Task) (*rctypes.Task[any, any], error) {
+func CopyAsGenericTask(task *Task) (*rctypes.Task[any, any], error) {
 	errTaskConv := errors.New("error in firmware install Task conversion")
 
 	paramsJSON, err := task.Parameters.JSON()
@@ -190,6 +235,17 @@ func ConvToGenericTask(task *Task) (*rctypes.Task[any, any], error) {
 		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Data")
 	}
 
+	// deep copy fields referenced by pointer
+	asset, err := copystructure.Copy(task.Asset)
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Asset")
+	}
+
+	fault, err := copystructure.Copy(task.Fault)
+	if err != nil {
+		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Fault")
+	}
+
 	return &rctypes.Task[any, any]{
 		StructVersion: task.StructVersion,
 		ID:            task.ID,
@@ -198,9 +254,9 @@ func ConvToGenericTask(task *Task) (*rctypes.Task[any, any], error) {
 		Status:        task.Status,
 		Data:          dataJSON,
 		Parameters:    paramsJSON,
-		Fault:         task.Fault,
+		Fault:         fault.(*rctypes.Fault),
 		FacilityCode:  task.FacilityCode,
-		Asset:         task.Asset,
+		Asset:         asset.(*rctypes.Asset),
 		WorkerID:      task.WorkerID,
 		TraceID:       task.TraceID,
 		SpanID:        task.SpanID,
