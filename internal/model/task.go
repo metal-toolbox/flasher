@@ -147,7 +147,7 @@ func ConvToFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
 		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Data")
 	}
 
-	return &Task{
+	fwInstallTask := &Task{
 		StructVersion: task.StructVersion,
 		ID:            task.ID,
 		Kind:          task.Kind,
@@ -164,7 +164,17 @@ func ConvToFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
 		CreatedAt:     task.CreatedAt,
 		UpdatedAt:     task.UpdatedAt,
 		CompletedAt:   task.CompletedAt,
-	}, nil
+	}
+
+	if len(fwInstallTask.Parameters.Firmwares) > 0 {
+		fwInstallTask.Data.FirmwarePlanMethod = FromRequestedFirmware
+	}
+
+	if fwInstallTask.Parameters.FirmwareSetID != uuid.Nil {
+		fwInstallTask.Data.FirmwarePlanMethod = FromFirmwareSet
+	}
+
+	return fwInstallTask, nil
 }
 
 func ConvToGenericTask(task *Task) (*rctypes.Task[any, any], error) {

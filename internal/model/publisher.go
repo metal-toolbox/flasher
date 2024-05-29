@@ -23,33 +23,17 @@ type Publisher interface {
 // to wrap the condition controller publish method
 type StatusPublisher struct {
 	logger *logrus.Entry
-	csp    controller.ConditionStatusPublisher
-	ctp    controller.ConditionTaskRepository
+	cp     controller.Publisher
 }
 
-func NewTaskStatusPublisher(logger *logrus.Entry, csp controller.ConditionStatusPublisher, ctp controller.ConditionTaskRepository) Publisher {
+func NewTaskStatusPublisher(logger *logrus.Entry, cp controller.Publisher) Publisher {
 	return &StatusPublisher{
 		logger,
-		csp,
-		ctp,
+		cp,
 	}
 }
 
 func (s *StatusPublisher) Publish(ctx context.Context, task *Task) error {
-	if err := s.csp.Publish(
-		ctx,
-		task.Asset.ID.String(),
-		task.State,
-		task.Status.MustMarshal(),
-	); err != nil {
-		err = errors.Wrap(ErrPublishStatus, err.Error())
-		s.logger.WithError(err).Error("Condition status publish error")
-
-		return err
-	}
-
-	s.logger.Trace("Condition Status publish successful")
-
 	// overwrite credentials before this gets written back to the repository
 	task.Asset.BmcAddress = net.IP{}
 	task.Asset.BmcPassword = ""
@@ -63,14 +47,13 @@ func (s *StatusPublisher) Publish(ctx context.Context, task *Task) error {
 		return err
 	}
 
-	if err := s.ctp.Publish(ctx, genericTask); err != nil {
-		err = errors.Wrap(ErrPublishTask, err.Error())
-		s.logger.WithError(err).Warn("Task publish error")
+	if err := s.cp.Publish(ctx, genericTask, false); err != nil {
+		err = errors.Wrap(ErrPublishStatus, err.Error())
+		s.logger.WithError(err).Error("Condition status publish error")
 
 		return err
 	}
 
-	s.logger.Trace("Condition Task publish successful")
-
+	s.logger.Trace("Condition Status publish successful")
 	return nil
 }

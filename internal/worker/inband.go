@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/version"
@@ -69,14 +68,12 @@ func RunInband(
 func (h *InbandConditionTaskHandler) HandleTask(
 	ctx context.Context,
 	genericTask *rctypes.Task[any, any],
-	publisher controller.ConditionStatusPublisher,
+	publisher controller.Publisher,
 ) error {
 
 	if genericTask == nil {
 		return errors.Wrap(errInitTask, "expected a generic Task object, got nil")
 	}
-
-	spew.Dump(genericTask)
 
 	task, err := model.ConvToFwInstallTask(genericTask)
 	if err != nil {
@@ -95,7 +92,11 @@ func (h *InbandConditionTaskHandler) HandleTask(
 		},
 	)
 
-	_ = publisher.Publish(ctx, task.Asset.ID.String(), rctypes.Succeeded, []byte(`{"woop woop done!!"}`))
+	task.Status.Append("woop woop")
+
+	// wrap task publisher for internal use
+	wpublisher := model.NewTaskStatusPublisher(hLogger, publisher)
+	_ = wpublisher.Publish(ctx, task)
 
 	hLogger.Info("task for device completed")
 	return nil

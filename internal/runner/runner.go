@@ -120,9 +120,6 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 	task.SetState(model.StateActive)
 	handler.Publish(ctx)
 
-	// short circuit for testing
-	return taskSuccess()
-
 	// initialize, plan actions
 	for _, f := range funcs {
 		if cferr := r.conditionalFault(ctx, f.name, task, handler); cferr != nil {
@@ -154,7 +151,7 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 	publish := func(state rctypes.State, action *model.Action, stepName model.StepName, logger *logrus.Entry) {
 		logger.WithField("step", stepName).Debug("running step")
 		task.Status.Append(fmt.Sprintf(
-			"[%s] install version: %s, inband: %s, state: %s, step %s",
+			"[%s] install version: %s, inband: %t, state: %s, step %s",
 			action.Firmware.Component,
 			action.Firmware.Version,
 			action.Firmware.InstallInband,

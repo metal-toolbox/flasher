@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -61,7 +60,7 @@ func RunOutofband(
 		},
 	).Info("flasher out-of-band installer running")
 
-	handlerFactory := func() controller.ConditionHandler {
+	handlerFactory := func() controller.TaskHandler {
 		return &OobConditionTaskHandler{
 			store:          repository,
 			syncWG:         &sync.WaitGroup{},
@@ -78,15 +77,13 @@ func RunOutofband(
 	}
 }
 
-// Handle implements the controller.ConditionHandler interface
-func (h *OobConditionTaskHandler) HandleCondition(
+// Handle implements the controller.TaskHandler interface
+func (h *OobConditionTaskHandler) HandleTask(
 	ctx context.Context,
-	condition *rctypes.Condition,
 	genericTask *rctypes.Task[any, any],
-	conditionStatuspublisher controller.ConditionStatusPublisher,
-	taskRepository controller.ConditionTaskRepository,
+	statusPublisher controller.Publisher,
 ) error {
-	task, err := newTaskFromCondition(condition, h.dryrun, h.faultInjection)
+	task, err := model.ConvToFwInstallTask(genericTask)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
 	}
@@ -96,7 +93,7 @@ func (h *OobConditionTaskHandler) HandleCondition(
 	if err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"assetID":      task.Parameters.AssetID.String(),
-			"conditionID":  condition.ID,
+			"conditionID":  task.ID,
 			"controllerID": h.controllerID,
 			"err":          err.Error(),
 		}).Error("asset lookup error")
@@ -114,7 +111,7 @@ func (h *OobConditionTaskHandler) HandleCondition(
 	l.Level = h.logger.Level
 	hLogger := l.WithFields(
 		logrus.Fields{
-			"conditionID":  condition.ID.String(),
+			"conditionID":  task.ID.String(),
 			"controllerID": h.controllerID,
 			"assetID":      asset.ID.String(),
 			"bmc":          asset.BmcAddress.String(),
@@ -125,11 +122,7 @@ func (h *OobConditionTaskHandler) HandleCondition(
 	handler := newHandler(
 		task,
 		h.store,
-		model.NewTaskStatusPublisher(
-			hLogger,
-			conditionStatuspublisher,
-			taskRepository,
-		),
+		model.NewTaskStatusPublisher(hLogger, statusPublisher),
 		hLogger,
 	)
 
@@ -144,27 +137,4 @@ func (h *OobConditionTaskHandler) HandleCondition(
 
 	hLogger.Info("task for device completed")
 	return nil
-}
-
-// newTaskFromMsg returns a new task object with the given parameters
-func newTaskFromCondition(condition *rctypes.Condition, dryRun, faultInjection bool) (*model.Task, error) {
-	parameters := &rctypes.FirmwareInstallTaskParameters{}
-	if err := json.Unmarshal(condition.Parameters, parameters); err != nil {
-		return nil, errors.Wrap(errInitTask, "Firmware install task parameters error: "+err.Error())
-	}
-
-	t, err := model.NewTask(condition.ID, condition.Kind, parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	if faultInjection && condition.Fault != nil {
-		t.Fault = condition.Fault
-	}
-
-	if dryRun {
-		t.Parameters.DryRun = true
-	}
-
-	return &t, nil
 }
