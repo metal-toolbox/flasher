@@ -85,7 +85,7 @@ func (td *TaskData) MapStringInterfaceToStruct(m map[string]interface{}) error {
 	return json.Unmarshal(jsonData, td)
 }
 
-func (td *TaskData) JSON() (json.RawMessage, error) {
+func (td *TaskData) Marshal() (json.RawMessage, error) {
 	return json.Marshal(td)
 }
 
@@ -225,12 +225,12 @@ func CopyAsFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
 func CopyAsGenericTask(task *Task) (*rctypes.Task[any, any], error) {
 	errTaskConv := errors.New("error in firmware install Task conversion")
 
-	paramsJSON, err := task.Parameters.JSON()
+	paramsJSON, err := task.Parameters.Marshal()
 	if err != nil {
 		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Parameters")
 	}
 
-	dataJSON, err := task.Data.JSON()
+	dataJSON, err := task.Data.Marshal()
 	if err != nil {
 		return nil, errors.Wrap(errTaskConv, err.Error()+": Task.Data")
 	}

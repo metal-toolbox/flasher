@@ -41,7 +41,7 @@ type ActionHandler struct {
 	handler *handler
 }
 
-func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.Queryor) *handler {
+func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.OutofbandQueryor) *handler {
 	return &handler{
 		task:          actionCtx.Task,
 		firmware:      actionCtx.Firmware,
@@ -52,11 +52,11 @@ func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.Queryor)
 }
 
 func (o *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
-	var deviceQueryor device.Queryor
+	var deviceQueryor device.OutofbandQueryor
 	if actionCtx.DeviceQueryor == nil {
 		deviceQueryor = NewDeviceQueryor(ctx, actionCtx.Task.Asset, actionCtx.Logger)
 	} else {
-		deviceQueryor = actionCtx.DeviceQueryor
+		deviceQueryor = actionCtx.DeviceQueryor.(device.OutofbandQueryor)
 	}
 
 	o.handler = initHandler(actionCtx, deviceQueryor)

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/version"
 	rctypes "github.com/metal-toolbox/rivets/condition"
@@ -92,11 +93,23 @@ func (h *InbandConditionTaskHandler) HandleTask(
 		},
 	)
 
-	task.Status.Append("woop woop")
+	// init handler
+	handler := newHandler(
+		model.RunInband,
+		task,
+		h.store,
+		model.NewTaskStatusPublisher(hLogger, publisher),
+		hLogger,
+	)
 
-	// wrap task publisher for internal use
-	wpublisher := model.NewTaskStatusPublisher(hLogger, publisher)
-	_ = wpublisher.Publish(ctx, task)
+	// init runner
+	r := runner.New(hLogger)
+
+	hLogger.WithField("mode", model.RunInband).Info("running task for device")
+	if err := r.RunTask(ctx, task, handler); err != nil {
+		hLogger.WithError(err).Error("task for device failed")
+		return err
+	}
 
 	hLogger.Info("task for device completed")
 	return nil

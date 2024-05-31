@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/bmc-toolbox/common"
+	"github.com/metal-toolbox/flasher/internal/device"
+	"github.com/metal-toolbox/flasher/internal/inband"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	"github.com/metal-toolbox/flasher/internal/runner"
@@ -26,17 +28,20 @@ var (
 //
 // The handler is instantiated to run a single task
 type handler struct {
+	mode model.RunMode
 	*runner.TaskHandlerContext
 }
 
 func newHandler(
+	mode model.RunMode,
 	task *model.Task,
 	storage store.Repository,
 	publisher model.Publisher,
 	logger *logrus.Entry,
 ) runner.TaskHandler {
 	return &handler{
-		&runner.TaskHandlerContext{
+		mode: mode,
+		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task:      task,
 			Publisher: publisher,
 			Store:     storage,
@@ -52,7 +57,16 @@ func (t *handler) Initialize(ctx context.Context) error {
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Asset, t.Logger)
+		switch t.mode {
+		case model.RunInband:
+			var err error
+			t.DeviceQueryor, err = inband.NewDeviceQueryor(t.Task.Asset, t.Logger)
+			if err != nil {
+				return err
+			}
+		case model.RunOutofband:
+			t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Asset, t.Logger)
+		}
 	}
 
 	return nil
@@ -61,19 +75,19 @@ func (t *handler) Initialize(ctx context.Context) error {
 func (t *handler) Query(ctx context.Context) error {
 	t.Logger.Debug("run query step")
 
-	t.Task.Status.Append("connecting to device BMC")
-	t.Publish(ctx)
-
-	if err := t.DeviceQueryor.Open(ctx); err != nil {
-		return err
-	}
-
-	t.Task.Status.Append("collecting inventory from device BMC")
-	t.Publish(ctx)
-
-	deviceCommon, err := t.DeviceQueryor.Inventory(ctx)
-	if err != nil {
-		return errors.Wrap(errTaskQueryInventory, err.Error())
+	var err error
+	var deviceCommon *common.Device
+	switch t.mode {
+	case model.RunInband:
+		deviceCommon, err = t.inventoryInband(ctx)
+		if err != nil {
+			return err
+		}
+	case model.RunOutofband:
+		deviceCommon, err = t.inventoryOutofband(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	if t.Task.Asset.Vendor == "" {
@@ -99,12 +113,45 @@ func (t *handler) Query(ctx context.Context) error {
 	return errors.Wrap(errTaskQueryInventory, "failed to query device component inventory")
 }
 
+func (t handler) inventoryOutofband(ctx context.Context) (*common.Device, error) {
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Open(ctx); err != nil {
+		return nil, err
+	}
+
+	t.Task.Status.Append("connecting to device BMC")
+	t.Publish(ctx)
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Open(ctx); err != nil {
+		return nil, err
+	}
+
+	t.Task.Status.Append("collecting inventory from device BMC")
+	t.Publish(ctx)
+
+	deviceCommon, err := t.DeviceQueryor.(device.OutofbandQueryor).Inventory(ctx)
+	if err != nil {
+		return nil, errors.Wrap(errTaskQueryInventory, err.Error())
+	}
+
+	return deviceCommon, nil
+}
+
+func (t handler) inventoryInband(ctx context.Context) (*common.Device, error) {
+	t.Task.Status.Append("collecting inventory from server")
+	t.Publish(ctx)
+
+	deviceCommon, err := t.DeviceQueryor.(device.InbandQueryor).Inventory(ctx)
+	if err != nil {
+		return nil, errors.Wrap(errTaskQueryInventory, err.Error())
+	}
+
+	return deviceCommon, nil
+}
+
 func (t *handler) PlanActions(ctx context.Context) error {
 	switch t.Task.Data.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
 		return t.planFromFirmwareSet(ctx)
 	case model.FromRequestedFirmware:
-		// inband worker code will go down this route
 		return errors.Wrap(errTaskPlanActions, "firmware plan method not implemented"+string(model.FromRequestedFirmware))
 	default:
 		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.Task.Data.FirmwarePlanMethod))
@@ -123,65 +170,20 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 		return errors.Wrap(errTaskPlanActions, "planFromFirmwareSet(): firmware set lacks any members")
 	}
 
-	// split inband and out-of-band firmware into two slices
-	var oobFW, inbFW []*model.Firmware
-	for _, f := range applicable {
-		if f.InstallInband {
-			inbFW = append(inbFW, f)
-		} else {
-			oobFW = append(oobFW, f)
-		}
-	}
-
-	t.Task.Data.ActionsPlanned = []*model.Action{}
-
-	// first plan out-of-band install actions
-	oobActions, err := t.planInstallOutofband(ctx, oobFW)
+	actions, err := t.planInstallActions(ctx, applicable)
 	if err != nil {
 		return err
 	}
 
-	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, oobActions...)
-
-	// second plan inband install actions
-	inbActions, err := t.planInstallInband(ctx, inbFW)
-	if err != nil {
-		return err
-	}
-
-	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, inbActions...)
-
-	if len(inbActions) > 0 {
-
-	}
+	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, actions...)
 
 	return nil
-}
-
-func (t *handler) planInstallInband(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
-	// sort firmware in order of install
-	t.sortFirmwareByInstallOrder(firmwares)
-
-	var info string
-	if len(firmwares) > 0 {
-		info = "no in-band firmware installs required"
-	} else {
-		info = fmt.Sprintf("%d in-band firmware installs required", len(t.Task.Data.ActionsPlanned))
-	}
-
-	t.Task.Status.Append(info)
-	t.Publish(ctx)
-	t.Logger.Info(info)
-
-	// TODO: implement delegate action handler
-
-	return nil, nil
 }
 
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func (t *handler) planInstallOutofband(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
+func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
 	actions := model.Actions{}
 
 	t.Logger.WithFields(logrus.Fields{
@@ -197,6 +199,10 @@ func (t *handler) planInstallOutofband(ctx context.Context, firmwares []*model.F
 	}
 
 	if len(toInstall) == 0 {
+		info := fmt.Sprintf("no %s firmware installs required", t.mode)
+		t.Task.Status.Append(info)
+		t.Publish(ctx)
+
 		return nil, nil
 	}
 
@@ -205,6 +211,24 @@ func (t *handler) planInstallOutofband(ctx context.Context, firmwares []*model.F
 
 	// each firmware applicable results in an ActionPlan and an Action
 	for idx, firmware := range toInstall {
+		var actionHander runner.ActionHandler
+
+		switch t.mode {
+		case model.RunOutofband:
+			if firmware.InstallInband {
+				continue
+			}
+			actionHander = &outofband.ActionHandler{}
+
+		case model.RunInband:
+			if !firmware.InstallInband {
+				continue
+			}
+
+			actionHander = &inband.ActionHandler{}
+
+		}
+
 		actionCtx := &runner.ActionHandlerContext{
 			TaskHandlerContext: t.TaskHandlerContext,
 			Firmware:           firmware,
@@ -212,8 +236,7 @@ func (t *handler) planInstallOutofband(ctx context.Context, firmwares []*model.F
 			Last:               (idx == len(toInstall)-1),
 		}
 
-		actionHandler := &outofband.ActionHandler{}
-		action, err := actionHandler.ComposeAction(ctx, actionCtx)
+		action, err := actionHander.ComposeAction(ctx, actionCtx)
 		if err != nil {
 			return nil, errors.Wrap(errTaskPlanActions, err.Error())
 		}
@@ -225,14 +248,15 @@ func (t *handler) planInstallOutofband(ctx context.Context, firmwares []*model.F
 	}
 
 	var info string
-	if len(toInstall) > 0 {
-		info = "no out-of-band firmware installs required"
+	if len(t.Task.Data.ActionsPlanned) > 0 {
+		info = fmt.Sprintf("%d %s firmware installs planned", len(t.Task.Data.ActionsPlanned), t.mode)
 	} else {
-		info = fmt.Sprintf("%d out-of-band firmware installs required", len(t.Task.Data.ActionsPlanned))
+		info = fmt.Sprintf("no %s firmware installs required", len(t.Task.Data.ActionsPlanned), t.mode)
 	}
 
 	t.Task.Status.Append(info)
 	t.Publish(ctx)
+
 	t.Logger.Info(info)
 
 	return actions, nil
@@ -307,21 +331,21 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 }
 
 func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
-	if t.DeviceQueryor == nil {
+	if t.mode == model.RunInband || t.DeviceQueryor == nil {
 		return
 	}
 
-	if err := t.DeviceQueryor.Close(ctx); err != nil {
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Close(ctx); err != nil {
 		t.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
 
 func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
-	if t.DeviceQueryor == nil {
+	if t.mode == model.RunInband || t.DeviceQueryor == nil {
 		return
 	}
 
-	if err := t.DeviceQueryor.Close(ctx); err != nil {
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Close(ctx); err != nil {
 		t.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }

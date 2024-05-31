@@ -86,7 +86,7 @@ type handler struct {
 	firmware      *model.Firmware
 	task          *model.Task
 	action        *model.Action
-	deviceQueryor device.Queryor
+	deviceQueryor device.OutofbandQueryor
 	publisher     model.Publisher
 	logger        *logrus.Entry
 }

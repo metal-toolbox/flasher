@@ -49,7 +49,7 @@ var (
 	ErrFirmwareInstallProvider = errors.New("firmware install provider not identified")
 )
 
-// bmc wraps the bmclib client and implements the bmcQueryor interface
+// bmc wraps the bmclib client and implements the device.Queryor interface
 type bmc struct {
 	client             *bmclib.Client
 	logger             *logrus.Entry
@@ -59,7 +59,7 @@ type bmc struct {
 }
 
 // NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
-func NewDeviceQueryor(ctx context.Context, asset *rctypes.Asset, logger *logrus.Entry) device.Queryor {
+func NewDeviceQueryor(ctx context.Context, asset *rctypes.Asset, logger *logrus.Entry) device.OutofbandQueryor {
 	return &bmc{
 		client: newBmclibv2Client(ctx, asset, logger),
 		logger: logger,

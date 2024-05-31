@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bmc-toolbox/common"
+	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	"github.com/metal-toolbox/flasher/internal/runner"
@@ -111,13 +112,13 @@ func (t *handler) queryFromDevice(ctx context.Context) (rtypes.Components, error
 
 	t.taskCtx.Task.Status.Append("connecting to device BMC")
 
-	if err := t.taskCtx.DeviceQueryor.Open(ctx); err != nil {
+	if err := t.taskCtx.DeviceQueryor.(device.OutofbandQueryor).Open(ctx); err != nil {
 		return nil, err
 	}
 
 	t.taskCtx.Task.Status.Append("collecting inventory from device BMC")
 
-	deviceCommon, err := t.taskCtx.DeviceQueryor.Inventory(ctx)
+	deviceCommon, err := t.taskCtx.DeviceQueryor.(device.OutofbandQueryor).Inventory(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +139,7 @@ func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
 		return
 	}
 
-	if err := t.taskCtx.DeviceQueryor.Close(ctx); err != nil {
+	if err := t.taskCtx.DeviceQueryor.(device.OutofbandQueryor).Close(ctx); err != nil {
 		t.taskCtx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
@@ -148,7 +149,7 @@ func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
 		return
 	}
 
-	if err := t.taskCtx.DeviceQueryor.Close(ctx); err != nil {
+	if err := t.taskCtx.DeviceQueryor.(device.OutofbandQueryor).Close(ctx); err != nil {
 		t.taskCtx.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }

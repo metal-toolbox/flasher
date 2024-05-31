@@ -11,10 +11,10 @@ import (
 
 //go:generate mockgen -source model.go -destination=../fixtures/mock.go -package=fixtures
 
-// Queryor interface defines methods to query a device.
+// QueryorOutofband interface defines the out-of-band methods to query a device.
 //
 // This is common interface to the ironlib and bmclib libraries.
-type Queryor interface {
+type OutofbandQueryor interface {
 	// Open opens the connection to the device.
 	Open(ctx context.Context) error
 
@@ -42,4 +42,10 @@ type Queryor interface {
 	FirmwareInstallUploaded(ctx context.Context, component, uploadVerifyTaskID string) (installTaskID string, err error)
 
 	FirmwareInstallUploadAndInitiate(ctx context.Context, component string, file *os.File) (taskID string, err error)
+}
+
+type InbandQueryor interface {
+	// Inventory returns the device inventory
+	Inventory(ctx context.Context) (*common.Device, error)
+	FirmwareInstall(ctx context.Context, component, version string, force bool) error
 }

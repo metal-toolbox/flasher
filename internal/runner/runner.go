@@ -6,7 +6,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
@@ -43,7 +42,9 @@ type TaskHandlerContext struct {
 	Logger *logrus.Entry
 
 	// Device queryor interface
-	DeviceQueryor device.Queryor
+	//
+	// type asserted to InbandQueryor or OutofbandQueryor at invocation
+	DeviceQueryor any
 
 	// Data store repository
 	Store store.Repository

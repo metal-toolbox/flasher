@@ -1,6 +1,11 @@
 package inband
 
-import "github.com/metal-toolbox/flasher/internal/model"
+import (
+	"context"
+
+	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/runner"
+)
 
 const (
 	// transition types implemented and defined further below
@@ -22,26 +27,33 @@ type ActionHandler struct {
 	handler *handler
 }
 
+func (i *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
+	steps := i.definitions()
+
+	return &model.Action{
+		InstallMethod: model.InstallMethodOutofband,
+		Firmware:      *actionCtx.Firmware,
+		ForceInstall:  actionCtx.Task.Parameters.ForceInstall,
+		Steps:         steps,
+		First:         actionCtx.First,
+		Last:          actionCtx.Last,
+	}, nil
+}
+
 func (o *ActionHandler) definitions() model.Steps {
 	return model.Steps{
-		//{
-		//	Name:        powerOffServer,
-		//	Group:       PowerState,
-		//	Handler:     o.handler.powerOffServer,
-		//	Description: "Powercycle Device, if this is the final firmware to be installed and the device was powered off earlier.",
-		//},
 		{
 			Name:        checkInstalledFirmware,
 			Group:       PreInstall,
 			Handler:     o.handler.checkCurrentFirmware,
 			Description: "Check firmware currently installed on component",
 		},
-		//{
-		//	Name:        downloadFirmware,
-		//	Group:       PreInstall,
-		//	Handler:     o.handler.downloadFirmware,
-		//	Description: "Download and verify firmware file checksum.",
-		//},
+		{
+			Name:        downloadFirmware,
+			Group:       PreInstall,
+			Handler:     o.handler.downloadFirmware,
+			Description: "Download and verify firmware file checksum.",
+		},
 
 		//		{
 		//			Name:        pollInstallStatus,

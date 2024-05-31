@@ -38,6 +38,7 @@ var (
 	faultInjection bool
 	facilityCode   string
 	storeKind      string
+	inbandServerID string
 )
 
 var (
@@ -176,6 +177,7 @@ func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Lo
 
 func init() {
 	cmdRun.PersistentFlags().StringVar(&storeKind, "store", "", "Inventory store to lookup devices for update - fleetdb.")
+	cmdRun.PersistentFlags().StringVar(&inbandServerID, "server-id", "", "ServerID when running inband")
 	cmdRun.PersistentFlags().BoolVarP(&dryrun, "dry-run", "", false, "In dryrun mode, the worker actions the task without installing firmware")
 	cmdRun.PersistentFlags().BoolVarP(&runsInband, "inband", "", false, "Runs worker in inband firmware install mode")
 	cmdRun.PersistentFlags().BoolVarP(&runsOutofband, "outofband", "", false, "Runs worker in out-of-band firmware install mode")
