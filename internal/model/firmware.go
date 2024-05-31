@@ -19,6 +19,7 @@ type Firmware struct {
 	Component     string   `yaml:"component"`
 	Checksum      string   `yaml:"checksum"`
 	InstallInband bool     `yaml:"install_inband"`
+	Oem           bool     `yaml:"oem"`
 }
 
 var (

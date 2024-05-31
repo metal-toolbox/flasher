@@ -7,8 +7,9 @@ import (
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/ironlib"
 	"github.com/metal-toolbox/ironlib/actions"
-	ironlibm "github.com/metal-toolbox/ironlib/model"
-	ironlibu "github.com/metal-toolbox/ironlib/utils"
+	iactions "github.com/metal-toolbox/ironlib/actions"
+	imodel "github.com/metal-toolbox/ironlib/model"
+	iutils "github.com/metal-toolbox/ironlib/utils"
 	"github.com/sirupsen/logrus"
 
 	rctypes "github.com/metal-toolbox/rivets/condition"
@@ -39,24 +40,40 @@ func (s *server) Open(ctx context.Context) error {
 }
 
 func (s *server) Inventory(ctx context.Context) (*common.Device, error) {
-	dm, err := ironlib.New(s.logger)
-	if err != nil {
+	trace := s.logger.Level == logrus.TraceLevel
+	collectors := &iactions.Collectors{
+		InventoryCollector: iutils.NewLshwCmd(trace),
+		DriveCollectors: []iactions.DriveCollector{
+			iutils.NewSmartctlCmd(trace),
+		},
+		NICCollector: iutils.NewMlxupCmd(trace),
+	}
+
+	inventory := iactions.NewInventoryCollectorAction(s.logger, actions.WithCollectors(collectors))
+	device := &common.Device{}
+
+	if err := inventory.Collect(ctx, device); err != nil {
 		return nil, err
 	}
 
-	disable := []ironlibm.CollectorUtility{ironlibu.UtilityUefiFirmwareParser}
-	return dm.GetInventory(ctx, actions.WithDisabledCollectorUtilities(disable))
+	return device, nil
 }
 
-func (s *server) FirmwareInstall(ctx context.Context, component, version string, force bool) error {
-	_ = &ironlibm.UpdateOptions{
-		AllowDowngrade: force,
-	}
-
-	_, err := ironlib.New(s.logger)
+func (s *server) FirmwareInstall(ctx context.Context, component, vendor, model, version, updateFile string, force bool) error {
+	dm, err := ironlib.New(s.logger)
 	if err != nil {
 		return err
 	}
+
+	params := &imodel.UpdateOptions{
+		AllowDowngrade: force,
+		Slug:           component,
+		UpdateFile:     updateFile,
+		Vendor:         vendor,
+		Model:          model,
+	}
+
+	dm.InstallUpdates(ctx, params)
 
 	return nil
 }

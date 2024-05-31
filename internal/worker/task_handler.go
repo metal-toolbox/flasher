@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bmc-toolbox/common"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/inband"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -213,20 +214,20 @@ func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Fir
 	for idx, firmware := range toInstall {
 		var actionHander runner.ActionHandler
 
-		switch t.mode {
-		case model.RunOutofband:
+		if t.mode == model.RunOutofband {
 			if firmware.InstallInband {
 				continue
 			}
-			actionHander = &outofband.ActionHandler{}
 
-		case model.RunInband:
+			actionHander = &outofband.ActionHandler{}
+		}
+
+		if t.mode == model.RunInband {
 			if !firmware.InstallInband {
 				continue
 			}
 
 			actionHander = &inband.ActionHandler{}
-
 		}
 
 		actionCtx := &runner.ActionHandlerContext{
@@ -251,7 +252,7 @@ func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Fir
 	if len(t.Task.Data.ActionsPlanned) > 0 {
 		info = fmt.Sprintf("%d %s firmware installs planned", len(t.Task.Data.ActionsPlanned), t.mode)
 	} else {
-		info = fmt.Sprintf("no %s firmware installs required", len(t.Task.Data.ActionsPlanned), t.mode)
+		info = fmt.Sprintf("no %s firmware installs required", t.mode)
 	}
 
 	t.Task.Status.Append(info)
@@ -274,10 +275,18 @@ func (t *handler) sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
 func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) []*model.Firmware {
 	var toInstall []*model.Firmware
 
+	//	key := func(cmpName, cmpSerial string) string {
+	//		return fmt.Sprintf("%s.%s", cmpName, cmpSerial)
+	//	}
+
+	// this is no good - if theres multiples of a component its going to be overwritten
 	invMap := make(map[string]string)
 	for _, cmp := range t.Task.Asset.Components {
 		invMap[strings.ToLower(cmp.Name)] = cmp.Firmware.Installed
 	}
+
+	spew.Dump(invMap)
+	spew.Dump(t.Task.Asset)
 
 	fmtCause := func(component, cause, currentV, requestedV string) string {
 		if currentV != "" && requestedV != "" {
@@ -292,7 +301,36 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 	// desire of users to not require a force or a re-run to accomplish an
 	// attainable goal.
 	for _, fw := range fws {
-		currentVersion, ok := invMap[strings.ToLower(fw.Component)]
+		// skip firmwares that cannot be installed outofband
+		if t.mode == model.RunOutofband && fw.InstallInband {
+			continue
+		}
+
+		// skip firwmare that cannot be installed inband
+		if t.mode == model.RunInband && !fw.InstallInband {
+			continue
+		}
+
+		currentVersion, ok := invMap[fw.Component]
+
+		// skip install if current firmware version was not identified
+		if currentVersion == "" && !t.Task.Parameters.ForceInstall {
+			info := "Current firmware version returned empty, skipped install, use force to override"
+			t.Task.Status.Append(
+				fmtCause(
+					fw.Component,
+					info,
+					currentVersion,
+					fw.Version,
+				),
+			)
+
+			t.Logger.WithFields(logrus.Fields{
+				"component": fw.Component,
+			}).Warn()
+
+			continue
+		}
 
 		switch {
 		case !ok:

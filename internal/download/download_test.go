@@ -1,4 +1,4 @@
-package outofband
+package download
 
 import (
 	"os"
@@ -57,7 +57,7 @@ func TestChecksumValidate(t *testing.T) {
 
 			defer os.Remove(binPath)
 
-			err = checksumValidate(binPath, tt.checksum)
+			err = ChecksumValidate(binPath, tt.checksum)
 			if tt.expectedError != nil {
 				assert.ErrorIs(t, err, tt.expectedError)
 				return

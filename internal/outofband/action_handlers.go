@@ -11,6 +11,7 @@ import (
 	"github.com/bmc-toolbox/common"
 	"github.com/hashicorp/go-multierror"
 	"github.com/metal-toolbox/flasher/internal/device"
+	"github.com/metal-toolbox/flasher/internal/download"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
@@ -285,7 +286,7 @@ func (h *handler) downloadFirmware(ctx context.Context) error {
 	file := filepath.Join(dir, h.firmware.FileName)
 
 	// download firmware file
-	err = download(ctx, h.firmware.URL, file)
+	err = download.FromURLToFile(ctx, h.firmware.URL, file)
 	if err != nil {
 		return err
 	}
@@ -302,7 +303,7 @@ func (h *handler) downloadFirmware(ctx context.Context) error {
 	}
 
 	// validate checksum
-	if err := checksumValidate(file, h.firmware.Checksum); err != nil {
+	if err := download.ChecksumValidate(file, h.firmware.Checksum); err != nil {
 		os.RemoveAll(filepath.Dir(file))
 		return err
 	}

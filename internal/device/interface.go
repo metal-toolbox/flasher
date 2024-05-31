@@ -47,5 +47,5 @@ type OutofbandQueryor interface {
 type InbandQueryor interface {
 	// Inventory returns the device inventory
 	Inventory(ctx context.Context) (*common.Device, error)
-	FirmwareInstall(ctx context.Context, component, version string, force bool) error
+	FirmwareInstall(ctx context.Context, component, vendor, model, version, updateFile string, force bool) error
 }

@@ -27,45 +27,36 @@ type ActionHandler struct {
 	handler *handler
 }
 
-func (i *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
-	steps := i.definitions()
-
+func (i *ActionHandler) ComposeAction(_ context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
 	return &model.Action{
 		InstallMethod: model.InstallMethodOutofband,
 		Firmware:      *actionCtx.Firmware,
 		ForceInstall:  actionCtx.Task.Parameters.ForceInstall,
-		Steps:         steps,
+		Steps:         i.definitions(),
 		First:         actionCtx.First,
 		Last:          actionCtx.Last,
 	}, nil
 }
 
-func (o *ActionHandler) definitions() model.Steps {
+func (i *ActionHandler) definitions() model.Steps {
 	return model.Steps{
 		{
 			Name:        checkInstalledFirmware,
 			Group:       PreInstall,
-			Handler:     o.handler.checkCurrentFirmware,
+			Handler:     i.handler.checkCurrentFirmware,
 			Description: "Check firmware currently installed on component",
 		},
 		{
 			Name:        downloadFirmware,
 			Group:       PreInstall,
-			Handler:     o.handler.downloadFirmware,
+			Handler:     i.handler.downloadFirmware,
 			Description: "Download and verify firmware file checksum.",
 		},
-
-		//		{
-		//			Name:        pollInstallStatus,
-		//			Group:       Install,
-		//			Handler:     o.handler.pollFirmwareTaskStatus,
-		//			Description: "Poll BMC for firmware install status until its identified to be in a finalized state.",
-		//		},
-		//{
-		//	Name:        pollUploadStatus,
-		//	Group:       Install,
-		//	Handler:     o.handler.pollFirmwareTaskStatus,
-		//	Description: "Poll device with exponential backoff for firmware upload status until it's confirmed.",
-		//},
+		{
+			Name:        installFirmware,
+			Group:       Install,
+			Handler:     i.handler.installFirmware,
+			Description: "Install firmware.",
+		},
 	}
 }

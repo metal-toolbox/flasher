@@ -319,15 +319,28 @@ func intoFirmwaresSlice(componentFirmware []fleetdbapi.ComponentFirmwareVersion)
 
 	// nolint:gocritic // rangeValCopy - componentFirmware is returned by fleetdb API in this form.
 	for _, firmware := range componentFirmware {
+		var installInband bool
+		var oem bool
+
+		if firmware.InstallInband != nil {
+			installInband = *firmware.InstallInband
+		}
+
+		//	if firmware.Oem != nil {
+		//		oem = *firmware.Oem
+		//	}
+
 		firmwares = append(firmwares, &model.Firmware{
-			ID:        firmware.UUID.String(),
-			Vendor:    strings.ToLower(firmware.Vendor),
-			Models:    strSliceToLower(firmware.Model),
-			FileName:  firmware.Filename,
-			Version:   firmware.Version,
-			Component: strings.ToLower(firmware.Component),
-			Checksum:  firmware.Checksum,
-			URL:       firmware.RepositoryURL,
+			ID:            firmware.UUID.String(),
+			Vendor:        strings.ToLower(firmware.Vendor),
+			Models:        strSliceToLower(firmware.Model),
+			FileName:      firmware.Filename,
+			Version:       firmware.Version,
+			Component:     strings.ToLower(firmware.Component),
+			Checksum:      firmware.Checksum,
+			URL:           firmware.RepositoryURL,
+			InstallInband: installInband,
+			Oem:           oem,
 		})
 	}
 
