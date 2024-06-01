@@ -184,10 +184,28 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 
 		actionLogger.Info("running action steps for firmware install")
 		for _, step := range action.Steps {
+			if ctx.Err() != nil {
+				break
+			}
+
 			publish(model.StateActive, action, step.Name, actionLogger)
 
 			// run step
 			if err := step.Handler(ctx); err != nil {
+				// installed firmware equals expected
+				if errors.Is(err, model.ErrInstalledFirmwareEqual) {
+					task.Status.Append(
+						fmt.Sprintf(
+							"[%s] %s",
+							action.Firmware.Component,
+							"Installed and expected firmware are equal",
+						),
+					)
+
+					// move to next action
+					break
+				}
+
 				action.SetState(model.StateFailed)
 				publish(model.StateFailed, action, step.Name, actionLogger)
 
@@ -202,10 +220,13 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 				)
 			}
 
-			// log and publish status
-			action.SetState(model.StateSucceeded)
+			// publish step status
 			publish(model.StateSucceeded, action, step.Name, actionLogger)
 		}
+
+		// log and publish status
+		action.SetState(model.StateSucceeded)
+		handler.Publish(ctx)
 
 		registerMetric(startTS, action, rctypes.Succeeded)
 		actionLogger.Info("action steps for component completed successfully")

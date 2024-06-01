@@ -7,6 +7,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	ErrInstalledFirmwareEqual = errors.New("installed and expected firmware are equal, no action necessary")
+)
+
 // A Task comprises of Action(s) for each firmware to be installed,
 // An Action includes multiple steps to have firmware installed.
 

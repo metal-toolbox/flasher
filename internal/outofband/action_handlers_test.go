@@ -173,7 +173,7 @@ func TestCheckCurrentFirmware(t *testing.T) {
 		dq.EXPECT().Inventory(mock.Anything).Times(1).Return(&dev, nil)
 		err := handler.checkCurrentFirmware(ctx)
 		require.Error(t, err)
-		require.ErrorIs(t, err, ErrInstalledFirmwareEqual)
+		require.ErrorIs(t, err, model.ErrInstalledFirmwareEqual)
 	})
 	t.Run("installed version does not match", func(t *testing.T) {
 		t.Parallel()

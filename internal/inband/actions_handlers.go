@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/download"
 	"github.com/metal-toolbox/flasher/internal/metrics"
@@ -14,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 const (
@@ -34,8 +37,8 @@ type handler struct {
 	task          *model.Task
 	action        *model.Action
 	deviceQueryor device.InbandQueryor
-	//publisher     model.Publisher
-	logger *logrus.Entry
+	publisher     model.Publisher
+	logger        *logrus.Entry
 }
 
 func (h *handler) installedEqualsExpected(ctx context.Context, component, expectedFirmware, vendor string, models []string) error {
@@ -72,24 +75,33 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 		)
 	}
 
-	h.logger.WithFields(
-		logrus.Fields{
-			"component": found.Name,
-			"vendor":    found.Vendor,
-			"model":     found.Model,
-			"serial":    found.Serial,
-			"current":   found.Firmware.Installed,
-			"expected":  expectedFirmware,
-		}).Debug("component version check")
+	var updateComponent *rtypes.Component
+	for _, fc := range found {
+		h.logger.WithFields(
+			logrus.Fields{
+				"found":     len(found),
+				"component": fc.Name,
+				"vendor":    fc.Vendor,
+				"model":     fc.Model,
+				"serial":    fc.Serial,
+				"current":   fc.Firmware.Installed,
+				"expected":  expectedFirmware,
+			}).Debug("component version check")
 
-	if strings.TrimSpace(found.Firmware.Installed) == "" {
+		if fc.Firmware != nil {
+			updateComponent = found[0]
+			break
+		}
+	}
+
+	if strings.TrimSpace(updateComponent.Firmware.Installed) == "" {
 		return ErrInstalledVersionUnknown
 	}
 
-	if !strings.EqualFold(expectedFirmware, found.Firmware.Installed) {
+	if !strings.EqualFold(expectedFirmware, updateComponent.Firmware.Installed) {
 		return errors.Wrap(
 			ErrInstalledFirmwareNotEqual,
-			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, found.Firmware.Installed),
+			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, updateComponent.Firmware.Installed),
 		)
 	}
 
@@ -97,6 +109,8 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 }
 
 func (h *handler) checkCurrentFirmware(ctx context.Context) error {
+	spew.Dump(h.task)
+	spew.Dump(h.firmware)
 	if h.task.Parameters.ForceInstall {
 		h.logger.WithFields(
 			logrus.Fields{
@@ -123,16 +137,6 @@ func (h *handler) checkCurrentFirmware(ctx context.Context) error {
 
 		return err
 	}
-
-	h.logger.WithFields(
-		logrus.Fields{
-			"action id":    h.action.ID,
-			"condition id": h.task.ID.String(),
-			"component":    h.firmware.Component,
-			"vendor":       h.firmware.Vendor,
-			"models":       h.firmware.Models,
-			"expected":     h.firmware.Version,
-		}).Info("Installed firmware version equals expected")
 
 	// TODO: fix caller check on method
 	return ErrInstalledFirmwareEqual
@@ -209,7 +213,6 @@ func (h *handler) installFirmware(ctx context.Context) error {
 		); err != nil {
 			return err
 		}
-
 	}
 
 	h.logger.WithFields(

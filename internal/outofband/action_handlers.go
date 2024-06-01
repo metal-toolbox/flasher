@@ -20,6 +20,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 const (
@@ -77,7 +78,6 @@ var (
 	ErrContextCancelled          = errors.New("context canceled")
 	ErrUnexpected                = errors.New("unexpected error occurred")
 	ErrInstalledFirmwareNotEqual = errors.New("installed and expected firmware not equal")
-	ErrInstalledFirmwareEqual    = errors.New("installed and expected firmware are equal, no action necessary")
 	ErrInstalledVersionUnknown   = errors.New("installed version unknown")
 	ErrComponentNotFound         = errors.New("component not identified for firmware install")
 	ErrRequireHostPoweredOff     = errors.New("expected host to be powered off")
@@ -200,24 +200,35 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 		)
 	}
 
-	h.logger.WithFields(
-		logrus.Fields{
-			"component": found.Name,
-			"vendor":    found.Vendor,
-			"model":     found.Model,
-			"serial":    found.Serial,
-			"current":   found.Firmware.Installed,
-			"expected":  expectedFirmware,
-		}).Debug("component version check")
+	// While we may have multiple drives and NICs,
+	// The BMC update interface accepts a single update file.
+	var updateComponent *rtypes.Component
+	for _, fc := range found {
+		h.logger.WithFields(
+			logrus.Fields{
+				"found":     len(found),
+				"component": fc.Name,
+				"vendor":    fc.Vendor,
+				"model":     fc.Model,
+				"serial":    fc.Serial,
+				"current":   fc.Firmware.Installed,
+				"expected":  expectedFirmware,
+			}).Debug("component version check")
 
-	if strings.TrimSpace(found.Firmware.Installed) == "" {
+		if fc.Firmware != nil {
+			updateComponent = found[0]
+			break
+		}
+	}
+
+	if strings.TrimSpace(updateComponent.Firmware.Installed) == "" {
 		return ErrInstalledVersionUnknown
 	}
 
-	if !strings.EqualFold(expectedFirmware, found.Firmware.Installed) {
+	if !strings.EqualFold(expectedFirmware, updateComponent.Firmware.Installed) {
 		return errors.Wrap(
 			ErrInstalledFirmwareNotEqual,
-			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, found.Firmware.Installed),
+			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, updateComponent.Firmware.Installed),
 		)
 	}
 
@@ -262,8 +273,7 @@ func (h *handler) checkCurrentFirmware(ctx context.Context) error {
 			"expected":     h.firmware.Version,
 		}).Info("Installed firmware version equals expected")
 
-	// TODO: fix caller check on method
-	return ErrInstalledFirmwareEqual
+	return model.ErrInstalledFirmwareEqual
 }
 
 func (h *handler) downloadFirmware(ctx context.Context) error {

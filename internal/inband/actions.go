@@ -3,6 +3,7 @@ package inband
 import (
 	"context"
 
+	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
 )
@@ -28,14 +29,37 @@ type ActionHandler struct {
 }
 
 func (i *ActionHandler) ComposeAction(_ context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
-	return &model.Action{
-		InstallMethod: model.InstallMethodOutofband,
+	var deviceQueryor device.InbandQueryor
+	if actionCtx.DeviceQueryor == nil {
+		deviceQueryor = NewDeviceQueryor(actionCtx.Logger)
+	} else {
+		deviceQueryor = actionCtx.DeviceQueryor.(device.InbandQueryor)
+	}
+
+	i.handler = initHandler(actionCtx, deviceQueryor)
+
+	action := &model.Action{
+		InstallMethod: model.InstallMethodInband,
 		Firmware:      *actionCtx.Firmware,
 		ForceInstall:  actionCtx.Task.Parameters.ForceInstall,
 		Steps:         i.definitions(),
 		First:         actionCtx.First,
 		Last:          actionCtx.Last,
-	}, nil
+	}
+
+	i.handler.action = action
+
+	return action, nil
+}
+
+func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.InbandQueryor) *handler {
+	return &handler{
+		task:          actionCtx.Task,
+		firmware:      actionCtx.Firmware,
+		publisher:     actionCtx.Publisher,
+		logger:        actionCtx.Logger,
+		deviceQueryor: queryor,
+	}
 }
 
 func (i *ActionHandler) definitions() model.Steps {

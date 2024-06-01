@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/bmc-toolbox/common"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/inband"
 	"github.com/metal-toolbox/flasher/internal/model"
@@ -53,18 +52,9 @@ func newHandler(
 
 func (t *handler) Initialize(ctx context.Context) error {
 	if t.DeviceQueryor == nil {
-		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
-		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
-		// so this DeviceQueryor would have to be extended
-		//
-		// For this to work with both inband and out of band, the firmware set data should include the install method.
 		switch t.mode {
 		case model.RunInband:
-			var err error
-			t.DeviceQueryor, err = inband.NewDeviceQueryor(t.Task.Asset, t.Logger)
-			if err != nil {
-				return err
-			}
+			t.DeviceQueryor = inband.NewDeviceQueryor(t.Logger)
 		case model.RunOutofband:
 			t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Asset, t.Logger)
 		}
@@ -185,18 +175,26 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
 func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
-	actions := model.Actions{}
+	toInstall := []*model.Firmware{}
+
+	for _, fw := range firmwares {
+		if t.mode == model.RunOutofband && !fw.InstallInband {
+			toInstall = append(toInstall, fw)
+		}
+
+		if t.mode == model.RunInband && fw.InstallInband {
+			toInstall = append(toInstall, fw)
+		}
+	}
 
 	t.Logger.WithFields(logrus.Fields{
 		"condition.id":             t.Task.ID,
-		"requested.firmware.count": fmt.Sprintf("%d", len(firmwares)),
+		"requested.firmware.count": fmt.Sprintf("%d", len(toInstall)),
 	}).Debug("checking against current inventory")
-
-	toInstall := firmwares
 
 	// purge any firmware that are already installed
 	if !t.Task.Parameters.ForceInstall {
-		toInstall = t.removeFirmwareAlreadyAtDesiredVersion(firmwares)
+		toInstall = t.removeFirmwareAlreadyAtDesiredVersion(toInstall)
 	}
 
 	if len(toInstall) == 0 {
@@ -210,6 +208,7 @@ func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Fir
 	// sort firmware in order of install
 	t.sortFirmwareByInstallOrder(toInstall)
 
+	actions := model.Actions{}
 	// each firmware applicable results in an ActionPlan and an Action
 	for idx, firmware := range toInstall {
 		var actionHander runner.ActionHandler
@@ -249,8 +248,9 @@ func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Fir
 	}
 
 	var info string
-	if len(t.Task.Data.ActionsPlanned) > 0 {
-		info = fmt.Sprintf("%d %s firmware installs planned", len(t.Task.Data.ActionsPlanned), t.mode)
+	if len(actions) > 0 {
+		t.Task.Data.ActionsPlanned = actions
+		info = fmt.Sprintf("%d %s firmware installs planned", len(actions), t.mode)
 	} else {
 		info = fmt.Sprintf("no %s firmware installs required", t.mode)
 	}
@@ -279,14 +279,12 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 	//		return fmt.Sprintf("%s.%s", cmpName, cmpSerial)
 	//	}
 
-	// this is no good - if theres multiples of a component its going to be overwritten
+	// NOTE: if theres drives of two different models then we want to update those
+	// this map will not enable that.
 	invMap := make(map[string]string)
 	for _, cmp := range t.Task.Asset.Components {
 		invMap[strings.ToLower(cmp.Name)] = cmp.Firmware.Installed
 	}
-
-	spew.Dump(invMap)
-	spew.Dump(t.Task.Asset)
 
 	fmtCause := func(component, cause, currentV, requestedV string) string {
 		if currentV != "" && requestedV != "" {
@@ -301,15 +299,6 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 	// desire of users to not require a force or a re-run to accomplish an
 	// attainable goal.
 	for _, fw := range fws {
-		// skip firmwares that cannot be installed outofband
-		if t.mode == model.RunOutofband && fw.InstallInband {
-			continue
-		}
-
-		// skip firwmare that cannot be installed inband
-		if t.mode == model.RunInband && !fw.InstallInband {
-			continue
-		}
 
 		currentVersion, ok := invMap[fw.Component]
 
