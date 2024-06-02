@@ -243,21 +243,18 @@ func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Fir
 
 		action.SetID(t.Task.ID.String(), firmware.Component, idx)
 		action.SetState(model.StatePending)
-
 		actions = append(actions, action)
 	}
 
 	var info string
 	if len(actions) > 0 {
-		t.Task.Data.ActionsPlanned = actions
-		info = fmt.Sprintf("%d %s firmware installs planned", len(actions), t.mode)
+		info = fmt.Sprintf("firmware installs planned, method: %s, count: %d", len(actions), t.mode)
 	} else {
 		info = fmt.Sprintf("no %s firmware installs required", t.mode)
 	}
 
 	t.Task.Status.Append(info)
 	t.Publish(ctx)
-
 	t.Logger.Info(info)
 
 	return actions, nil

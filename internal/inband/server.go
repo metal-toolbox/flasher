@@ -6,7 +6,6 @@ import (
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/ironlib"
-	"github.com/metal-toolbox/ironlib/actions"
 	iactions "github.com/metal-toolbox/ironlib/actions"
 	imodel "github.com/metal-toolbox/ironlib/model"
 	iutils "github.com/metal-toolbox/ironlib/utils"
@@ -15,6 +14,7 @@ import (
 
 type server struct {
 	logger *logrus.Logger
+	dm     iactions.DeviceManager
 }
 
 // NewDeviceQueryor returns a server queryor that implements the DeviceQueryor interface
@@ -23,28 +23,33 @@ func NewDeviceQueryor(logger *logrus.Entry) device.InbandQueryor {
 }
 
 func (s *server) Inventory(ctx context.Context) (*common.Device, error) {
-	trace := s.logger.Level == logrus.TraceLevel
+	//trace := s.logger.Level == logrus.TraceLevel
 
-	collectors := &iactions.Collectors{
-		InventoryCollector: iutils.NewLshwCmd(trace),
-		DriveCollectors: []iactions.DriveCollector{
-			iutils.NewSmartctlCmd(trace),
-		},
-		NICCollector: iutils.NewMlxupCmd(trace),
-	}
+	//collectors := &iactions.Collectors{
+	//	InventoryCollector: iutils.NewLshwCmd(trace),
+	//	DriveCollectors: []iactions.DriveCollector{
+	//		iutils.NewSmartctlCmd(trace),
+	//	},
+	//	NICCollector: iutils.NewMlxupCmd(trace),
+	//}
 
-	inventory := iactions.NewInventoryCollectorAction(s.logger, actions.WithCollectors(collectors))
-	cdevice := &common.Device{}
-
-	if err := inventory.Collect(ctx, cdevice); err != nil {
+	dm, err := ironlib.New(s.logger)
+	if err != nil {
 		return nil, err
 	}
 
-	return cdevice, nil
+	s.dm = dm
+
+	disabledCollectors := []imodel.CollectorUtility{
+		iutils.UefiFirmwareParserUtility,
+		iutils.UefiVariableCollectorUtility,
+		iutils.LsblkUtility,
+	}
+
+	return dm.GetInventory(ctx, iactions.WithDisabledCollectorUtilities(disabledCollectors))
 }
 
 func (s *server) FirmwareInstall(ctx context.Context, component, vendor, model, version, updateFile string, force bool) error {
-
 	params := &imodel.UpdateOptions{
 		AllowDowngrade: force,
 		Slug:           component,
@@ -53,12 +58,14 @@ func (s *server) FirmwareInstall(ctx context.Context, component, vendor, model, 
 		Model:          model,
 	}
 
-	dm, err := ironlib.New(s.logger)
-	if err != nil {
-		return err
+	if s.dm == nil {
+		dm, err := ironlib.New(s.logger)
+		if err != nil {
+			return err
+		}
+
+		s.dm = dm
 	}
 
-	dm.InstallUpdates(ctx, params)
-
-	return nil
+	return s.dm.InstallUpdates(ctx, params)
 }
