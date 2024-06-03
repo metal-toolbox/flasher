@@ -69,18 +69,21 @@ func (i *ActionHandler) definitions() model.Steps {
 			Group:       PreInstall,
 			Handler:     i.handler.checkCurrentFirmware,
 			Description: "Check firmware currently installed on component",
+			State:       model.StatePending,
 		},
 		{
 			Name:        downloadFirmware,
 			Group:       PreInstall,
 			Handler:     i.handler.downloadFirmware,
 			Description: "Download and verify firmware file checksum.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        installFirmware,
 			Group:       Install,
 			Handler:     i.handler.installFirmware,
 			Description: "Install firmware.",
+			State:       model.StatePending,
 		},
 	}
 }

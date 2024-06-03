@@ -149,15 +149,16 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 	}
 
 	// helper func to log and publish step status
-	publish := func(state rctypes.State, action *model.Action, stepName model.StepName, logger *logrus.Entry) {
-		logger.WithField("step", stepName).Debug("running step")
+	publishStep := func(state rctypes.State, action *model.Action, step *model.Step, logger *logrus.Entry) {
+		logger.WithField("step", step.Name).Debug("running step")
+		step.SetState(state)
 		task.Status.Append(fmt.Sprintf(
 			"[%s] install version: %s, inband: %t, state: %s, step %s",
 			action.Firmware.Component,
 			action.Firmware.Version,
 			action.Firmware.InstallInband,
 			state,
-			stepName,
+			step.Name,
 		))
 
 		handler.Publish(ctx)
@@ -175,6 +176,7 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 
 		// fetch action attributes from task
 		action.SetState(model.StateActive)
+		handler.Publish(ctx)
 
 		// return on context cancellation
 		if ctx.Err() != nil {
@@ -188,7 +190,7 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 				break
 			}
 
-			publish(model.StateActive, action, step.Name, actionLogger)
+			publishStep(model.StateActive, action, step, actionLogger)
 
 			// run step
 			if err := step.Handler(ctx); err != nil {
@@ -202,12 +204,13 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 						),
 					)
 
+					action.SetState(model.StateSucceeded)
+					publishStep(model.StateSucceeded, action, step, actionLogger)
 					// move to next action
 					break
 				}
 
-				action.SetState(model.StateFailed)
-				publish(model.StateFailed, action, step.Name, actionLogger)
+				publishStep(model.StateFailed, action, step, actionLogger)
 
 				registerMetric(startTS, action, rctypes.Failed)
 				return errors.Wrap(
@@ -221,7 +224,7 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 			}
 
 			// publish step status
-			publish(model.StateSucceeded, action, step.Name, actionLogger)
+			publishStep(model.StateSucceeded, action, step, actionLogger)
 		}
 
 		// log and publish status

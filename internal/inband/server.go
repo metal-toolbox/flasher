@@ -51,11 +51,11 @@ func (s *server) Inventory(ctx context.Context) (*common.Device, error) {
 
 func (s *server) FirmwareInstall(ctx context.Context, component, vendor, model, version, updateFile string, force bool) error {
 	params := &imodel.UpdateOptions{
-		AllowDowngrade: force,
-		Slug:           component,
-		UpdateFile:     updateFile,
-		Vendor:         vendor,
-		Model:          model,
+		ForceInstall: force,
+		Slug:         component,
+		UpdateFile:   updateFile,
+		Vendor:       vendor,
+		Model:        model,
 	}
 
 	if s.dm == nil {
