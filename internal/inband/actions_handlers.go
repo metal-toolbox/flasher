@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/download"
 	"github.com/metal-toolbox/flasher/internal/metrics"
@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
+	iutils "github.com/metal-toolbox/ironlib/utils"
 	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
@@ -109,8 +110,6 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 }
 
 func (h *handler) checkCurrentFirmware(ctx context.Context) error {
-	spew.Dump(h.task)
-	spew.Dump(h.firmware)
 	if h.task.Parameters.ForceInstall {
 		h.logger.WithFields(
 			logrus.Fields{
@@ -138,7 +137,6 @@ func (h *handler) checkCurrentFirmware(ctx context.Context) error {
 		return err
 	}
 
-	// TODO: fix caller check on method
 	return ErrInstalledFirmwareEqual
 }
 
@@ -211,6 +209,17 @@ func (h *handler) installFirmware(ctx context.Context) error {
 			h.action.FirmwareTempFile,
 			h.action.ForceInstall,
 		); err != nil {
+			if errors.Is(err, iutils.ErrRebootRequired) {
+				h.logger.WithFields(
+					logrus.Fields{
+						"component": h.firmware.Component,
+						"update":    h.firmware.FileName,
+						"version":   h.firmware.Version,
+						"msg":       err.Error(),
+					}).Info("firmware install requires a server power cycle")
+				return nil
+			}
+
 			return err
 		}
 	}
@@ -220,8 +229,74 @@ func (h *handler) installFirmware(ctx context.Context) error {
 			"component": h.firmware.Component,
 			"update":    h.firmware.FileName,
 			"version":   h.firmware.Version,
-			"bmcTaskID": h.action.BMCTaskID,
 		}).Info("firmware installed")
+
+	return nil
+}
+
+func (h *handler) powerCycleServer(ctx context.Context) error {
+	if h.task.Parameters.DryRun {
+		h.logger.WithFields(
+			logrus.Fields{
+				"component": h.firmware.Component,
+				"update":    h.firmware.FileName,
+				"version":   h.firmware.Version,
+			}).Info("power cycling server - dry-run")
+
+		return nil
+	}
+
+	if h.action.HostPowerCycleInitiated {
+		h.logger.WithFields(
+			logrus.Fields{
+				"component": h.firmware.Component,
+				"update":    h.firmware.FileName,
+				"version":   h.firmware.Version,
+			}).Info("server previously power cycled, not attempting another.")
+
+		return nil
+	}
+
+	h.logger.WithFields(
+		logrus.Fields{
+			"component": h.firmware.Component,
+			"update":    h.firmware.FileName,
+			"version":   h.firmware.Version,
+		}).Info("power cycling server")
+
+	//cmd := exec.Command(`shutdown -r +2 "server powercycle for firmware install in 2 minutes"`)
+	//if err := cmd.Run(); err != nil {
+	//	return err
+	//}
+
+	rebootFile := "/var/run/reboot"
+	f, err := os.OpenFile(rebootFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = fmt.Fprintf(f, "%s\n", "YASSS!")
+	if err != nil {
+		return err
+	}
+
+	// we must be able to publish a status at this point
+	h.action.HostPowerCycleInitiated = true
+	h.task.Status.Append("server powercycle initiated")
+	if errPub := h.publisher.Publish(ctx, h.task); errPub != nil {
+		h.logger.WithError(errPub).Info("publish failure")
+		return errPub
+	}
+
+	for {
+		if ctx.Err() != nil {
+			return err
+		}
+
+		h.logger.Info("waiting for power cycle..")
+		time.Sleep(30 * time.Second)
+	}
 
 	return nil
 }

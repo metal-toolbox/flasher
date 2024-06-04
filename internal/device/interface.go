@@ -7,6 +7,7 @@ import (
 	"github.com/bmc-toolbox/common"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
+	imodel "github.com/metal-toolbox/ironlib/model"
 )
 
 //go:generate mockgen -source model.go -destination=../fixtures/mock.go -package=fixtures
@@ -48,4 +49,5 @@ type InbandQueryor interface {
 	// Inventory returns the device inventory
 	Inventory(ctx context.Context) (*common.Device, error)
 	FirmwareInstall(ctx context.Context, component, vendor, model, version, updateFile string, force bool) error
+	FirmwareInstallRequirements(ctx context.Context, component, vendor, model string) (*imodel.UpdateRequirements, error)
 }

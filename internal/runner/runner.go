@@ -148,8 +148,119 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 		registerActionMetric(startTS, action, string(state))
 	}
 
+	finalize := func(state rctypes.State, startTS time.Time, action *model.Action, err error) error {
+		action.SetState(state)
+		handler.Publish(ctx)
+		registerMetric(startTS, action, state)
+
+		return err
+	}
+
+	// each action corresponds to a firmware to be installed
+	for _, action := range task.Data.ActionsPlanned {
+		startTS := time.Now()
+
+		// return on context cancellation
+		if ctx.Err() != nil {
+			return finalize(rctypes.Failed, startTS, action, ctx.Err())
+		}
+
+		actionLogger := r.logger.WithFields(logrus.Fields{
+			"action":    action.ID,
+			"component": action.Firmware.Component,
+			"fwversion": action.Firmware.Version,
+		})
+
+		resumeAction, err := r.resumeAction(ctx, action, handler)
+		if err != nil {
+			return finalize(rctypes.Failed, startTS, action, err)
+		}
+
+		if !resumeAction {
+			continue
+		}
+
+		// fetch action attributes from task
+		action.SetState(model.StateActive)
+		handler.Publish(ctx)
+
+		// return
+		runNext, err := r.runActionSteps(ctx, task, action, handler, actionLogger)
+		if err != nil {
+			return finalize(rctypes.Failed, startTS, action, err)
+		}
+
+		if !runNext {
+			info := "no further actions required"
+			actionLogger.Info(info)
+			task.Status.Append(info)
+
+			return finalize(rctypes.Succeeded, startTS, action, nil)
+		}
+
+		// log and publish status
+		action.SetState(rctypes.Succeeded)
+		handler.Publish(ctx)
+		registerMetric(startTS, action, rctypes.Succeeded)
+		actionLogger.Info("action steps for component completed successfully")
+	}
+
+	return nil
+}
+
+// resumeAction returns true when the action can be resumed, when a false is returned with no error, the action is to be skipped.
+func (r *Runner) resumeAction(ctx context.Context, action *model.Action, handler TaskHandler) (resume bool, err error) {
+	errResumeAction := errors.New("error in resuming action")
+
+	actionLogger := r.logger.WithFields(logrus.Fields{
+		"action":    action.ID,
+		"component": action.Firmware.Component,
+		"fwversion": action.Firmware.Version,
+	})
+
+	switch action.State {
+	case model.StatePending:
+		actionLogger.Info("running action")
+		return true, nil
+
+	case model.StateSucceeded:
+		actionLogger.WithField("state", action.State).Info("skipping previously successful action")
+		return false, nil
+
+	case model.StateActive:
+		if action.Attempts > model.ActionMaxAttempts {
+
+			info := "reached maximum attempts on action"
+			actionLogger.WithFields(
+				logrus.Fields{"state": action.State, "attempts": action.Attempts},
+			).Warn(info)
+
+			action.SetState(model.StateFailed)
+			handler.Publish(ctx)
+
+			return false, errors.Wrap(errResumeAction, fmt.Sprintf("%s: %d", info, action.Attempts))
+		}
+
+		actionLogger.WithFields(
+			logrus.Fields{"state": action.State, "attempts": action.Attempts},
+		).Info("resuming active action..")
+
+		action.Attempts++
+		return true, nil
+
+	case model.StateFailed:
+		handler.Publish(ctx)
+
+		return false, errors.Wrap(errResumeAction, "action previously failed, will not be re-attempted")
+
+	default:
+		return false, errors.Wrap(errResumeAction, "unmanaged state: "+string(action.State))
+	}
+}
+
+func (r *Runner) runActionSteps(ctx context.Context, task *model.Task, action *model.Action, handler TaskHandler, logger *logrus.Entry) (proceed bool, err error) {
 	// helper func to log and publish step status
-	publishStep := func(state rctypes.State, action *model.Action, step *model.Step, logger *logrus.Entry) {
+	publish := func(state rctypes.State, action *model.Action, step *model.Step, logger *logrus.Entry) {
 		logger.WithField("step", step.Name).Debug("running step")
 		step.SetState(state)
 		task.Status.Append(fmt.Sprintf(
@@ -164,78 +275,98 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 		handler.Publish(ctx)
 	}
 
-	// each action corresponds to a firmware to be installed
-	for _, action := range task.Data.ActionsPlanned {
-		startTS := time.Now()
-
-		actionLogger := r.logger.WithFields(logrus.Fields{
-			"action":    action.ID,
-			"component": action.Firmware.Component,
-			"fwversion": action.Firmware.Version,
-		})
-
-		// fetch action attributes from task
-		action.SetState(model.StateActive)
-		handler.Publish(ctx)
-
-		// return on context cancellation
+	for _, step := range action.Steps {
 		if ctx.Err() != nil {
-			registerMetric(startTS, action, rctypes.Failed)
-			return ctx.Err()
+			return false, ctx.Err()
 		}
 
-		actionLogger.Info("running action steps for firmware install")
-		for _, step := range action.Steps {
-			if ctx.Err() != nil {
-				break
-			}
+		resume, err := r.resumeStep(step, logger)
+		if err != nil {
+			publish(model.StateFailed, action, step, logger)
+			return false, err
+		}
 
-			publishStep(model.StateActive, action, step, actionLogger)
+		if !resume {
+			continue
+		}
 
-			// run step
-			if err := step.Handler(ctx); err != nil {
-				// installed firmware equals expected
-				if errors.Is(err, model.ErrInstalledFirmwareEqual) {
-					task.Status.Append(
-						fmt.Sprintf(
-							"[%s] %s",
-							action.Firmware.Component,
-							"Installed and expected firmware are equal",
-						),
-					)
+		publish(model.StateActive, action, step, logger)
 
-					action.SetState(model.StateSucceeded)
-					publishStep(model.StateSucceeded, action, step, actionLogger)
-					// move to next action
-					break
-				}
-
-				publishStep(model.StateFailed, action, step, actionLogger)
-
-				registerMetric(startTS, action, rctypes.Failed)
-				return errors.Wrap(
-					err,
+		// run step
+		if err := step.Handler(ctx); err != nil {
+			// installed firmware equals expected
+			if errors.Is(err, model.ErrInstalledFirmwareEqual) {
+				task.Status.Append(
 					fmt.Sprintf(
-						"error while running step=%s to install firmware on component=%s",
-						step.Name,
+						"[%s] %s",
 						action.Firmware.Component,
+						"Installed and expected firmware are equal",
 					),
 				)
+
+				publish(model.StateSucceeded, action, step, logger)
+
+				// no further actions
+				return false, nil
 			}
 
-			// publish step status
-			publishStep(model.StateSucceeded, action, step, actionLogger)
+			publish(model.StateFailed, action, step, logger)
+			return false, errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"error while running step=%s to install firmware on component=%s",
+					step.Name,
+					action.Firmware.Component,
+				),
+			)
 		}
 
-		// log and publish status
-		action.SetState(model.StateSucceeded)
-		handler.Publish(ctx)
-
-		registerMetric(startTS, action, rctypes.Succeeded)
-		actionLogger.Info("action steps for component completed successfully")
+		// publish step status
+		publish(model.StateSucceeded, action, step, logger)
 	}
 
-	return nil
+	return true, nil
+}
+
+// resumeStep returns true when the step can be resumed, when a false is returned with no error, the step is to be skipped.
+func (r *Runner) resumeStep(step *model.Step, logger *logrus.Entry) (resume bool, err error) {
+	errResumeStep := errors.New("error in resuming step")
+
+	le := logger.WithFields(
+		logrus.Fields{
+			"stepName": step.Name,
+			"state":    step.State,
+			"attempts": step.Attempts,
+		},
+	)
+
+	switch step.State {
+	case model.StatePending:
+		return true, nil
+
+	case model.StateSucceeded:
+		le.Info("skipping previously successful step")
+		return false, nil
+
+	case model.StateActive:
+		if step.Attempts > model.StepMaxAttempts {
+			info := "reached maximum attempts on step"
+			le.Warn(info)
+			step.SetState(model.StateFailed)
+			return false, errors.Wrap(errResumeStep, fmt.Sprintf("%s: %d", info, step.Attempts))
+		}
+
+		le.Info("resuming active step..")
+
+		step.Attempts++
+		return true, nil
+
+	case model.StateFailed:
+		return false, errors.Wrap(errResumeStep, "step previously failed, will not be re-attempted")
+
+	default:
+		return false, errors.Wrap(errResumeStep, "unmanaged state: "+string(step.State))
+	}
 }
 
 // conditionalFault is invoked before each runner method to induce a fault if specified

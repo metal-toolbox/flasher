@@ -139,6 +139,12 @@ func (t handler) inventoryInband(ctx context.Context) (*common.Device, error) {
 }
 
 func (t *handler) PlanActions(ctx context.Context) error {
+	if t.Task.State == model.StateActive && len(t.Task.Data.ActionsPlanned) > 0 {
+		t.Logger.WithFields(logrus.Fields{
+			"condition.id":             t.Task.ID,
+		}).Info("")
+	}
+
 	switch t.Task.Data.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
 		return t.planFromFirmwareSet(ctx)

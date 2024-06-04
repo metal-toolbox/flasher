@@ -7,6 +7,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// Each action may be tried upto these many times.
+	StepMaxAttempts = 1
+)
+
 var (
 	ErrInstalledFirmwareEqual = errors.New("installed and expected firmware are equal, no action necessary")
 )
@@ -32,6 +37,7 @@ type Step struct {
 	Description string        `json:"doc"`
 	State       rctypes.State `json:"state"`
 	Status      string        `json:"status"`
+	Attempts    int           `json:"attempts"`
 }
 
 func (s *Step) SetState(state rctypes.State) {

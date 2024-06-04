@@ -69,3 +69,22 @@ func (s *server) FirmwareInstall(ctx context.Context, component, vendor, model, 
 
 	return s.dm.InstallUpdates(ctx, params)
 }
+
+func (s *server) FirmwareInstallRequirements(ctx context.Context, component, vendor, model string) (*imodel.UpdateRequirements, error) {
+	params := &imodel.UpdateOptions{
+		Slug:   component,
+		Vendor: vendor,
+		Model:  model,
+	}
+
+	if s.dm == nil {
+		dm, err := ironlib.New(s.logger)
+		if err != nil {
+			return nil, err
+		}
+
+		s.dm = dm
+	}
+
+	return s.dm.UpdateRequirements(ctx, params)
+}

@@ -7,6 +7,11 @@ import (
 	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
+const (
+	// Each action may be tried upto these many times.
+	ActionMaxAttempts = 3
+)
+
 // Action holds attributes for each firmware to be installed
 type Action struct {
 	// ID is a unique identifier for this action
@@ -54,6 +59,12 @@ type Action struct {
 	// HostPowerCycled is set when the host has been power cycled for the action.
 	HostPowerCycled bool `json:"host_power_cycled"`
 
+	// HostPowerCycleInitiated indicates when a power cycle has been initated for the host.
+	HostPowerCycleInitiated bool `json:"host_power_cycle_initiated"`
+
+	//HostPowerOffInitiated indicates a power off was initated on the host.
+	HostPowerOffInitiated bool `json:"host_power_off_initiated"`
+
 	// HostPowerOffPreInstall is set when the firmware install provider indicates
 	// the host must be powered off before proceeding with the install step.
 	HostPowerOffPreInstall bool `json:"host_power_off_pre_install"`
@@ -63,6 +74,9 @@ type Action struct {
 
 	// Last is set to true when its the last action being executed
 	Last bool `json:"last"`
+
+	// Attempts indicates how many times this action has been tried
+	Attempts int `json:"attempts"`
 
 	// Steps identify the smallest unit of work executed by an action
 	Steps Steps `json:"steps"`
