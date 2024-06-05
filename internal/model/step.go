@@ -9,7 +9,7 @@ import (
 
 const (
 	// Each action may be tried upto these many times.
-	StepMaxAttempts = 1
+	StepMaxAttempts = 2
 )
 
 var (

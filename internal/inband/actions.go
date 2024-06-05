@@ -125,6 +125,8 @@ func (i *ActionHandler) composeSteps(required *imodel.UpdateRequirements) (model
 
 	final = append(final, postinstall...)
 
+	// TODO: add a validation for step state since that is required by the runner
+
 	//	powerOff, err := i.definitions().ByName(powerOffServer)
 	//	if err != nil {
 	//		return nil, err

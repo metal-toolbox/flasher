@@ -263,11 +263,16 @@ func (r *Runner) runActionSteps(ctx context.Context, task *model.Task, action *m
 	publish := func(state rctypes.State, action *model.Action, step *model.Step, logger *logrus.Entry) {
 		logger.WithField("step", step.Name).Debug("running step")
 		step.SetState(state)
+		method := string(model.RunOutofband)
+		if action.Firmware.InstallInband {
+			method = string(model.RunInband)
+		}
+
 		task.Status.Append(fmt.Sprintf(
-			"[%s] install version: %s, inband: %t, state: %s, step %s",
+			"[%s] install %s version: %s, state: %s, step %s",
 			action.Firmware.Component,
+			method,
 			action.Firmware.Version,
-			action.Firmware.InstallInband,
 			state,
 			step.Name,
 		))
@@ -291,6 +296,18 @@ func (r *Runner) runActionSteps(ctx context.Context, task *model.Task, action *m
 		}
 
 		publish(model.StateActive, action, step, logger)
+
+		if step.Handler == nil {
+			publish(model.StateFailed, action, step, logger)
+			return false, errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"error while running step=%s to install firmware on component=%s, handler was nil",
+					step.Name,
+					action.Firmware.Component,
+				),
+			)
+		}
 
 		// run step
 		if err := step.Handler(ctx); err != nil {

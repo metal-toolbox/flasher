@@ -176,6 +176,7 @@ func (o *ActionHandler) convFirmwareInstallSteps(required []bconsts.FirmwareInst
 		return nil, errNoInstallSteps
 	}
 
+	// TODO: add a validation for step state since that is required by the runner
 	return final, nil
 }
 
@@ -235,6 +236,7 @@ func (o *ActionHandler) definitions() model.Steps {
 			Group:       Install,
 			Handler:     o.handler.pollFirmwareTaskStatus,
 			Description: "Poll BMC for firmware install status until its identified to be in a finalized state.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        uploadFirmware,

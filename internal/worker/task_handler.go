@@ -141,7 +141,7 @@ func (t handler) inventoryInband(ctx context.Context) (*common.Device, error) {
 func (t *handler) PlanActions(ctx context.Context) error {
 	if t.Task.State == model.StateActive && len(t.Task.Data.ActionsPlanned) > 0 {
 		t.Logger.WithFields(logrus.Fields{
-			"condition.id":             t.Task.ID,
+			"condition.id": t.Task.ID,
 		}).Info("")
 	}
 
@@ -254,7 +254,7 @@ func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Fir
 
 	var info string
 	if len(actions) > 0 {
-		info = fmt.Sprintf("firmware installs planned, method: %s, count: %d", len(actions), t.mode)
+		info = fmt.Sprintf("planned firmware installs, method: %s, count: %d", t.mode, len(actions))
 	} else {
 		info = fmt.Sprintf("no %s firmware installs required", t.mode)
 	}
