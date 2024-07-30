@@ -21,7 +21,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.50.0
