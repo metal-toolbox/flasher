@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"golang.org/x/oauth2/clientcredentials"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/prometheus/client_golang/prometheus"
