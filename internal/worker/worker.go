@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"sync"
 
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
@@ -27,7 +26,6 @@ var (
 
 type ConditionTaskHandler struct {
 	store          store.Repository
-	syncWG         *sync.WaitGroup
 	logger         *logrus.Logger
 	facilityCode   string
 	controllerID   string
@@ -64,7 +62,6 @@ func Run(
 	handlerFactory := func() controller.ConditionHandler {
 		return &ConditionTaskHandler{
 			store:          repository,
-			syncWG:         &sync.WaitGroup{},
 			logger:         logger,
 			dryrun:         dryrun,
 			faultInjection: faultInjection,
