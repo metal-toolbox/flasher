@@ -16,7 +16,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/fleetdb v0.17.1
-	github.com/metal-toolbox/rivets v1.0.4
+	github.com/metal-toolbox/rivets v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
