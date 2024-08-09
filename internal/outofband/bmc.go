@@ -15,8 +15,9 @@ import (
 
 	"github.com/bmc-toolbox/common"
 	"github.com/metal-toolbox/flasher/internal/device"
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
+
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 var (
@@ -48,17 +49,17 @@ var (
 	ErrFirmwareInstallProvider = errors.New("firmware install provider not identified")
 )
 
-// bmc wraps the bmclib client and implements the bmcQueryor interface
+// bmc wraps the bmclib client and implements the device.Queryor interface
 type bmc struct {
 	client             *bmclib.Client
 	logger             *logrus.Entry
-	asset              *model.Asset
+	asset              *rtypes.Server
 	installProvider    string
 	availableProviders []string
 }
 
 // NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
-func NewDeviceQueryor(ctx context.Context, asset *model.Asset, logger *logrus.Entry) device.Queryor {
+func NewDeviceQueryor(ctx context.Context, asset *rtypes.Server, logger *logrus.Entry) device.Queryor {
 	return &bmc{
 		client: newBmclibv2Client(ctx, asset, logger),
 		logger: logger,

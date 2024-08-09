@@ -9,6 +9,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -19,8 +20,8 @@ func TestComposeAction(t *testing.T) {
 		return &runner.ActionHandlerContext{
 			TaskHandlerContext: &runner.TaskHandlerContext{
 				Task: &model.Task{
-					Parameters: rctypes.FirmwareInstallTaskParameters{},
-					Asset:      &model.Asset{},
+					Parameters: &rctypes.FirmwareInstallTaskParameters{},
+					Server:     &rtypes.Server{},
 				},
 				Logger: logrus.NewEntry(logrus.New()),
 			},

@@ -19,12 +19,12 @@ import (
 	logrusrv2 "github.com/bombsimon/logrusr/v2"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
+	rtypes "github.com/metal-toolbox/rivets/types"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/exp/slices"
 	"golang.org/x/net/publicsuffix"
 
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -73,7 +73,7 @@ func newHTTPClient() *http.Client {
 }
 
 // newBmclibv2Client initializes a bmclib client with the given credentials
-func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *bmclib.Client {
+func newBmclibv2Client(_ context.Context, asset *rtypes.Server, l *logrus.Entry) *bmclib.Client {
 	logger := logrus.New()
 	if l != nil {
 		logger.Formatter = l.Logger.Formatter
@@ -93,9 +93,9 @@ func newBmclibv2Client(_ context.Context, asset *model.Asset, l *logrus.Entry) *
 	logruslogr := logrusrv2.New(logger)
 
 	bmcClient := bmclib.NewClient(
-		asset.BmcAddress.String(),
-		asset.BmcUsername,
-		asset.BmcPassword,
+		asset.BMCAddress,
+		asset.BMCAddress,
+		asset.BMCPassword,
 		bmclib.WithLogger(logruslogr),
 		bmclib.WithHTTPClient(newHTTPClient()),
 		bmclib.WithPerProviderTimeout(loginTimeout),
