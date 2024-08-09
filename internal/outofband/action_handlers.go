@@ -109,7 +109,7 @@ func (h *handler) serverPoweredOff(ctx context.Context) (bool, error) {
 	// init out of band device queryor - if one isn't already initialized
 	// this is done conditionally to enable tests to pass in a device queryor
 	if h.deviceQueryor == nil {
-		h.deviceQueryor = NewDeviceQueryor(ctx, h.task.Asset, h.logger)
+		h.deviceQueryor = NewDeviceQueryor(ctx, h.task.Server, h.logger)
 	}
 
 	if err := h.deviceQueryor.Open(ctx); err != nil {
@@ -181,7 +181,7 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 		return err
 	}
 
-	found := components.BySlugModel(component, models)
+	found := components.ByNameModel(component, models)
 	if found == nil {
 		h.logger.WithFields(
 			logrus.Fields{
@@ -201,22 +201,22 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 
 	h.logger.WithFields(
 		logrus.Fields{
-			"component": found.Slug,
+			"component": found.Name,
 			"vendor":    found.Vendor,
 			"model":     found.Model,
 			"serial":    found.Serial,
-			"current":   found.FirmwareInstalled,
+			"current":   found.Firmware.Installed,
 			"expected":  expectedFirmware,
 		}).Debug("component version check")
 
-	if strings.TrimSpace(found.FirmwareInstalled) == "" {
+	if strings.TrimSpace(found.Firmware.Installed) == "" {
 		return ErrInstalledVersionUnknown
 	}
 
-	if !strings.EqualFold(expectedFirmware, found.FirmwareInstalled) {
+	if !strings.EqualFold(expectedFirmware, found.Firmware.Installed) {
 		return errors.Wrap(
 			ErrInstalledFirmwareNotEqual,
-			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, found.FirmwareInstalled),
+			fmt.Sprintf("expected: %s, current: %s", expectedFirmware, found.Firmware.Installed),
 		)
 	}
 
@@ -500,7 +500,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 		logrus.Fields{
 			"component":   h.action.Firmware.Component,
 			"version":     h.action.Firmware.Version,
-			"bmc":         h.task.Asset.BmcAddress,
+			"bmc":         h.task.Server.BMCAddress,
 			"step":        h.action.FirmwareInstallStep,
 			"installTask": installTask,
 		}).Info("polling BMC for firmware task status")
@@ -548,7 +548,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 			case nil:
 				h.logger.WithFields(
 					logrus.Fields{
-						"bmc":       h.task.Asset.BmcAddress,
+						"bmc":       h.task.Server.BMCAddress,
 						"component": h.firmware.Component,
 					}).Debug("Installed firmware matches expected.")
 
@@ -567,7 +567,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 				attemptErrors = multierror.Append(attemptErrors, err)
 				h.logger.WithFields(
 					logrus.Fields{
-						"bmc":       h.task.Asset.BmcAddress,
+						"bmc":       h.task.Server.BMCAddress,
 						"component": h.firmware.Component,
 						"elapsed":   time.Since(startTS).String(),
 						"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxPollStatusAttempts),
@@ -592,7 +592,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 				"component": h.firmware.Component,
 				"update":    h.firmware.FileName,
 				"version":   h.firmware.Version,
-				"bmc":       h.task.Asset.BmcAddress,
+				"bmc":       h.task.Server.BMCAddress,
 				"elapsed":   time.Since(startTS).String(),
 				"attempts":  fmt.Sprintf("attempt %d/%d", attempts, maxPollStatusAttempts),
 				"taskState": state,
@@ -625,7 +625,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 			if componentIsBMC(h.action.Firmware.Component) && installTask {
 				h.logger.WithFields(
 					logrus.Fields{
-						"bmc":       h.task.Asset.BmcAddress,
+						"bmc":       h.task.Server.BMCAddress,
 						"delay":     delayBMCReset.String(),
 						"taskState": state,
 						"bmcTaskID": h.action.BMCTaskID,
@@ -691,7 +691,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 				if err := h.powerCycleBMC(ctx); err != nil {
 					h.logger.WithFields(
 						logrus.Fields{
-							"bmc":       h.task.Asset.BmcAddress,
+							"bmc":       h.task.Server.BMCAddress,
 							"component": h.firmware.Component,
 							"err":       err.Error(),
 						}).Debug("install failure required a BMC reset, reset returned error")
@@ -699,7 +699,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 
 				h.logger.WithFields(
 					logrus.Fields{
-						"bmc":       h.task.Asset.BmcAddress,
+						"bmc":       h.task.Server.BMCAddress,
 						"component": h.firmware.Component,
 					}).Debug("BMC reset for failed BMC firmware install")
 			}
@@ -719,7 +719,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 					if errBmcReset := h.powerCycleBMC(ctx); errBmcReset != nil {
 						h.logger.WithFields(
 							logrus.Fields{
-								"bmc":       h.task.Asset.BmcAddress,
+								"bmc":       h.task.Server.BMCAddress,
 								"component": h.firmware.Component,
 								"err":       errBmcReset.Error(),
 							}).Debug("install success required a BMC reset, reset returned error")
@@ -727,7 +727,7 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 
 					h.logger.WithFields(
 						logrus.Fields{
-							"bmc":       h.task.Asset.BmcAddress,
+							"bmc":       h.task.Server.BMCAddress,
 							"component": h.firmware.Component,
 						}).Debug("BMC reset for successful BMC firmware install")
 				}
@@ -747,7 +747,7 @@ func (h *handler) resetBMC(ctx context.Context) error {
 	h.logger.WithFields(
 		logrus.Fields{
 			"component": h.firmware.Component,
-			"bmc":       h.task.Asset.BmcAddress,
+			"bmc":       h.task.Server.BMCAddress,
 		}).Info("resetting BMC, delay introduced: " + delayBMCReset.String())
 
 	err := h.powerCycleBMC(ctx)
@@ -778,7 +778,7 @@ func (h *handler) powerCycleServer(ctx context.Context) error {
 	h.logger.WithFields(
 		logrus.Fields{
 			"component": h.firmware.Component,
-			"bmc":       h.task.Asset.BmcAddress,
+			"bmc":       h.task.Server.BMCAddress,
 		}).Info("resetting host for firmware install")
 
 	return h.deviceQueryor.SetPowerState(ctx, "cycle")
@@ -822,7 +822,7 @@ func (h *handler) powerOffServer(ctx context.Context) error {
 		h.logger.WithFields(
 			logrus.Fields{
 				"component": h.firmware.Component,
-				"bmc":       h.task.Asset.BmcAddress,
+				"bmc":       h.task.Server.BMCAddress,
 			}).Debug("powering off device")
 
 		if err := h.deviceQueryor.SetPowerState(ctx, "off"); err != nil {

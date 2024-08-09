@@ -12,6 +12,7 @@ import (
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 func GraphSteps(ctx context.Context, g *dot.Graph) error {
@@ -28,10 +29,10 @@ func GraphSteps(ctx context.Context, g *dot.Graph) error {
 	testActionCtx := &runner.ActionHandlerContext{
 		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task: &model.Task{
-				Parameters: rctypes.FirmwareInstallTaskParameters{
+				Parameters: &rctypes.FirmwareInstallTaskParameters{
 					ResetBMCBeforeInstall: true,
 				},
-				Asset: &model.Asset{},
+				Server: &rtypes.Server{},
 			},
 			Logger:        logrus.NewEntry(logrus.New()),
 			DeviceQueryor: m,
