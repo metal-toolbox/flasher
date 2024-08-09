@@ -9,6 +9,7 @@ import (
 
 	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
 	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
+	rtypes "github.com/metal-toolbox/rivets/types"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -153,7 +154,7 @@ func (s *FleetDBAPI) registerMetric(queryKind string) {
 }
 
 // AssetByID returns an Asset object with various attributes populated.
-func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*model.Asset, error) {
+func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*rtypes.Server, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "FleetDBAPI.AssetByID")
 	defer span.End()
 
@@ -162,7 +163,7 @@ func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*model.Asset, er
 		return nil, errors.Wrap(ErrDeviceID, err.Error()+id)
 	}
 
-	asset := &model.Asset{ID: deviceUUID}
+	asset := &rtypes.Server{ID: deviceUUID.String()}
 
 	// query credentials
 	credential, _, err := s.client.GetCredential(ctx, deviceUUID, fleetdbapi.ServerCredentialTypeBMC)
@@ -172,8 +173,8 @@ func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*model.Asset, er
 		return nil, errors.Wrap(ErrServerserviceQuery, "GetCredential: "+err.Error())
 	}
 
-	asset.BmcUsername = credential.Username
-	asset.BmcPassword = credential.Password
+	asset.BMCUser = credential.Username
+	asset.BMCPassword = credential.Password
 
 	// query the server object
 	srv, _, err := s.client.Get(ctx, deviceUUID)
@@ -183,19 +184,15 @@ func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*model.Asset, er
 		return nil, errors.Wrap(ErrServerserviceQuery, "GetServer: "+err.Error())
 	}
 
-	asset.FacilityCode = srv.FacilityCode
+	asset.Facility = srv.FacilityCode
 
 	// set bmc address
-	asset.BmcAddress, err = s.bmcAddressFromAttributes(srv.Attributes)
+	bmcAddress, err := s.bmcAddressFromAttributes(srv.Attributes)
 	if err != nil {
 		return nil, err
 	}
 
-	// set device state attribute
-	asset.State, err = s.assetStateAttribute(srv.Attributes)
-	if err != nil {
-		return nil, err
-	}
+	asset.BMCAddress = bmcAddress.String()
 
 	// set asset vendor attributes
 	asset.Vendor, asset.Model, asset.Serial, err = s.vendorModelFromAttributes(srv.Attributes)
