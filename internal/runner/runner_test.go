@@ -48,7 +48,9 @@ func TestRunTask(t *testing.T) {
 			tt.mockSetup(mockHandler) // Set up the mock expectations
 
 			r := New(logrus.NewEntry(logrus.New()))
-			task := &model.Task{}
+			task := &model.Task{
+				Data: &model.TaskData{},
+			}
 
 			err := r.RunTask(context.Background(), task, mockHandler)
 

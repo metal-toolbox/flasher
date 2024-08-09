@@ -10,9 +10,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
-	rctypes "github.com/metal-toolbox/rivets/condition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 type Installer struct {
@@ -56,21 +58,21 @@ func (i *Installer) Install(ctx context.Context, params *Params) {
 		},
 	}
 
-	task, err := model.NewTask(uuid.New(), taskParams)
+	task, err := model.NewTask(uuid.New(), rctypes.FirmwareInstall, taskParams)
 	if err != nil {
 		i.logger.Fatal(err)
 	}
 
 	task.Parameters.DryRun = params.DryRun
-	task.Asset = &model.Asset{
-		BmcAddress:  net.ParseIP(params.BmcAddr),
-		BmcUsername: params.User,
-		BmcPassword: params.Pass,
+	task.Server = &rtypes.Server{
+		BMCAddress:  net.ParseIP(params.BmcAddr).String(),
+		BMCUser:     params.User,
+		BMCPassword: params.Pass,
 		Model:       params.Model,
 		Vendor:      params.Vendor,
 	}
 
-	task.Status = model.NewTaskStatusRecord("initialized task")
+	task.Status = rctypes.NewTaskStatusRecord("initialized task")
 
 	le := i.logger.WithFields(
 		logrus.Fields{
@@ -102,7 +104,7 @@ func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Tas
 	if err := r.RunTask(ctx, task, h); err != nil {
 		i.logger.WithFields(
 			logrus.Fields{
-				"bmc-ip": task.Asset.BmcAddress.String(),
+				"bmc-ip": task.Server.BMCAddress,
 				"err":    err.Error(),
 			},
 		).Warn("task for device failed")
@@ -111,7 +113,7 @@ func (i *Installer) runTask(ctx context.Context, params *Params, task *model.Tas
 	}
 
 	i.logger.WithFields(logrus.Fields{
-		"bmc-ip":  task.Asset.BmcAddress.String(),
+		"bmc-ip":  task.Server.BMCAddress,
 		"elapsed": time.Since(startTS).String(),
 	}).Info("task for device completed")
 }

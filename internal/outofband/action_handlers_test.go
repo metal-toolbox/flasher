@@ -11,6 +11,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -22,8 +23,8 @@ func newTestActionCtx() *runner.ActionHandlerContext {
 	return &runner.ActionHandlerContext{
 		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task: &model.Task{
-				Parameters: rctypes.FirmwareInstallTaskParameters{},
-				Asset:      &model.Asset{},
+				Parameters: &rctypes.FirmwareInstallTaskParameters{},
+				Server:      &rtypes.Server{},
 				State:      model.StateActive,
 			},
 			Logger: logrus.NewEntry(logrus.New()),

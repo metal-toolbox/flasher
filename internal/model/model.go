@@ -5,12 +5,16 @@ type (
 	StoreKind string
 	// LogLevel is the logging level string.
 	LogLevel string
+	RunMode  string
 )
 
 const (
 	AppName               = "flasher"
 	AppKindWorker AppKind = "worker"
 	AppKindCLI    AppKind = "cli"
+
+	RunInband    RunMode = "inband"
+	RunOutofband RunMode = "outofband"
 
 	InventoryStoreYAML          StoreKind = "yaml"
 	InventoryStoreServerservice StoreKind = "serverservice"
