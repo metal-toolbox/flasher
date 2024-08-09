@@ -86,7 +86,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 
 	taskFailed := func(err error) error {
 		// no error returned
-		_ = task.SetState(model.StateFailed)
+		task.SetState(model.StateFailed)
 		task.Status.Append("task failed")
 		task.Status.Append(err.Error())
 		handler.Publish(ctx)
@@ -98,7 +98,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 
 	taskSuccess := func() error {
 		// no error returned
-		_ = task.SetState(model.StateSucceeded)
+		task.SetState(model.StateSucceeded)
 		task.Status.Append("task completed successfully")
 		handler.Publish(ctx)
 
@@ -117,7 +117,7 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 	}() // nolint:errcheck // nope
 
 	// no error returned
-	_ = task.SetState(model.StateActive)
+	task.SetState(model.StateActive)
 	handler.Publish(ctx)
 
 	// initialize, plan actions
@@ -131,13 +131,13 @@ func (r *Runner) RunTask(ctx context.Context, task *model.Task, handler TaskHand
 		}
 	}
 
-	r.logger.WithField("planned.actions", len(task.ActionsPlanned)).Debug("start running planned actions")
+	r.logger.WithField("planned.actions", len(task.Data.ActionsPlanned)).Debug("start running planned actions")
 
 	if err := r.runActions(ctx, task, handler); err != nil {
 		return taskFailed(err)
 	}
 
-	r.logger.WithField("planned.actions", len(task.ActionsPlanned)).Debug("finished running planned actions")
+	r.logger.WithField("planned.actions", len(task.Data.ActionsPlanned)).Debug("finished running planned actions")
 
 	return taskSuccess()
 }
@@ -163,7 +163,7 @@ func (r *Runner) runActions(ctx context.Context, task *model.Task, handler TaskH
 	}
 
 	// each action corresponds to a firmware to be installed
-	for _, action := range task.ActionsPlanned {
+	for _, action := range task.Data.ActionsPlanned {
 		startTS := time.Now()
 
 		actionLogger := r.logger.WithFields(logrus.Fields{

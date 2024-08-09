@@ -9,6 +9,8 @@ import (
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 var (
@@ -33,7 +35,7 @@ func (t *handler) Initialize(ctx context.Context) error {
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.taskCtx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.taskCtx.Task.Asset, t.taskCtx.Logger)
+		t.taskCtx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.taskCtx.Task.Server, t.taskCtx.Logger)
 	}
 
 	return nil
@@ -51,7 +53,7 @@ func (t *handler) Query(ctx context.Context) error {
 
 	// component inventory was identified
 	if len(components) > 0 {
-		t.taskCtx.Task.Asset.Components = components
+		t.taskCtx.Task.Server.Components = components
 
 		return nil
 	}
@@ -89,7 +91,7 @@ func (t *handler) PlanActions(ctx context.Context) error {
 	//nolint:errcheck  // SetState never returns an error
 	action.SetState(model.StatePending)
 
-	t.taskCtx.Task.ActionsPlanned = []*model.Action{action}
+	t.taskCtx.Task.Data.ActionsPlanned = []*model.Action{action}
 
 	return nil
 }
@@ -97,14 +99,14 @@ func (t *handler) PlanActions(ctx context.Context) error {
 func (t *handler) Publish(context.Context) {}
 
 // query device components inventory from the device itself.
-func (t *handler) queryFromDevice(ctx context.Context) (model.Components, error) {
+func (t *handler) queryFromDevice(ctx context.Context) ([]*rtypes.Component, error) {
 	if t.taskCtx.DeviceQueryor == nil {
 		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
 		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.taskCtx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.taskCtx.Task.Asset, t.taskCtx.Logger)
+		t.taskCtx.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.taskCtx.Task.Server, t.taskCtx.Logger)
 	}
 
 	t.taskCtx.Task.Status.Append("connecting to device BMC")
@@ -120,12 +122,12 @@ func (t *handler) queryFromDevice(ctx context.Context) (model.Components, error)
 		return nil, err
 	}
 
-	if t.taskCtx.Task.Asset.Vendor == "" {
-		t.taskCtx.Task.Asset.Vendor = deviceCommon.Vendor
+	if t.taskCtx.Task.Server.Vendor == "" {
+		t.taskCtx.Task.Server.Vendor = deviceCommon.Vendor
 	}
 
-	if t.taskCtx.Task.Asset.Model == "" {
-		t.taskCtx.Task.Asset.Model = common.FormatProductName(deviceCommon.Model)
+	if t.taskCtx.Task.Server.Model == "" {
+		t.taskCtx.Task.Server.Model = common.FormatProductName(deviceCommon.Model)
 	}
 
 	return model.NewComponentConverter().CommonDeviceToComponents(deviceCommon)
