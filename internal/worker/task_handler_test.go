@@ -15,7 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
+	"github.com/bmc-toolbox/common"
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
 func TestSortFirmwareByInstallOrder(t *testing.T) {
@@ -114,16 +116,16 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		Task: &model.Task{
 			ID:       serverID, // it just needs to be a UUID
 			WorkerID: registry.GetID("test-app").String(),
-			Asset: &model.Asset{
-				ID: serverID,
-				Components: model.Components{
+			Server: &rtypes.Server{
+				ID: serverID.String(),
+				Components: rtypes.Components{
 					{
-						Slug:              "BiOs",
-						FirmwareInstalled: "2.6.6",
+						Name:     "BiOs",
+						Firmware: &common.Firmware{Installed: "2.6.6"},
 					},
 					{
-						Slug:              "nic",
-						FirmwareInstalled: "some-different-version",
+						Name:     "nic",
+						Firmware: &common.Firmware{Installed: "some-different-version"},
 					},
 				},
 			},
@@ -189,24 +191,24 @@ func TestPlanInstall(t *testing.T) {
 		Task: &model.Task{
 			ID:       taskID,
 			WorkerID: registry.GetID("test-app").String(),
-			Parameters: rctypes.FirmwareInstallTaskParameters{
+			Parameters: &rctypes.FirmwareInstallTaskParameters{
 				AssetID:               serverID,
 				ResetBMCBeforeInstall: true,
 			},
-			Asset: &model.Asset{
-				ID: serverID,
-				Components: model.Components{
+			Server: &rtypes.Server{
+				ID: serverID.String(),
+				Components: rtypes.Components{
 					{
-						Slug:              "BiOs",
-						FirmwareInstalled: "2.6.6",
+						Name:     "BiOs",
+						Firmware: &common.Firmware{Installed: "2.6.6"},
 					},
 					{
-						Slug:              "bmc",
-						FirmwareInstalled: "5.10.00.00",
+						Name:     "bmc",
+						Firmware: &common.Firmware{Installed: "5.10.00.00"},
 					},
 					{
-						Slug:              "nic",
-						FirmwareInstalled: "1.2.2",
+						Name:     "nic",
+						Firmware: &common.Firmware{Installed: "1.2.2"},
 					},
 				},
 			},
@@ -273,24 +275,24 @@ func TestPlanInstall2(t *testing.T) {
 		Task: &model.Task{
 			ID:       taskID,
 			WorkerID: registry.GetID("test-app").String(),
-			Parameters: rctypes.FirmwareInstallTaskParameters{
+			Parameters: &rctypes.FirmwareInstallTaskParameters{
 				AssetID:      serverID,
 				ForceInstall: true,
 			},
-			Asset: &model.Asset{
-				ID: serverID,
-				Components: model.Components{
+			Server: &rtypes.Server{
+				ID: serverID.String(),
+				Components: rtypes.Components{
 					{
-						Slug:              "BiOs",
-						FirmwareInstalled: "2.6.6",
+						Name:     "BiOs",
+						Firmware: &common.Firmware{Installed: "2.6.6"},
 					},
 					{
-						Slug:              "bmc",
-						FirmwareInstalled: "5.10.00.00",
+						Name:     "bmc",
+						Firmware: &common.Firmware{Installed: "5.10.00.00"},
 					},
 					{
-						Slug:              "nic",
-						FirmwareInstalled: "1.2.2",
+						Name:     "nic",
+						Firmware: &common.Firmware{Installed: "1.2.2"},
 					},
 				},
 			},

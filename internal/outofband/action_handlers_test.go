@@ -23,8 +23,8 @@ func newTestActionCtx() *runner.ActionHandlerContext {
 	return &runner.ActionHandlerContext{
 		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task: &model.Task{
-				Parameters: rctypes.FirmwareInstallTaskParameters{},
-				Asset:      &model.Asset{},
+				Parameters: &rctypes.FirmwareInstallTaskParameters{},
+				Server:      &rtypes.Server{},
 				State:      model.StateActive,
 			},
 			Logger: logrus.NewEntry(logrus.New()),

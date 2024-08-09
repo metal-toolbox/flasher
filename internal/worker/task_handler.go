@@ -52,7 +52,7 @@ func (t *handler) Initialize(ctx context.Context) error {
 		// so this DeviceQueryor would have to be extended
 		//
 		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Asset, t.Logger)
+		t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Server, t.Logger)
 	}
 
 	return nil
@@ -76,12 +76,12 @@ func (t *handler) Query(ctx context.Context) error {
 		return errors.Wrap(errTaskQueryInventory, err.Error())
 	}
 
-	if t.Task.Asset.Vendor == "" {
-		t.Task.Asset.Vendor = deviceCommon.Vendor
+	if t.Task.Server.Vendor == "" {
+		t.Task.Server.Vendor = deviceCommon.Vendor
 	}
 
-	if t.Task.Asset.Model == "" {
-		t.Task.Asset.Model = common.FormatProductName(deviceCommon.Model)
+	if t.Task.Server.Model == "" {
+		t.Task.Server.Model = common.FormatProductName(deviceCommon.Model)
 	}
 
 	components, err := model.NewComponentConverter().CommonDeviceToComponents(deviceCommon)
@@ -91,7 +91,7 @@ func (t *handler) Query(ctx context.Context) error {
 
 	// component inventory was identified
 	if len(components) > 0 {
-		t.Task.Asset.Components = components
+		t.Task.Server.Components = components
 
 		return nil
 	}
@@ -100,13 +100,13 @@ func (t *handler) Query(ctx context.Context) error {
 }
 
 func (t *handler) PlanActions(ctx context.Context) error {
-	switch t.Task.FirmwarePlanMethod {
+	switch t.Task.Data.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
 		return t.planFromFirmwareSet(ctx)
 	case model.FromRequestedFirmware:
 		return errors.Wrap(errTaskPlanActions, "firmware plan method not implemented"+string(model.FromRequestedFirmware))
 	default:
-		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.Task.FirmwarePlanMethod))
+		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.Task.Data.FirmwarePlanMethod))
 	}
 }
 
@@ -123,7 +123,7 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 	}
 
 	// plan actions based and update task action list
-	t.Task.ActionsPlanned, err = t.planInstall(ctx, applicable)
+	t.Task.Data.ActionsPlanned, err = t.planInstall(ctx, applicable)
 	if err != nil {
 		return err
 	}
@@ -213,8 +213,8 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 	var toInstall []*model.Firmware
 
 	invMap := make(map[string]string)
-	for _, cmp := range t.Task.Asset.Components {
-		invMap[strings.ToLower(cmp.Slug)] = cmp.FirmwareInstalled
+	for _, cmp := range t.Task.Server.Components {
+		invMap[strings.ToLower(cmp.Name)] = cmp.Firmware.Installed
 	}
 
 	fmtCause := func(component, cause, currentV, requestedV string) string {

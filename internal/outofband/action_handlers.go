@@ -136,7 +136,7 @@ func (h *handler) powerOnServer(ctx context.Context) error {
 	}
 
 	// server is currently powered on and it wasn't powered on by flasher
-	if !serverIsPoweredOff && h.task.Data[devicePoweredOn] != "true" {
+	if !serverIsPoweredOff && h.task.Data.Scratch[devicePoweredOn] != "true" {
 		if h.task.Parameters.RequireHostPoweredOff {
 			return ErrRequireHostPoweredOff
 		}
@@ -160,7 +160,7 @@ func (h *handler) powerOnServer(ctx context.Context) error {
 		}
 	}
 
-	h.task.Data[devicePoweredOn] = "true"
+	h.task.Data.Scratch[devicePoweredOn] = "true"
 
 	return nil
 }
@@ -795,7 +795,7 @@ func (h *handler) conditionalPowerOffDevice(_ context.Context) (bool, error) {
 		return false, nil
 	}
 
-	wasPoweredOn, keyExists := h.task.Data[devicePoweredOn]
+	wasPoweredOn, keyExists := h.task.Data.Scratch[devicePoweredOn]
 	if !keyExists {
 		return false, nil
 	}

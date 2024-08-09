@@ -87,7 +87,7 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 	if err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"assetID":      task.Parameters.AssetID.String(),
-			"conditionID":  condition.ID,
+			"conditionID":  task.ID,
 			"controllerID": h.controllerID,
 			"err":          err.Error(),
 		}).Error("asset lookup error")
@@ -95,7 +95,7 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 		return controller.ErrRetryHandler
 	}
 
-	task.Asset = asset
+	task.Server = asset
 	task.FacilityCode = h.facilityCode
 	task.WorkerID = h.controllerID
 
@@ -105,10 +105,10 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 	l.Level = h.logger.Level
 	hLogger := l.WithFields(
 		logrus.Fields{
-			"conditionID":  condition.ID.String(),
+			"conditionID":  task.ID.String(),
 			"controllerID": h.controllerID,
-			"assetID":      asset.ID.String(),
-			"bmc":          asset.BmcAddress.String(),
+			"assetID":      asset.ID,
+			"bmc":          asset.BMCAddress,
 		},
 	)
 
