@@ -117,7 +117,7 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 		model.RunOutofband,
 		task,
 		h.store,
-		model.NewNatsTaskStatusPublisher(publisher),
+		model.NewTaskStatusPublisher(hLogger, statusPublisher),
 		hLogger,
 	)
 

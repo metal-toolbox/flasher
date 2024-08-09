@@ -292,5 +292,6 @@ func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
 }
 
 func (t *handler) Publish(ctx context.Context) {
-	t.Publisher.Publish(ctx, t.Task)
+	//nolint:errcheck // method called logs errors if any
+	_ = t.Publisher.Publish(ctx, t.Task)
 }

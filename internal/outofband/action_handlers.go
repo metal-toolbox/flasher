@@ -602,7 +602,8 @@ func (h *handler) pollFirmwareTaskStatus(ctx context.Context) error {
 
 		if h.publisher != nil && status != "" {
 			h.task.Status.Update(h.task.Status.Last(), statusPrefix+" -- "+status)
-			h.publisher.Publish(ctx, h.task)
+			//nolint:errcheck // method called logs errors if any
+			_ = h.publisher.Publish(ctx, h.task)
 		}
 
 		// error check returns when maxPollStatusAttempts have been reached
