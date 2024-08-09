@@ -7,15 +7,11 @@ import (
 	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
 	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
 
+	rtypes "github.com/metal-toolbox/rivets/types"
+
 	"github.com/bmc-toolbox/common"
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 )
-
-// versionedAttributeFirmware is the format in which the firmware data is present in fleetdb API.
-type versionedAttributeFirmware struct {
-	Firmware *common.Firmware `json:"firmware,omitempty"`
-}
 
 func findAttribute(ns string, attributes []fleetdbapi.Attributes) *fleetdbapi.Attributes {
 	for _, attribute := range attributes {
@@ -25,37 +21,6 @@ func findAttribute(ns string, attributes []fleetdbapi.Attributes) *fleetdbapi.At
 	}
 
 	return nil
-}
-
-func findVersionedAttribute(ns string, attributes []fleetdbapi.VersionedAttributes) *fleetdbapi.VersionedAttributes {
-	for _, attribute := range attributes {
-		if attribute.Namespace == ns {
-			return &attribute
-		}
-	}
-
-	return nil
-}
-
-// assetState returns the asset state attribute value from the configured AssetStateAttributeNS
-func (s *FleetDBAPI) assetStateAttribute(attributes []fleetdbapi.Attributes) (string, error) {
-	var assetState string
-
-	assetStateAttribute := findAttribute(s.config.AssetStateAttributeNS, attributes)
-	if assetStateAttribute == nil {
-		return assetState, nil
-	}
-
-	data := map[string]string{}
-	if err := json.Unmarshal(assetStateAttribute.Data, &data); err != nil {
-		return assetState, errors.Wrap(ErrDeviceState, err.Error())
-	}
-
-	if data[s.config.AssetStateAttributeKey] == "" {
-		return assetState, errors.Wrap(ErrDeviceState, "device state attribute is not set")
-	}
-
-	return data[s.config.AssetStateAttributeKey], nil
 }
 
 func (s *FleetDBAPI) bmcAddressFromAttributes(attributes []fleetdbapi.Attributes) (net.IP, error) {
@@ -116,42 +81,19 @@ func (s *FleetDBAPI) vendorModelFromAttributes(attributes []fleetdbapi.Attribute
 	return
 }
 
-func (s *FleetDBAPI) fromServerserviceComponents(scomponents fleetdbapi.ServerComponentSlice) model.Components {
-	components := make(model.Components, 0, len(scomponents))
+func (s *FleetDBAPI) fromServerserviceComponents(scomponents fleetdbapi.ServerComponentSlice) []*rtypes.Component {
+	components := make([]*rtypes.Component, 0, len(scomponents))
 
 	// nolint:gocritic // rangeValCopy - this type is returned in the current form by fleetdb API.
 	for _, sc := range scomponents {
-		components = append(components, &model.Component{
-			Slug:              sc.ComponentTypeSlug,
-			Serial:            sc.Serial,
-			Vendor:            sc.Vendor,
-			Model:             sc.Model,
-			FirmwareInstalled: s.firmwareFromVersionedAttributes(sc.VersionedAttributes),
-		})
+		sc := sc
+		c, err := rfleetdb.RecordToComponent(&sc)
+		if err != nil {
+			s.logger.WithError(err).Warn("failed to convert component from fleetdb record: " + sc.Name)
+		}
+
+		components = append(components, c)
 	}
 
 	return components
-}
-
-func (s *FleetDBAPI) firmwareFromVersionedAttributes(va []fleetdbapi.VersionedAttributes) string {
-	if len(va) == 0 {
-		return ""
-	}
-
-	found := findVersionedAttribute(s.config.OutofbandFirmwareNS, va)
-	if found == nil {
-		return ""
-	}
-
-	vaData := &versionedAttributeFirmware{}
-	if err := json.Unmarshal(found.Data, vaData); err != nil {
-		s.logger.Warn("failed to unmarshal firmware data")
-		return ""
-	}
-
-	if vaData.Firmware == nil {
-		return ""
-	}
-
-	return vaData.Firmware.Installed
 }
