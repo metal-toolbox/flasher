@@ -143,7 +143,7 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		},
 	}
 
-	h := handler{taskHandlerCtx}
+	h := handler{mode: model.RunOutofband, TaskHandlerContext: taskHandlerCtx}
 	got := h.removeFirmwareAlreadyAtDesiredVersion(fwSet)
 	require.Equal(t, 3, len(h.Task.Status.StatusMsgs))
 	require.Equal(t, 1, len(got))
@@ -224,7 +224,7 @@ func TestPlanInstall(t *testing.T) {
 			bconsts.FirmwareInstallStepInstallStatus,
 		}, nil)
 
-	h := &handler{taskHandlerCtx}
+	h := handler{mode: model.RunOutofband, TaskHandlerContext: taskHandlerCtx}
 	actions, err := h.planInstall(context.Background(), fwSet)
 	require.NoError(t, err, "no errors returned")
 	require.Equal(t, 2, len(actions), "expect two actions to be performed")
@@ -308,7 +308,7 @@ func TestPlanInstall2(t *testing.T) {
 			bconsts.FirmwareInstallStepInstallStatus,
 		}, nil)
 
-	h := &handler{taskHandlerCtx}
+	h := handler{mode: model.RunOutofband, TaskHandlerContext: taskHandlerCtx}
 	actions, err := h.planInstall(context.Background(), fwSet)
 	require.NoError(t, err, "no errors returned")
 	require.Equal(t, 3, len(actions), "expect three actions to be performed")

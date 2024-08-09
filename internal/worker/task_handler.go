@@ -26,17 +26,20 @@ var (
 //
 // The handler is instantiated to run a single task
 type handler struct {
+	mode model.RunMode
 	*runner.TaskHandlerContext
 }
 
 func newHandler(
+	mode model.RunMode,
 	task *model.Task,
 	storage store.Repository,
 	publisher model.Publisher,
 	logger *logrus.Entry,
 ) runner.TaskHandler {
 	return &handler{
-		&runner.TaskHandlerContext{
+		mode: mode,
+		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task:      task,
 			Publisher: publisher,
 			Store:     storage,
