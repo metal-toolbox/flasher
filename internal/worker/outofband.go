@@ -114,6 +114,7 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 
 	// init handler
 	handler := newHandler(
+		model.RunOutofband,
 		task,
 		h.store,
 		model.NewNatsTaskStatusPublisher(publisher),
@@ -123,7 +124,7 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 	// init runner
 	r := runner.New(hLogger)
 
-	hLogger.Info("running task for device")
+	hLogger.WithField("mode", model.RunOutofband).Info("running task for device")
 	if err := r.RunTask(ctx, task, handler); err != nil {
 		hLogger.WithError(err).Error("task for device failed")
 		return err
