@@ -2,7 +2,7 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
+	"sync"
 
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
@@ -12,8 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 
+	"github.com/metal-toolbox/ctrl"
 	rctypes "github.com/metal-toolbox/rivets/condition"
-	"github.com/metal-toolbox/rivets/events/controller"
 )
 
 const (
@@ -24,8 +24,9 @@ var (
 	errInitTask = errors.New("error initializing new task from condition")
 )
 
-type ConditionTaskHandler struct {
+type OobConditionTaskHandler struct {
 	store          store.Repository
+	syncWG         *sync.WaitGroup
 	logger         *logrus.Logger
 	facilityCode   string
 	controllerID   string
@@ -33,13 +34,13 @@ type ConditionTaskHandler struct {
 	faultInjection bool
 }
 
-// NewOutofbandWorker returns a out of band firmware install worker instance
-func Run(
+// RunOutofband initializes the Out of band Condition handler and listens for events
+func RunOutofband(
 	ctx context.Context,
 	dryrun,
 	faultInjection bool,
 	repository store.Repository,
-	nc *controller.NatsController,
+	nc *ctrl.NatsController,
 	logger *logrus.Logger,
 ) {
 	ctx, span := otel.Tracer(pkgName).Start(
@@ -57,11 +58,12 @@ func Run(
 			"dry-run":        dryrun,
 			"faultInjection": faultInjection,
 		},
-	).Info("flasher worker running")
+	).Info("flasher out-of-band installer running")
 
-	handlerFactory := func() controller.ConditionHandler {
-		return &ConditionTaskHandler{
+	handlerFactory := func() ctrl.TaskHandler {
+		return &OobConditionTaskHandler{
 			store:          repository,
+			syncWG:         &sync.WaitGroup{},
 			logger:         logger,
 			dryrun:         dryrun,
 			faultInjection: faultInjection,
@@ -75,9 +77,13 @@ func Run(
 	}
 }
 
-// Handle implements the controller.ConditionHandler interface
-func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Condition, publisher controller.ConditionStatusPublisher) error {
-	task, err := newTaskFromCondition(condition, h.dryrun, h.faultInjection)
+// HandleTask implements the ctrl.TaskHandler interface
+func (h *OobConditionTaskHandler) HandleTask(
+	ctx context.Context,
+	genericTask *rctypes.Task[any, any],
+	statusPublisher ctrl.Publisher,
+) error {
+	task, err := model.CopyAsFwInstallTask(genericTask)
 	if err != nil {
 		return errors.Wrap(errInitTask, err.Error())
 	}
@@ -92,7 +98,7 @@ func (h *ConditionTaskHandler) Handle(ctx context.Context, condition *rctypes.Co
 			"err":          err.Error(),
 		}).Error("asset lookup error")
 
-		return controller.ErrRetryHandler
+		return ctrl.ErrRetryHandler
 	}
 
 	task.Server = asset
