@@ -109,11 +109,7 @@ func runWorker(ctx context.Context) {
 }
 
 func initStore(ctx context.Context, config *app.Configuration, logger *logrus.Logger) (store.Repository, error) {
-	switch {
-	// from CLI flags
-	case strings.HasSuffix(storeKind, ".yml"), strings.HasSuffix(storeKind, ".yaml"):
-		return store.NewYamlInventory(storeKind)
-	case storeKind == string(model.InventoryStoreServerservice):
+	if storeKind == string(model.InventoryStoreServerservice) {
 		return store.NewServerserviceStore(ctx, config.FleetDBAPIOptions, logger)
 	}
 
