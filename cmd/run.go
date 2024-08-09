@@ -3,15 +3,14 @@ package cmd
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/equinix-labs/otel-init-go/otelinit"
+	"github.com/metal-toolbox/ctrl"
 	"github.com/metal-toolbox/flasher/internal/app"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/worker"
-	"github.com/metal-toolbox/rivets/events/controller"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -82,24 +81,24 @@ func runWorker(ctx context.Context) {
 		flasher.Logger.Fatal(err)
 	}
 
-	nc := controller.NewNatsController(
+	nc := ctrl.NewNatsController(
 		model.AppName,
 		facilityCode,
 		"firmwareInstall",
 		natsCfg.NatsURL,
 		natsCfg.CredsFile,
 		"firmwareInstall",
-		controller.WithConcurrency(flasher.Config.Concurrency),
-		controller.WithKVReplicas(natsCfg.KVReplicas),
-		controller.WithLogger(flasher.Logger),
-		controller.WithConnectionTimeout(natsCfg.ConnectTimeout),
+		ctrl.WithConcurrency(flasher.Config.Concurrency),
+		ctrl.WithKVReplicas(natsCfg.KVReplicas),
+		ctrl.WithLogger(flasher.Logger),
+		ctrl.WithConnectionTimeout(natsCfg.ConnectTimeout),
 	)
 
 	if err := nc.Connect(ctx); err != nil {
 		flasher.Logger.Fatal(err)
 	}
 
-	worker.Run(
+	worker.RunOutofband(
 		ctx,
 		dryrun,
 		faultInjection,
