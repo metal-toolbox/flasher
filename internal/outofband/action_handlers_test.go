@@ -11,6 +11,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

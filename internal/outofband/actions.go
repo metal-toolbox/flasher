@@ -55,7 +55,7 @@ func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.Queryor)
 func (o *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
 	var deviceQueryor device.Queryor
 	if actionCtx.DeviceQueryor == nil {
-		deviceQueryor = NewDeviceQueryor(ctx, actionCtx.Task.Asset, actionCtx.Logger)
+		deviceQueryor = NewDeviceQueryor(ctx, actionCtx.Task.Server, actionCtx.Logger)
 	} else {
 		deviceQueryor = actionCtx.DeviceQueryor
 	}
