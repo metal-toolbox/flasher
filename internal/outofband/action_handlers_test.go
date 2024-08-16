@@ -45,11 +45,11 @@ func TestCheckCurrentFirmware(t *testing.T) {
 	t.Parallel()
 
 	// helper func to initialize handler, mock device queryor
-	init := func(t *testing.T) (*handler, *device.MockQueryor) {
+	init := func(t *testing.T) (*handler, *device.MockOutofbandQueryor) {
 		t.Helper()
 
 		actionCtx := newTestActionCtx()
-		m := new(device.MockQueryor)
+		m := new(device.MockOutofbandQueryor)
 		m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
 			[]bconsts.FirmwareInstallStep{
 				bconsts.FirmwareInstallStepUploadInitiateInstall,
@@ -240,11 +240,11 @@ func TestPollFirmwareInstallStatus(t *testing.T) {
 		},
 	}
 
-	init := func(t *testing.T) (*handler, *device.MockQueryor) {
+	init := func(t *testing.T) (*handler, *device.MockOutofbandQueryor) {
 		t.Helper()
 
 		actionCtx := newTestActionCtx()
-		m := new(device.MockQueryor)
+		m := new(device.MockOutofbandQueryor)
 		m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
 			[]bconsts.FirmwareInstallStep{
 				bconsts.FirmwareInstallStepUploadInitiateInstall,

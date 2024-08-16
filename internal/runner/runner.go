@@ -43,7 +43,9 @@ type TaskHandlerContext struct {
 	Logger *logrus.Entry
 
 	// Device queryor interface
-	DeviceQueryor device.Queryor
+	//
+	// type asserted to InbandQueryor or OutofbandQueryor at invocation
+	DeviceQueryor any
 
 	// Data store repository
 	Store store.Repository

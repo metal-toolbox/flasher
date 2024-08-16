@@ -17,7 +17,7 @@ import (
 
 func GraphSteps(ctx context.Context, g *dot.Graph) error {
 	// setup a mock device queryor
-	m := new(device.MockQueryor)
+	m := new(device.MockOutofbandQueryor)
 	m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
 		[]bconsts.FirmwareInstallStep{
 			bconsts.FirmwareInstallStepUploadInitiateInstall,

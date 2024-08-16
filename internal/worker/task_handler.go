@@ -276,7 +276,7 @@ func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
 		return
 	}
 
-	if err := t.DeviceQueryor.Close(ctx); err != nil {
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Close(ctx); err != nil {
 		t.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
@@ -286,7 +286,7 @@ func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
 		return
 	}
 
-	if err := t.DeviceQueryor.Close(ctx); err != nil {
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Close(ctx); err != nil {
 		t.Logger.WithFields(logrus.Fields{"err": err.Error()}).Warn("device logout error")
 	}
 }
