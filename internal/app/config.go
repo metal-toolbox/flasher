@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jeremywohl/flatten"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/mitchellh/mapstructure"
@@ -47,6 +48,12 @@ type Configuration struct {
 	//
 	// This parameter is required when StoreKind is set to serverservice.
 	FleetDBAPIOptions *FleetDBAPIOptions `mapstructure:"serverservice"`
+
+	// ServerID parameter required for inband run mode
+	ServerID string `mapstructure:"serverid"`
+
+	// OrchestratorAPIParams required for inband run mode
+	OrchestratorAPIParams *OrchestratorAPIParams `mapstructure:"orchestrator_api"`
 }
 
 // FleetDBAPIOptions defines configuration for the FleetDBAPI client.
@@ -65,6 +72,20 @@ type FleetDBAPIOptions struct {
 	OidcClientScopes       []string `mapstructure:"oidc_client_scopes"`
 	DeviceStates           []string `mapstructure:"device_states"`
 	DisableOAuth           bool     `mapstructure:"disable_oauth"`
+}
+
+type InbandRunParams struct {
+}
+
+type OrchestratorAPIParams struct {
+	OidcIssuerEndpoint   string   `mapstructure:"oidc_issuer_endpoint"`
+	OidcAudienceEndpoint string   `mapstructure:"oidc_audience_endpoint"`
+	OidcClientSecret     string   `mapstructure:"oidc_client_secret"`
+	OidcClientID         string   `mapstructure:"oidc_client_id"`
+	OidcClientScopes     []string `mapstructure:"oidc_client_scopes"`
+	Endpoint             string   `mapstructure:"endpoint"`
+	AuthDisabled         bool     `mapstructure:"disable_oauth"`
+	AuthToken            string
 }
 
 // LoadConfiguration loads application configuration
@@ -111,6 +132,12 @@ func (a *App) LoadConfiguration(cfgFile string, storeKind model.StoreKind) error
 
 	if a.Config.Concurrency == 0 {
 		a.Config.Concurrency = WorkerConcurrency
+	}
+
+	if a.Mode == model.RunInband {
+		if err := a.inbandInstallParams(); err != nil {
+			return errors.Wrap(ErrConfig, err.Error())
+		}
 	}
 
 	return nil
@@ -182,6 +209,94 @@ func (a *App) NatsParams() (NatsConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func (a *App) inbandInstallParams() error {
+	errInbandParam := errors.New("inband parameter error")
+
+	// load serverID param from env if not defined in configuration
+	if a.Config.ServerID == "" {
+		id := a.v.GetString("serverid")
+		serverID, err := uuid.Parse(id)
+		if err != nil {
+			return errors.Wrap(errInbandParam, "serverid parameter invalid: "+err.Error())
+		}
+
+		a.Config.ServerID = serverID.String()
+	}
+
+	// orchestrator client env override params
+	if err := a.envVarOrchestratorAPIOverrides(); err != nil {
+		return errors.Wrap(errInbandParam, err.Error())
+	}
+
+	return nil
+}
+
+func (a *App) envVarOrchestratorAPIOverrides() error {
+	if a.Config.OrchestratorAPIParams == nil {
+		a.Config.OrchestratorAPIParams = &OrchestratorAPIParams{}
+	}
+
+	cfg := a.Config.OrchestratorAPIParams
+	if a.v.GetString("orchestrator.api.endpoint") != "" {
+		cfg.Endpoint = a.v.GetString("orchestrator.api.endpoint")
+	} else {
+		return errors.New("missing parameter: orchestrator.api.endpoint")
+	}
+
+	cfg.AuthDisabled = a.v.GetBool("orchestrator.api.disable.oauth")
+	if cfg.AuthDisabled {
+		return nil
+	}
+
+	if a.v.GetString("orchestrator.api.authtoken") != "" {
+		cfg.AuthToken = a.v.GetString("orchestrator.api.authtoken")
+	} else {
+		return errors.New("missing parameter: orchestrator.api.authtoken")
+	}
+
+	if a.v.GetString("orchestrator.api.oidc.issuer.endpoint") != "" {
+		cfg.OidcIssuerEndpoint = a.v.GetString("orchestrator.api.oidc.issuer.endpoint")
+	}
+
+	if cfg.OidcIssuerEndpoint == "" {
+		return errors.New("orchestrator api oidc.issuer.endpoint not defined")
+	}
+
+	if a.v.GetString("orchestrator.api.oidc.audience.endpoint") != "" {
+		cfg.OidcAudienceEndpoint = a.v.GetString("orchestrator.api.oidc.audience.endpoint")
+	}
+
+	if cfg.OidcAudienceEndpoint == "" {
+		return errors.New("orchestrator api oidc.audience.endpoint not defined")
+	}
+
+	if a.v.GetString("orchestrator.api.oidc.client.secret") != "" {
+		cfg.OidcClientSecret = a.v.GetString("orchestrator.api.oidc.client.secret")
+	}
+
+	if cfg.OidcClientSecret == "" {
+		return errors.New("orchestrator.api.oidc.client.secret not defined")
+	}
+
+	if a.v.GetString("orchestrator.api.oidc.client.id") != "" {
+		cfg.OidcClientID = a.v.GetString("orchestrator.api.oidc.client.id")
+	}
+
+	if cfg.OidcClientID == "" {
+		return errors.New("orchestrator.api.oidc.client.id not defined")
+	}
+
+	if a.v.GetString("orchestrator.api.oidc.client.scopes") != "" {
+		cfg.OidcClientScopes = a.v.GetStringSlice("orchestrator.api.oidc.client.scopes")
+	}
+
+	if len(cfg.OidcClientScopes) == 0 {
+		return errors.New("orchestrator api oidc.client.scopes not defined")
+	}
+
+	return nil
 }
 
 // Server service configuration options
