@@ -20,6 +20,9 @@ type Action struct {
 	// or an install was initiated on the BMC .
 	BMCTaskID string `json:"bmc_task_id,omitempty"`
 
+	// Set to the component identified as the target of the firmware install
+	Component *rtypes.Component `json:"component"`
+
 	// Method of install
 	InstallMethod InstallMethod `json:"install_method"`
 
@@ -28,6 +31,9 @@ type Action struct {
 
 	// Firmware to be installed, this is set in the Task Plan phase.
 	Firmware Firmware `json:"firmware"`
+
+	// In the remote inband case a list of firmwares will be delegated for install
+	Firmwares []Firmware `json:"firmwares"`
 
 	FirmwareInstallStep string `json:"firmware_install_step"`
 
@@ -51,6 +57,12 @@ type Action struct {
 	// HostPowerCycled is set when the host has been power cycled for the action.
 	HostPowerCycled bool `json:"host_power_cycled"`
 
+	// HostPowerCycleInitiated indicates when a power cycle has been initated for the host.
+	HostPowerCycleInitiated bool `json:"host_power_cycle_initiated"`
+
+	//HostPowerOffInitiated indicates a power off was initated on the host.
+	HostPowerOffInitiated bool `json:"host_power_off_initiated"`
+
 	// HostPowerOffPreInstall is set when the firmware install provider indicates
 	// the host must be powered off before proceeding with the install step.
 	HostPowerOffPreInstall bool `json:"host_power_off_pre_install"`
@@ -60,6 +72,9 @@ type Action struct {
 
 	// Last is set to true when its the last action being executed
 	Last bool `json:"last"`
+
+	// Attempts indicates how many times this action has been tried
+	Attempts int `json:"attempts"`
 
 	// Steps identify the smallest unit of work executed by an action
 	Steps Steps `json:"steps"`
@@ -85,4 +100,9 @@ func (a Actions) ByID(id string) *Action {
 	}
 
 	return nil
+}
+
+func (a Actions) Prepend(action *Action) Actions {
+	a = append([]*Action{action}, a...)
+	return a
 }
