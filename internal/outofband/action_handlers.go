@@ -261,7 +261,7 @@ func (h *handler) checkCurrentFirmware(ctx context.Context) error {
 			"expected":     h.firmware.Version,
 		}).Info("Installed firmware version equals expected")
 
-	return ErrInstalledFirmwareEqual
+	return model.ErrInstalledFirmwareEqual
 }
 
 func (h *handler) downloadFirmware(ctx context.Context) error {

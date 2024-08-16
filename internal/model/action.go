@@ -5,6 +5,12 @@ import (
 	"strconv"
 
 	rctypes "github.com/metal-toolbox/rivets/condition"
+	rtypes "github.com/metal-toolbox/rivets/types"
+)
+
+const (
+	// Each action may be tried upto these many times.
+	ActionMaxAttempts = 3
 )
 
 // Action holds attributes for each firmware to be installed
@@ -60,7 +66,7 @@ type Action struct {
 	// HostPowerCycleInitiated indicates when a power cycle has been initated for the host.
 	HostPowerCycleInitiated bool `json:"host_power_cycle_initiated"`
 
-	//HostPowerOffInitiated indicates a power off was initated on the host.
+	// HostPowerOffInitiated indicates a power off was initated on the host.
 	HostPowerOffInitiated bool `json:"host_power_off_initiated"`
 
 	// HostPowerOffPreInstall is set when the firmware install provider indicates

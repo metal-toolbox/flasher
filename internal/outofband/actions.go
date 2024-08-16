@@ -23,7 +23,6 @@ const (
 	uploadFirmwareInitiateInstall model.StepName = "uploadFirmwareInitiateInstall"
 	installUploadedFirmware       model.StepName = "installUploadedFirmware"
 	pollInstallStatus             model.StepName = "pollInstallStatus"
-	resetDevice                   model.StepName = "resetDevice"
 )
 
 const (
@@ -187,60 +186,70 @@ func (o *ActionHandler) definitions() model.Steps {
 			Group:       PowerState,
 			Handler:     o.handler.powerOnServer,
 			Description: "Power on server - if its currently powered off.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        powerOffServer,
 			Group:       PowerState,
 			Handler:     o.handler.powerOffServer,
 			Description: "Powercycle Device, if this is the final firmware to be installed and the device was powered off earlier.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        checkInstalledFirmware,
 			Group:       PreInstall,
 			Handler:     o.handler.checkCurrentFirmware,
 			Description: "Check firmware currently installed on component",
+			State:       model.StatePending,
 		},
 		{
 			Name:        downloadFirmware,
 			Group:       PreInstall,
 			Handler:     o.handler.downloadFirmware,
 			Description: "Download and verify firmware file checksum.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        preInstallResetBMC,
 			Group:       PreInstall,
 			Handler:     o.handler.resetBMC,
 			Description: "Powercycle BMC before installing any firmware - for better chances of success.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        uploadFirmwareInitiateInstall,
 			Group:       Install,
 			Handler:     o.handler.uploadFirmwareInitiateInstall,
 			Description: "Initiate firmware install for component.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        installUploadedFirmware,
 			Group:       Install,
 			Handler:     o.handler.installUploadedFirmware,
 			Description: "Initiate firmware install for firmware uploaded.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        pollInstallStatus,
 			Group:       Install,
 			Handler:     o.handler.pollFirmwareTaskStatus,
 			Description: "Poll BMC for firmware install status until its identified to be in a finalized state.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        uploadFirmware,
 			Group:       Install,
 			Handler:     o.handler.uploadFirmware,
 			Description: "Upload firmware to the device.",
+			State:       model.StatePending,
 		},
 		{
 			Name:        pollUploadStatus,
 			Group:       Install,
 			Handler:     o.handler.pollFirmwareTaskStatus,
 			Description: "Poll device with exponential backoff for firmware upload status until it's confirmed.",
+			State:       model.StatePending,
 		},
 	}
 }

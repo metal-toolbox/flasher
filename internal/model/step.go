@@ -7,6 +7,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// Each action may be tried upto these many times.
+	StepMaxAttempts = 2
+)
+
+var (
+	ErrInstalledFirmwareEqual = errors.New("installed and expected firmware are equal, no action necessary")
+	ErrHostPowerCycleRequired = errors.New("host powercycle required")
+)
+
 // A Task comprises of Action(s) for each firmware to be installed,
 // An Action includes multiple steps to have firmware installed.
 
@@ -28,6 +38,7 @@ type Step struct {
 	Description string        `json:"doc"`
 	State       rctypes.State `json:"state"`
 	Status      string        `json:"status"`
+	Attempts    int           `json:"attempts"`
 }
 
 func (s *Step) SetState(state rctypes.State) {
