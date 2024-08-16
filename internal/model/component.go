@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -9,6 +10,22 @@ import (
 
 	rtypes "github.com/metal-toolbox/rivets/types"
 )
+
+// These components are in most cases are present in a single package and from one vendor in a server,
+// in comparison to drives, nics, raid controllers which could be in multiples and from different vendors
+// for these 'singular' components we don't require to compare the exact model number for a firmware install.
+func SingularComponent(slug string) bool {
+	singular := []string{
+		common.SlugBIOS,
+		common.SlugBMC,
+		common.SlugCPLD,
+		common.SlugCPU,
+		common.SlugChassis,
+		common.SlugBackplaneExpander,
+	}
+
+	return slices.Contains(singular, strings.ToUpper(slug))
+}
 
 // ComponentConvertor provides methods to convert a common.Device to its Component equivalents.
 type ComponentConverter struct {
