@@ -1,4 +1,4 @@
-package outofband
+package download
 
 import (
 	"bytes"
@@ -24,8 +24,8 @@ var (
 	ErrFormat   = errors.New("bad checksum format")
 )
 
-// download fetches the file into dst
-func download(ctx context.Context, fileURL, dst string) error {
+// FromURLToFile fetches the file into dst
+func FromURLToFile(ctx context.Context, fileURL, dst string) error {
 	// create file
 	fileHandle, err := os.Create(dst)
 	if err != nil {
@@ -65,7 +65,7 @@ func download(ctx context.Context, fileURL, dst string) error {
 	return err
 }
 
-func checksumValidate(filename, checksum string) error {
+func ChecksumValidate(filename, checksum string) error {
 	// no checksum prefix, default to md5sum
 	if !strings.Contains(checksum, ":") {
 		return checksumValidateMD5(filename, checksum)
