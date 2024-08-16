@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/bmc-toolbox/common"
+	"github.com/metal-toolbox/flasher/internal/device"
+	"github.com/metal-toolbox/flasher/internal/inband"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	"github.com/metal-toolbox/flasher/internal/runner"
@@ -50,12 +52,12 @@ func newHandler(
 
 func (t *handler) Initialize(ctx context.Context) error {
 	if t.DeviceQueryor == nil {
-		// TODO(joel): DeviceQueryor is to be instantiated based on the method(s) for the firmwares to be installed
-		// if its a mix of inband, out of band firmware to be installed, then both are to be queried and
-		// so this DeviceQueryor would have to be extended
-		//
-		// For this to work with both inband and out of band, the firmware set data should include the install method.
-		t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Server, t.Logger)
+		switch t.mode {
+		case model.RunInband:
+			t.DeviceQueryor = inband.NewDeviceQueryor(t.Logger)
+		case model.RunOutofband:
+			t.DeviceQueryor = outofband.NewDeviceQueryor(ctx, t.Task.Server, t.Logger)
+		}
 	}
 
 	return nil
@@ -64,19 +66,19 @@ func (t *handler) Initialize(ctx context.Context) error {
 func (t *handler) Query(ctx context.Context) error {
 	t.Logger.Debug("run query step")
 
-	t.Task.Status.Append("connecting to device BMC")
-	t.Publish(ctx)
-
-	if err := t.DeviceQueryor.Open(ctx); err != nil {
-		return err
-	}
-
-	t.Task.Status.Append("collecting inventory from device BMC")
-	t.Publish(ctx)
-
-	deviceCommon, err := t.DeviceQueryor.Inventory(ctx)
-	if err != nil {
-		return errors.Wrap(errTaskQueryInventory, err.Error())
+	var err error
+	var deviceCommon *common.Device
+	switch t.mode {
+	case model.RunInband:
+		deviceCommon, err = t.inventoryInband(ctx)
+		if err != nil {
+			return err
+		}
+	case model.RunOutofband:
+		deviceCommon, err = t.inventoryOutofband(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	if t.Task.Server.Vendor == "" {
@@ -102,6 +104,40 @@ func (t *handler) Query(ctx context.Context) error {
 	return errors.Wrap(errTaskQueryInventory, "failed to query device component inventory")
 }
 
+func (t handler) inventoryOutofband(ctx context.Context) (*common.Device, error) {
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Open(ctx); err != nil {
+		return nil, err
+	}
+
+	t.Task.Status.Append("connecting to device BMC")
+	t.Publish(ctx)
+	if err := t.DeviceQueryor.(device.OutofbandQueryor).Open(ctx); err != nil {
+		return nil, err
+	}
+
+	t.Task.Status.Append("collecting inventory from device BMC")
+	t.Publish(ctx)
+
+	deviceCommon, err := t.DeviceQueryor.(device.OutofbandQueryor).Inventory(ctx)
+	if err != nil {
+		return nil, errors.Wrap(errTaskQueryInventory, err.Error())
+	}
+
+	return deviceCommon, nil
+}
+
+func (t handler) inventoryInband(ctx context.Context) (*common.Device, error) {
+	t.Task.Status.Append("collecting inventory from server")
+	t.Publish(ctx)
+
+	deviceCommon, err := t.DeviceQueryor.(device.InbandQueryor).Inventory(ctx)
+	if err != nil {
+		return nil, errors.Wrap(errTaskQueryInventory, err.Error())
+	}
+
+	return deviceCommon, nil
+}
+
 func (t *handler) PlanActions(ctx context.Context) error {
 	switch t.Task.Data.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
@@ -125,11 +161,12 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 		return errors.Wrap(errTaskPlanActions, "planFromFirmwareSet(): firmware set lacks any members")
 	}
 
-	// plan actions based and update task action list
-	t.Task.Data.ActionsPlanned, err = t.planInstall(ctx, applicable)
+	actions, err := t.planInstallActions(ctx, applicable)
 	if err != nil {
 		return err
 	}
+
+	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, actions...)
 
 	return nil
 }
@@ -137,26 +174,33 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
-	actions := model.Actions{}
+func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
+	toInstall := []*model.Firmware{}
+
+	for _, fw := range firmwares {
+		if t.mode == model.RunOutofband && !fw.InstallInband {
+			toInstall = append(toInstall, fw)
+		}
+
+		if t.mode == model.RunInband && fw.InstallInband {
+			toInstall = append(toInstall, fw)
+		}
+	}
 
 	t.Logger.WithFields(logrus.Fields{
 		"condition.id":             t.Task.ID,
-		"requested.firmware.count": fmt.Sprintf("%d", len(firmwares)),
+		"requested.firmware.count": fmt.Sprintf("%d", len(toInstall)),
 	}).Debug("checking against current inventory")
-
-	toInstall := firmwares
 
 	// purge any firmware that are already installed
 	if !t.Task.Parameters.ForceInstall {
-		toInstall = t.removeFirmwareAlreadyAtDesiredVersion(firmwares)
+		toInstall = t.removeFirmwareAlreadyAtDesiredVersion(toInstall)
 	}
 
 	if len(toInstall) == 0 {
-		info := "no actions required for this task"
-
+		info := fmt.Sprintf("no %s firmware installs required", t.mode)
+		t.Task.Status.Append(info)
 		t.Publish(ctx)
-		t.Logger.Info(info)
 
 		return nil, nil
 	}
@@ -164,8 +208,27 @@ func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) 
 	// sort firmware in order of install
 	t.sortFirmwareByInstallOrder(toInstall)
 
+	actions := model.Actions{}
 	// each firmware applicable results in an ActionPlan and an Action
 	for idx, firmware := range toInstall {
+		var actionHander runner.ActionHandler
+
+		if t.mode == model.RunOutofband {
+			if firmware.InstallInband {
+				continue
+			}
+
+			actionHander = &outofband.ActionHandler{}
+		}
+
+		if t.mode == model.RunInband {
+			if !firmware.InstallInband {
+				continue
+			}
+
+			actionHander = &inband.ActionHandler{}
+		}
+
 		actionCtx := &runner.ActionHandlerContext{
 			TaskHandlerContext: t.TaskHandlerContext,
 			Firmware:           firmware,
@@ -173,32 +236,26 @@ func (t *handler) planInstall(ctx context.Context, firmwares []*model.Firmware) 
 			Last:               (idx == len(toInstall)-1),
 		}
 
-		// rig install method until field is added into firmware table
-		firmware.InstallMethod = model.InstallMethodOutofband
-
-		var aHandler runner.ActionHandler
-
-		switch firmware.InstallMethod {
-		case model.InstallMethodInband:
-			return nil, errors.Wrap(errTaskPlanActions, "inband install method not supported")
-		case model.InstallMethodOutofband:
-			aHandler = &outofband.ActionHandler{}
-		default:
-			return nil, errors.Wrap(
-				errTaskPlanActions,
-				"unsupported install method: "+string(firmware.InstallMethod))
-		}
-
-		action, err := aHandler.ComposeAction(ctx, actionCtx)
+		action, err := actionHander.ComposeAction(ctx, actionCtx)
 		if err != nil {
 			return nil, errors.Wrap(errTaskPlanActions, err.Error())
 		}
 
 		action.SetID(t.Task.ID.String(), firmware.Component, idx)
 		action.SetState(model.StatePending)
-
 		actions = append(actions, action)
 	}
+
+	var info string
+	if len(actions) > 0 {
+		info = fmt.Sprintf("planned firmware installs, method: %s, count: %d", t.mode, len(actions))
+	} else {
+		info = fmt.Sprintf("no %s firmware installs required", t.mode)
+	}
+
+	t.Task.Status.Append(info)
+	t.Publish(ctx)
+	t.Logger.Info(info)
 
 	return actions, nil
 }
@@ -214,6 +271,15 @@ func (t *handler) sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
 // returns a list of firmware applicable and a list of causes for firmwares that were removed from the install list.
 func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) []*model.Firmware {
 	var toInstall []*model.Firmware
+
+	// TODO: The current invMap key is set to the component name,
+	// This means if theres multiple Drives of different vendors only the last one in the
+	// component list will be included. Consider a different approach where the key consists
+	// of the name, model.
+	//
+	//	key := func(cmpName, cmpModel string) string {
+	//		return fmt.Sprintf("%s.%s", strings.ToLower(cmpName), strings.ToLower(cmpModel))
+	//	}
 
 	invMap := make(map[string]string)
 	for _, cmp := range t.Task.Server.Components {
@@ -234,6 +300,25 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 	// attainable goal.
 	for _, fw := range fws {
 		currentVersion, ok := invMap[strings.ToLower(fw.Component)]
+
+		// skip install if current firmware version was not identified
+		if currentVersion == "" && !t.Task.Parameters.ForceInstall {
+			info := "Current firmware version returned empty, skipped install, use force to override"
+			t.Task.Status.Append(
+				fmtCause(
+					fw.Component,
+					info,
+					currentVersion,
+					fw.Version,
+				),
+			)
+
+			t.Logger.WithFields(logrus.Fields{
+				"component": fw.Component,
+			}).Warn()
+
+			continue
+		}
 
 		switch {
 		case !ok:
@@ -272,7 +357,7 @@ func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) [
 }
 
 func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
-	if t.DeviceQueryor == nil {
+	if t.mode == model.RunInband || t.DeviceQueryor == nil {
 		return
 	}
 
@@ -282,7 +367,7 @@ func (t *handler) OnSuccess(ctx context.Context, _ *model.Task) {
 }
 
 func (t *handler) OnFailure(ctx context.Context, _ *model.Task) {
-	if t.DeviceQueryor == nil {
+	if t.mode == model.RunInband || t.DeviceQueryor == nil {
 		return
 	}
 
