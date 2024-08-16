@@ -38,6 +38,7 @@ func runInstall(ctx context.Context) {
 		cfgFile,
 		logLevel,
 		enableProfiling,
+		model.RunOutofband,
 	)
 	if err != nil {
 		log.Fatal(err)
