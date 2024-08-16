@@ -59,7 +59,7 @@ type bmc struct {
 }
 
 // NewDeviceQueryor returns a bmc queryor that implements the DeviceQueryor interface
-func NewDeviceQueryor(ctx context.Context, asset *rtypes.Server, logger *logrus.Entry) device.Queryor {
+func NewDeviceQueryor(ctx context.Context, asset *rtypes.Server, logger *logrus.Entry) device.OutofbandQueryor {
 	return &bmc{
 		client: newBmclibv2Client(ctx, asset, logger),
 		logger: logger,

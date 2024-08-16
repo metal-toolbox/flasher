@@ -15,4 +15,5 @@ packages:
       fileName: "mock_{{.InterfaceName | firstLower}}.go"
       inpackage: true
     interfaces:
-      Queryor:
+      OutofbandQueryor:
+      InbandQueryor:

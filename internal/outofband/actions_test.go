@@ -38,7 +38,7 @@ func TestComposeAction(t *testing.T) {
 
 	tests := []struct {
 		name                           string
-		mockSetup                      func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor)
+		mockSetup                      func(actionCtx *runner.ActionHandlerContext, m *device.MockOutofbandQueryor)
 		expectBMCResetPreInstall       bool
 		expectForceInstall             bool
 		expectBMCResetPostInstall      bool
@@ -49,7 +49,7 @@ func TestComposeAction(t *testing.T) {
 		{
 			name:                     "test bmc-reset pre-install is true on first action",
 			expectBMCResetPreInstall: true,
-			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockOutofbandQueryor) {
 				actionCtx.Task.Parameters.ResetBMCBeforeInstall = true
 				actionCtx.First = true
 
@@ -66,7 +66,7 @@ func TestComposeAction(t *testing.T) {
 		{
 			name:               "test bmc-reset pre-install is false on first action, force is true",
 			expectForceInstall: true,
-			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockOutofbandQueryor) {
 				actionCtx.First = true
 				actionCtx.Task.Parameters.ForceInstall = true
 				actionCtx.Task.Parameters.ResetBMCBeforeInstall = false
@@ -84,7 +84,7 @@ func TestComposeAction(t *testing.T) {
 		{
 			name:                      "test bmc reset post install",
 			expectBMCResetPostInstall: true,
-			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockOutofbandQueryor) {
 				actionCtx.DeviceQueryor = m
 				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
 					[]bconsts.FirmwareInstallStep{
@@ -99,7 +99,7 @@ func TestComposeAction(t *testing.T) {
 		{
 			name:                         "test host power off pre-install",
 			expectHostPowerOffPreInstall: true,
-			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockOutofbandQueryor) {
 				actionCtx.First = true
 
 				actionCtx.DeviceQueryor = m
@@ -116,7 +116,7 @@ func TestComposeAction(t *testing.T) {
 		{
 			name:                           "test bmc reset on install failure",
 			expectBMCResetOnInstallFailure: true,
-			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockOutofbandQueryor) {
 				actionCtx.DeviceQueryor = m
 				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
 					[]bconsts.FirmwareInstallStep{
@@ -130,7 +130,7 @@ func TestComposeAction(t *testing.T) {
 		},
 		{
 			name: "test error - no install steps",
-			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockQueryor) {
+			mockSetup: func(actionCtx *runner.ActionHandlerContext, m *device.MockOutofbandQueryor) {
 				actionCtx.DeviceQueryor = m
 				m.On("FirmwareInstallSteps", mock.Anything, "drive").Once().Return(
 					[]bconsts.FirmwareInstallStep{},
@@ -146,7 +146,7 @@ func TestComposeAction(t *testing.T) {
 			actx := newTestActionCtx()
 
 			// setup mocks
-			mockDeviceQueryor := new(device.MockQueryor)
+			mockDeviceQueryor := new(device.MockOutofbandQueryor)
 			tc.mockSetup(actx, mockDeviceQueryor)
 
 			// init handler
