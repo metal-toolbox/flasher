@@ -37,10 +37,12 @@ type App struct {
 	Logger *logrus.Logger
 	// Kind is the type of application - worker
 	Kind model.AppKind
+	// Mode indicates the means of installing firmware on the target
+	Mode model.RunMode
 }
 
 // New returns returns a new instance of the flasher app
-func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string, profiling bool) (*App, <-chan os.Signal, error) {
+func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel string, profiling bool, mode model.RunMode) (*App, <-chan os.Signal, error) {
 	if appKind != model.AppKindWorker && appKind != model.AppKindCLI {
 		return nil, nil, errors.Wrap(ErrAppInit, "invalid app kind: "+string(appKind))
 	}
@@ -50,6 +52,7 @@ func New(appKind model.AppKind, storeKind model.StoreKind, cfgFile, loglevel str
 		Kind:   appKind,
 		Config: &Configuration{},
 		Logger: logrus.New(),
+		Mode:   mode,
 	}
 
 	switch model.LogLevel(loglevel) {
