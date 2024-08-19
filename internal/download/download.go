@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	downloadRetryDelay    = 4 * time.Second
-	downloadClientTimeout = 60 * time.Second
+	downloadRetryDelay = 4 * time.Second
+	// allow upto 5 minutes of timeout for downloading over slow connections
+	downloadClientTimeout = 300 * time.Second
 
 	ErrDownload = errors.New("error downloading file")
 	ErrChecksum = errors.New("error validating file checksum")
@@ -84,8 +85,6 @@ func ChecksumValidate(filename, checksum string) error {
 	}
 }
 
-// TODO: firmware-syncer needs to prefix firmware checksums values with the type of checksum
-// so consumers can validate it accordingly
 func checksumValidateMD5(filename, checksum string) error {
 	var err error
 
