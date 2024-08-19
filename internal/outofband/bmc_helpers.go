@@ -94,7 +94,7 @@ func newBmclibv2Client(_ context.Context, asset *rtypes.Server, l *logrus.Entry)
 
 	bmcClient := bmclib.NewClient(
 		asset.BMCAddress,
-		asset.BMCAddress,
+		asset.BMCUser,
 		asset.BMCPassword,
 		bmclib.WithLogger(logruslogr),
 		bmclib.WithHTTPClient(newHTTPClient()),
