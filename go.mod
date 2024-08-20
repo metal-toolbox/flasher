@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
 	github.com/bmc-toolbox/bmclib/v2 v2.2.6
-	github.com/bmc-toolbox/common v0.0.0-20240723142833-87832458b53b
+	github.com/bmc-toolbox/common v0.0.0-20240806132831-ba8adc6a35e3
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/emicklei/dot v1.6.2
@@ -15,9 +15,9 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
-	github.com/metal-toolbox/ctrl v0.2.2-0.20240816125955-248ee65e0c94
+	github.com/metal-toolbox/ctrl v0.2.2-0.20240820153810-9f5f8ffcb086
 	github.com/metal-toolbox/fleetdb v1.19.3
-	github.com/metal-toolbox/ironlib v0.4.2-0.20240815083723-fab996eb8e80
+	github.com/metal-toolbox/ironlib v0.4.2-0.20240820154349-f72c0f707be4
 	github.com/metal-toolbox/rivets v1.3.1
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -163,5 +163,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/metal-toolbox/ctrl => ../ctrl

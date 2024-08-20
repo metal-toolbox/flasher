@@ -112,8 +112,10 @@ github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6r
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
 github.com/bmc-toolbox/bmclib/v2 v2.2.6 h1:ol2jVa1ERfBFZS5Ye1chORai+nkzt9J1LgTTMxjZ0mw=
 github.com/bmc-toolbox/bmclib/v2 v2.2.6/go.mod h1:V2XVg0Scpm16+0gE7WnI+5bU/M0c/o/nPZKHKzyVjAo=
-github.com/bmc-toolbox/common v0.0.0-20240723142833-87832458b53b h1:0LHjikaGWlqEMczrCEZ6w1N/ZqcYlx6WRHkhabRUQEk=
-github.com/bmc-toolbox/common v0.0.0-20240723142833-87832458b53b/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
+github.com/bmc-toolbox/bmclib/v2 v2.2.7-0.20240820122530-fe8af4779053 h1:zSWrFVbjHH2uiOp74MoIv81VGUp2l0H9HKbEEv0poqQ=
+github.com/bmc-toolbox/bmclib/v2 v2.2.7-0.20240820122530-fe8af4779053/go.mod h1:xnaECeoiRhy4MLR2JTDFKzyDaAykiVdVcT9CuzLDj6o=
+github.com/bmc-toolbox/common v0.0.0-20240806132831-ba8adc6a35e3 h1:/BjZSX/sphptIdxpYo4wxAQkgMLyMMgfdl48J9DKNeE=
+github.com/bmc-toolbox/common v0.0.0-20240806132831-ba8adc6a35e3/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
 github.com/bombsimon/logrusr/v2 v2.0.1/go.mod h1:ByVAX+vHdLGAfdroiMg6q0zgq2FODY2lc5YJvzmOJio=
 github.com/bytedance/sonic v1.12.0 h1:YGPgxF9xzaCNvd/ZKdQ28yRovhfMFZQjuk6fKBzZ3ls=
@@ -560,10 +562,12 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/metal-toolbox/conditionorc v1.1.1-0.20240805163108-b1c018c91b87 h1:C3Gkj7+bV18HgXJuzeJ6RAttzqsO6sDBF7I20x5JvWM=
 github.com/metal-toolbox/conditionorc v1.1.1-0.20240805163108-b1c018c91b87/go.mod h1:0Rh7BPun3VcJzxsBfbZ94lxxxSUNLtugAeZPRWPcD3c=
+github.com/metal-toolbox/ctrl v0.2.2-0.20240820153810-9f5f8ffcb086 h1:zHwQHtYDkoz806ZtHhf5/EZ2TRjZ+XVxeMl1vQSkDVM=
+github.com/metal-toolbox/ctrl v0.2.2-0.20240820153810-9f5f8ffcb086/go.mod h1:pN64bE8tqvG2x1YpS62lfwEPOzMh98lXwyF11t8VLYw=
 github.com/metal-toolbox/fleetdb v1.19.3 h1:Dk7MVi5rS42a4OI46Ye/etg8R5hm1iajaI4U0k1GSec=
 github.com/metal-toolbox/fleetdb v1.19.3/go.mod h1:v9agAzF7BhBBjA4rY+H2eZzQaBTEXO4b/Qikn4jmA7A=
-github.com/metal-toolbox/ironlib v0.4.2-0.20240815083723-fab996eb8e80 h1:alVuAOH9916LUjIAynnG/5Bkle8juvOn5/21Azo6SmU=
-github.com/metal-toolbox/ironlib v0.4.2-0.20240815083723-fab996eb8e80/go.mod h1:YNS/N5Q61awwVEXJ20V04AzLrgSsT/Xrh8bHD6Iwi7M=
+github.com/metal-toolbox/ironlib v0.4.2-0.20240820154349-f72c0f707be4 h1:Y8/TwjcBmCryADtIbGlPVpzaHcmnTbBBkpqFMD/Alk0=
+github.com/metal-toolbox/ironlib v0.4.2-0.20240820154349-f72c0f707be4/go.mod h1:YNS/N5Q61awwVEXJ20V04AzLrgSsT/Xrh8bHD6Iwi7M=
 github.com/metal-toolbox/rivets v1.3.1 h1:UD70qh6KNNgCPivAP7Ed4U8H8aJ3+3Bw8FtyMXiM7Qg=
 github.com/metal-toolbox/rivets v1.3.1/go.mod h1:i78a1x0w2uNyMlvUgyO6ST552u9wV2Xa4+A73oA4WJY=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=
