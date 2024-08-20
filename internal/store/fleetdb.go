@@ -313,18 +313,38 @@ func intoFirmwaresSlice(componentFirmware []fleetdbapi.ComponentFirmwareVersion)
 
 	firmwares := make([]*model.Firmware, 0, len(componentFirmware))
 
+	booleanIsTrue := func(b *bool) bool {
+		if b != nil && *b {
+			return true
+		}
+
+		return false
+	}
+
 	// nolint:gocritic // rangeValCopy - componentFirmware is returned by fleetdb API in this form.
 	for _, firmware := range componentFirmware {
-		firmwares = append(firmwares, &model.Firmware{
-			ID:        firmware.UUID.String(),
-			Vendor:    strings.ToLower(firmware.Vendor),
-			Models:    strSliceToLower(firmware.Model),
-			FileName:  firmware.Filename,
-			Version:   firmware.Version,
-			Component: strings.ToLower(firmware.Component),
-			Checksum:  firmware.Checksum,
-			URL:       firmware.RepositoryURL,
-		})
+		fw := &model.Firmware{
+			ID:            firmware.UUID.String(),
+			Vendor:        strings.ToLower(firmware.Vendor),
+			Models:        strSliceToLower(firmware.Model),
+			FileName:      firmware.Filename,
+			Version:       firmware.Version,
+			Component:     strings.ToLower(firmware.Component),
+			Checksum:      firmware.Checksum,
+			URL:           firmware.RepositoryURL,
+			InstallInband: *firmware.InstallInband,
+			Oem:           *firmware.OEM,
+		}
+
+		if booleanIsTrue(firmware.InstallInband) {
+			fw.InstallInband = true
+		}
+
+		if booleanIsTrue(firmware.OEM) {
+			fw.Oem = true
+		}
+
+		firmwares = append(firmwares, fw)
 	}
 
 	return firmwares
