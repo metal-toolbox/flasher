@@ -196,6 +196,7 @@ func (h *handler) installFirmware(ctx context.Context) error {
 			h.action.FirmwareTempFile,
 			h.action.ForceInstall,
 		); err != nil {
+			// component update could not be applied because it requires a host power cycle
 			if errors.Is(err, iutils.ErrRebootRequired) {
 				h.logger.WithFields(
 					logrus.Fields{
@@ -204,6 +205,12 @@ func (h *handler) installFirmware(ctx context.Context) error {
 						"version":   h.firmware.Version,
 						"msg":       err.Error(),
 					}).Info("firmware install requires a server power cycle")
+
+				// force power cycle if we're on the last action
+				if h.action.Last {
+					return h.powerCycleServer(ctx)
+				}
+
 				return nil
 			}
 

@@ -382,6 +382,7 @@ func TestPlanInstall_Inband(t *testing.T) {
 		Task: &model.Task{
 			ID:       taskID,
 			WorkerID: registry.GetID("test-app").String(),
+			Data:     &model.TaskData{},
 			Parameters: &rctypes.FirmwareInstallTaskParameters{
 				AssetID:      serverID,
 				ForceInstall: true,
