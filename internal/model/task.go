@@ -67,6 +67,10 @@ func (t *Task) MustMarshal() json.RawMessage {
 
 type TaskData struct {
 	StructVersion string `json:"struct_version"`
+
+	// This flag is set when a action requires a host power cycle.
+	HostPowercycleRequired bool `json:"host_powercycle_required,omitempty"`
+
 	// Flasher determines the firmware to be installed for each component based on the firmware plan method.
 	FirmwarePlanMethod FirmwarePlanMethod `json:"firmware_plan_method,omitempty"`
 

@@ -108,24 +108,23 @@ func (i *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.Act
 			Info("No firmware install requirements were identified for component")
 	}
 
-	steps, err := i.composeSteps(required)
-	if err != nil {
-		return nil, errors.Wrap(errCompose, err.Error())
-	}
-
-	action := &model.Action{
+	i.handler.action = &model.Action{
 		InstallMethod: model.InstallMethodInband,
 		Firmware:      *actionCtx.Firmware,
 		ForceInstall:  actionCtx.Task.Parameters.ForceInstall,
-		Steps:         steps,
 		First:         actionCtx.First,
 		Last:          actionCtx.Last,
 		Component:     component,
 	}
 
-	i.handler.action = action
+	steps, err := i.composeSteps(required)
+	if err != nil {
+		return nil, errors.Wrap(errCompose, err.Error())
+	}
 
-	return action, nil
+	i.handler.action.Steps = steps
+
+	return i.handler.action, nil
 }
 
 func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.InbandQueryor) *handler {
@@ -158,6 +157,10 @@ func (i *ActionHandler) composeSteps(required *imodel.UpdateRequirements) (model
 	final = append(final, install...)
 
 	if required != nil && required.PostInstallHostPowercycle {
+		i.handler.task.Data.HostPowercycleRequired = true
+	}
+
+	if i.handler.action.Last && i.handler.task.Data.HostPowercycleRequired {
 		powerCycle, errDef := i.definitions().ByName(powerCycleServer)
 		if errDef != nil {
 			return nil, err
