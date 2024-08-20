@@ -211,6 +211,7 @@ func (h *handler) installFirmware(ctx context.Context) error {
 					return h.powerCycleServer(ctx)
 				}
 
+				h.task.Data.HostPowercycleRequired = true
 				return nil
 			}
 
