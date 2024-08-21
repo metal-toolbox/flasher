@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	ironlibactions "github.com/metal-toolbox/ironlib/actions"
 	imodel "github.com/metal-toolbox/ironlib/model"
 )
 
@@ -100,7 +101,11 @@ func (i *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.Act
 		component.Model,
 	)
 	if err != nil {
-		// not a fatal error
+		// fatal error only if the updater utility is not identified
+		if errors.Is(err, ironlibactions.ErrUpdaterUtilNotIdentified) {
+			return nil, err
+		}
+
 		i.handler.logger.WithFields(logrus.Fields{
 			"component": actionCtx.Firmware.Component,
 			"model":     actionCtx.Firmware.Models,
