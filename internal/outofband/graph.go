@@ -37,7 +37,7 @@ func GraphSteps(ctx context.Context, g *dot.Graph) error {
 			Logger:        logrus.NewEntry(logrus.New()),
 			DeviceQueryor: m,
 		},
-		Firmware: &model.Firmware{
+		Firmware: &rctypes.Firmware{
 			Version:   "DL6R",
 			URL:       "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
 			FileName:  "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",

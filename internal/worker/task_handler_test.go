@@ -23,7 +23,7 @@ import (
 )
 
 func TestSortFirmwareByInstallOrder(t *testing.T) {
-	have := []*model.Firmware{
+	have := []*rctypes.Firmware{
 		{
 			Version:   "DL6R",
 			URL:       "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
@@ -50,7 +50,7 @@ func TestSortFirmwareByInstallOrder(t *testing.T) {
 		},
 	}
 
-	expected := []*model.Firmware{
+	expected := []*rctypes.Firmware{
 		{
 			Version:   "2.6.6",
 			URL:       "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",
@@ -85,7 +85,7 @@ func TestSortFirmwareByInstallOrder(t *testing.T) {
 
 func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 	t.Parallel()
-	fwSet := []*model.Firmware{
+	fwSet := []*rctypes.Firmware{
 		{
 			Version:   "2.6.6",
 			URL:       "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.6.6.EXE",
@@ -135,7 +135,7 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 		},
 	}
 
-	expected := []*model.Firmware{
+	expected := []*rctypes.Firmware{
 		{
 			Version:   "20.5.13",
 			URL:       "https://dl.dell.com/FOLDER08105057M/1/Network_Firmware_NVXX9_WN64_20.5.13_A00.EXE",
@@ -155,7 +155,7 @@ func TestRemoveFirmwareAlreadyAtDesiredVersion(t *testing.T) {
 
 func TestPlanInstall_Outofband(t *testing.T) {
 	t.Parallel()
-	fwSet := []*model.Firmware{
+	fwSet := []*rctypes.Firmware{
 		{
 			Version:   "5.10.00.00",
 			URL:       "https://downloads.dell.com/FOLDER06303849M/1/BMC_5_10_00_00.EXE",
@@ -245,7 +245,7 @@ func TestPlanInstall_Outofband(t *testing.T) {
 
 func TestPlanInstall2_Outofband(t *testing.T) {
 	t.Parallel()
-	fwSet := []*model.Firmware{
+	fwSet := []*rctypes.Firmware{
 		{
 			Version:   "5.10.00.00",
 			URL:       "https://downloads.dell.com/FOLDER06303849M/1/BMC_5_10_00_00.EXE",
@@ -341,7 +341,7 @@ func TestPlanInstall2_Outofband(t *testing.T) {
 
 func TestPlanInstall_Inband(t *testing.T) {
 	t.Parallel()
-	fwSet := []*model.Firmware{
+	fwSet := []*rctypes.Firmware{
 		{
 			Version:   "2.19.6",
 			URL:       "https://dl.dell.com/FOLDER08105057M/1/BIOS_C4FT0_WN64_2.19.6.EXE",

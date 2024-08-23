@@ -20,6 +20,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 const (
@@ -83,7 +84,7 @@ var (
 )
 
 type handler struct {
-	firmware      *model.Firmware
+	firmware      *rctypes.Firmware
 	task          *model.Task
 	action        *model.Action
 	deviceQueryor device.OutofbandQueryor

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	rctypes "github.com/metal-toolbox/rivets/condition"
 	rtypes "github.com/metal-toolbox/rivets/types"
 )
 
@@ -67,7 +68,7 @@ func (t *handler) PlanActions(ctx context.Context) error {
 
 	param := t.taskCtx.Task.Parameters.Firmwares[0]
 
-	firmware := &model.Firmware{
+	firmware := &rctypes.Firmware{
 		Component: param.Component,
 		Vendor:    param.Vendor,
 		Models:    []string{param.Vendor},

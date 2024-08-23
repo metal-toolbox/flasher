@@ -66,7 +66,7 @@ type ActionHandlerContext struct {
 	Last bool
 
 	// The firmware to be installed
-	Firmware *model.Firmware
+	Firmware *rctypes.Firmware
 }
 
 func New(logger *logrus.Entry) *Runner {

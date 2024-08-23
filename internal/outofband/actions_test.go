@@ -25,7 +25,7 @@ func TestComposeAction(t *testing.T) {
 				},
 				Logger: logrus.NewEntry(logrus.New()),
 			},
-			Firmware: &model.Firmware{
+			Firmware: &rctypes.Firmware{
 				Version:   "DL6R",
 				URL:       "https://downloads.dell.com/FOLDER06303849M/1/Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",
 				FileName:  "Serial-ATA_Firmware_Y1P10_WN32_DL6R_A00.EXE",

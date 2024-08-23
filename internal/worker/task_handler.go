@@ -198,8 +198,8 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 // planInstall sets up the firmware install plan
 //
 // This returns a list of actions to added to the task and a list of action state machines for those actions.
-func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Firmware) (model.Actions, error) {
-	toInstall := []*model.Firmware{}
+func (t *handler) planInstallActions(ctx context.Context, firmwares []*rctypes.Firmware) (model.Actions, error) {
+	toInstall := []*rctypes.Firmware{}
 
 	for _, fw := range firmwares {
 		if t.mode == model.RunOutofband && !fw.InstallInband {
@@ -284,7 +284,7 @@ func (t *handler) planInstallActions(ctx context.Context, firmwares []*model.Fir
 	return actions, nil
 }
 
-func (t *handler) sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
+func (t *handler) sortFirmwareByInstallOrder(firmwares []*rctypes.Firmware) {
 	sort.Slice(firmwares, func(i, j int) bool {
 		slugi := strings.ToLower(firmwares[i].Component)
 		slugj := strings.ToLower(firmwares[j].Component)
@@ -293,8 +293,8 @@ func (t *handler) sortFirmwareByInstallOrder(firmwares []*model.Firmware) {
 }
 
 // returns a list of firmware applicable and a list of causes for firmwares that were removed from the install list.
-func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*model.Firmware) []*model.Firmware {
-	var toInstall []*model.Firmware
+func (t *handler) removeFirmwareAlreadyAtDesiredVersion(fws []*rctypes.Firmware) []*rctypes.Firmware {
+	var toInstall []*rctypes.Firmware
 
 	// TODO: The current invMap key is set to the component name,
 	// This means if theres multiple Drives of different vendors only the last one in the

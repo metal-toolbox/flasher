@@ -8,6 +8,7 @@ import (
 	"time"
 
 	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
+	rctypes "github.com/metal-toolbox/rivets/condition"
 	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
 	rtypes "github.com/metal-toolbox/rivets/types"
 
@@ -23,7 +24,6 @@ import (
 
 	"github.com/metal-toolbox/flasher/internal/app"
 	"github.com/metal-toolbox/flasher/internal/metrics"
-	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/pkg/errors"
 )
 
@@ -218,7 +218,7 @@ func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*rtypes.Server, 
 }
 
 // FirmwareSetByID returns a list of firmwares part of a firmware set identified by the given id.
-func (s *FleetDBAPI) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*model.Firmware, error) {
+func (s *FleetDBAPI) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*rctypes.Firmware, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "FleetDBAPI.FirmwareSetByID")
 	defer span.End()
 
@@ -233,7 +233,7 @@ func (s *FleetDBAPI) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*mode
 }
 
 // FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
-func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]*model.Firmware, error) {
+func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]*rctypes.Firmware, error) {
 	// lookup flasher task attribute
 	params := &fleetdbapi.ComponentFirmwareSetListParams{
 		AttributeListParams: []fleetdbapi.AttributeListParams{
@@ -290,7 +290,7 @@ func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVend
 		)
 	}
 
-	found := []*model.Firmware{}
+	found := []*rctypes.Firmware{}
 
 	// nolint:gocritic // rangeValCopy - the data is returned by fleetdb API in this form.
 	for _, set := range firmwaresets {
@@ -300,7 +300,7 @@ func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVend
 	return found, nil
 }
 
-func intoFirmwaresSlice(componentFirmware []fleetdbapi.ComponentFirmwareVersion) []*model.Firmware {
+func intoFirmwaresSlice(componentFirmware []fleetdbapi.ComponentFirmwareVersion) []*rctypes.Firmware {
 	strSliceToLower := func(sl []string) []string {
 		lowered := make([]string, 0, len(sl))
 
@@ -311,7 +311,7 @@ func intoFirmwaresSlice(componentFirmware []fleetdbapi.ComponentFirmwareVersion)
 		return lowered
 	}
 
-	firmwares := make([]*model.Firmware, 0, len(componentFirmware))
+	firmwares := make([]*rctypes.Firmware, 0, len(componentFirmware))
 
 	booleanIsTrue := func(b *bool) bool {
 		if b != nil && *b {
@@ -323,7 +323,7 @@ func intoFirmwaresSlice(componentFirmware []fleetdbapi.ComponentFirmwareVersion)
 
 	// nolint:gocritic // rangeValCopy - componentFirmware is returned by fleetdb API in this form.
 	for _, firmware := range componentFirmware {
-		fw := &model.Firmware{
+		fw := &rctypes.Firmware{
 			ID:            firmware.UUID.String(),
 			Vendor:        strings.ToLower(firmware.Vendor),
 			Models:        strSliceToLower(firmware.Model),
