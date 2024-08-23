@@ -203,7 +203,7 @@ func CopyAsFwInstallTask(task *rctypes.Task[any, any]) (*Task, error) {
 		data.FirmwarePlanMethod = FromRequestedFirmware
 	}
 
-	if params.FirmwareSetID != uuid.Nil {
+	if params.FirmwareSetID != uuid.Nil && len(params.Firmwares) == 0 {
 		data.FirmwarePlanMethod = FromFirmwareSet
 	}
 

@@ -36,10 +36,10 @@ type Action struct {
 	State rctypes.State `json:"state"`
 
 	// Firmware to be installed, this is set in the Task Plan phase.
-	Firmware Firmware `json:"firmware"`
+	Firmware rctypes.Firmware `json:"firmware"`
 
 	// In the remote inband case a list of firmwares will be delegated for install
-	Firmwares []Firmware `json:"firmwares"`
+	Firmwares []rctypes.Firmware `json:"firmwares"`
 
 	FirmwareInstallStep string `json:"firmware_install_step"`
 

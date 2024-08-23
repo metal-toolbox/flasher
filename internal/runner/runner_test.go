@@ -146,7 +146,7 @@ func TestRunActions(t *testing.T) {
 					ActionsPlanned: []*model.Action{
 						{
 							ID: "action1",
-							Firmware: model.Firmware{
+							Firmware: rctypes.Firmware{
 								Component: "component1",
 								Version:   "1.0",
 							},
@@ -180,7 +180,7 @@ func TestRunActions(t *testing.T) {
 					ActionsPlanned: []*model.Action{
 						{
 							ID: "action1",
-							Firmware: model.Firmware{
+							Firmware: rctypes.Firmware{
 								Component: "component1",
 								Version:   "1.0",
 							},
@@ -310,7 +310,7 @@ func TestRunActionSteps(t *testing.T) {
 			name: "All steps succeed",
 			task: &model.Task{Data: &model.TaskData{}},
 			action: &model.Action{
-				Firmware: model.Firmware{Component: "test", Version: "1.0"},
+				Firmware: rctypes.Firmware{Component: "test", Version: "1.0"},
 				Steps: []*model.Step{
 					{
 						Name:    "step1",
@@ -334,7 +334,7 @@ func TestRunActionSteps(t *testing.T) {
 			name: "Step fails",
 			task: &model.Task{Data: &model.TaskData{}},
 			action: &model.Action{
-				Firmware: model.Firmware{Component: "test", Version: "1.0"},
+				Firmware: rctypes.Firmware{Component: "test", Version: "1.0"},
 				Steps: []*model.Step{
 					{
 						Name:    "step1",
@@ -353,7 +353,7 @@ func TestRunActionSteps(t *testing.T) {
 			name: "Installed firmware equals expected",
 			task: &model.Task{Data: &model.TaskData{}},
 			action: &model.Action{
-				Firmware: model.Firmware{Component: "test", Version: "1.0"},
+				Firmware: rctypes.Firmware{Component: "test", Version: "1.0"},
 				Steps: []*model.Step{
 					{
 						Name:    "step1",
@@ -372,7 +372,7 @@ func TestRunActionSteps(t *testing.T) {
 			name: "Host power cycle required",
 			task: &model.Task{Data: &model.TaskData{}},
 			action: &model.Action{
-				Firmware: model.Firmware{Component: "test", Version: "1.0"},
+				Firmware: rctypes.Firmware{Component: "test", Version: "1.0"},
 				Steps: []*model.Step{
 					{
 						Name:    "step1",
@@ -391,7 +391,7 @@ func TestRunActionSteps(t *testing.T) {
 			name: "Nil step handler",
 			task: &model.Task{Data: &model.TaskData{}},
 			action: &model.Action{
-				Firmware: model.Firmware{Component: "test", Version: "1.0"},
+				Firmware: rctypes.Firmware{Component: "test", Version: "1.0"},
 				Steps: []*model.Step{
 					{
 						Name:    "borky step2",
