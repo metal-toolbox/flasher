@@ -15,6 +15,8 @@ import (
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 var (
@@ -143,10 +145,32 @@ func (t *handler) PlanActions(ctx context.Context) error {
 	case model.FromFirmwareSet:
 		return t.planFromFirmwareSet(ctx)
 	case model.FromRequestedFirmware:
-		return errors.Wrap(errTaskPlanActions, "firmware plan method not implemented"+string(model.FromRequestedFirmware))
+		return t.planFromFirmwareSlice(ctx)
 	default:
 		return errors.Wrap(errTaskPlanActions, "firmware plan method invalid: "+string(t.Task.Data.FirmwarePlanMethod))
 	}
+}
+
+func (t *handler) planFromFirmwareSlice(ctx context.Context) error {
+	if len(t.Task.Parameters.Firmwares) == 0 {
+		// we've been instructed to install firmwares listed in the parameters, but its empty
+		return errors.Wrap(errTaskPlanActions, "planFromFirmwareSlice(): firmware set lacks any members")
+	}
+
+	// copy into slice of pointers
+	applicable := []*rctypes.Firmware{}
+	for idx := range t.Task.Parameters.Firmwares {
+		applicable = append(applicable, &t.Task.Parameters.Firmwares[idx])
+	}
+
+	actions, err := t.planInstallActions(ctx, applicable)
+	if err != nil {
+		return err
+	}
+
+	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, actions...)
+
+	return nil
 }
 
 // planFromFirmwareSet
