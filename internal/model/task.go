@@ -78,7 +78,7 @@ type TaskData struct {
 	ActionsPlanned Actions `json:"actions_planned,omitempty"`
 
 	// Scratch is an arbitrary key values map available to all task, action handler methods.
-	Scratch map[string]string `json:"data,omitempty"`
+	Scratch map[string]string `json:"scratch,omitempty"`
 }
 
 func (td *TaskData) MapStringInterfaceToStruct(m map[string]interface{}) error {
@@ -170,6 +170,10 @@ func convTaskData(data any) (*TaskData, error) {
 	default:
 		msg := "Task.Data expected to be one of map[string]interface{} or json.RawMessage, current type: " + reflect.TypeOf(data).String()
 		return nil, errors.Wrap(errDataConv, msg)
+	}
+
+	if taskData.Scratch == nil {
+		taskData.Scratch = map[string]string{}
 	}
 
 	return taskData, nil
