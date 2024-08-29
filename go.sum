@@ -560,8 +560,8 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/metal-toolbox/conditionorc v1.1.1-0.20240805163108-b1c018c91b87 h1:C3Gkj7+bV18HgXJuzeJ6RAttzqsO6sDBF7I20x5JvWM=
 github.com/metal-toolbox/conditionorc v1.1.1-0.20240805163108-b1c018c91b87/go.mod h1:0Rh7BPun3VcJzxsBfbZ94lxxxSUNLtugAeZPRWPcD3c=
-github.com/metal-toolbox/ctrl v0.2.4 h1:VoaZkPDeFGL7Qxqw4sjNjGPE+XSWLnLJE5Zr3ZFk7BM=
-github.com/metal-toolbox/ctrl v0.2.4/go.mod h1:pN64bE8tqvG2x1YpS62lfwEPOzMh98lXwyF11t8VLYw=
+github.com/metal-toolbox/ctrl v0.2.7-0.20240829100914-db4137461934 h1:VaXt7YBLETF+vLWxK01DtcCnxa3jA6jLP8cDm6oHVyg=
+github.com/metal-toolbox/ctrl v0.2.7-0.20240829100914-db4137461934/go.mod h1:8pNmlZr+GhhxZh35jLBX6kbZ+1q/8Ud5UIpXRebTmt4=
 github.com/metal-toolbox/fleetdb v1.19.3 h1:Dk7MVi5rS42a4OI46Ye/etg8R5hm1iajaI4U0k1GSec=
 github.com/metal-toolbox/fleetdb v1.19.3/go.mod h1:v9agAzF7BhBBjA4rY+H2eZzQaBTEXO4b/Qikn4jmA7A=
 github.com/metal-toolbox/ironlib v0.4.2-0.20240820160227-1a7996f5b77c h1:j9X/iktguadGJMMQ6UuI+qGA8r5bM/CQQM7HWF/pEww=
