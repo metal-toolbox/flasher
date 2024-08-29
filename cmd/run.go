@@ -140,7 +140,6 @@ func runInband(ctx context.Context, flasher *app.App, repository store.Repositor
 	orcConfig := &ctrl.OrchestratorAPIConfig{
 		Endpoint:             cfgOrcAPI.Endpoint,
 		AuthDisabled:         cfgOrcAPI.AuthDisabled,
-		AuthToken:            cfgOrcAPI.AuthToken,
 		OidcIssuerEndpoint:   cfgOrcAPI.OidcIssuerEndpoint,
 		OidcAudienceEndpoint: cfgOrcAPI.OidcAudienceEndpoint,
 		OidcClientSecret:     cfgOrcAPI.OidcClientSecret,

@@ -74,9 +74,6 @@ type FleetDBAPIOptions struct {
 	DisableOAuth           bool     `mapstructure:"disable_oauth"`
 }
 
-type InbandRunParams struct {
-}
-
 type OrchestratorAPIParams struct {
 	OidcIssuerEndpoint   string   `mapstructure:"oidc_issuer_endpoint"`
 	OidcAudienceEndpoint string   `mapstructure:"oidc_audience_endpoint"`
@@ -85,7 +82,6 @@ type OrchestratorAPIParams struct {
 	OidcClientScopes     []string `mapstructure:"oidc_client_scopes"`
 	Endpoint             string   `mapstructure:"endpoint"`
 	AuthDisabled         bool     `mapstructure:"disable_oauth"`
-	AuthToken            string
 }
 
 // LoadConfiguration loads application configuration
@@ -248,12 +244,6 @@ func (a *App) envVarOrchestratorAPIOverrides() error {
 	cfg.AuthDisabled = a.v.GetBool("orchestrator.api.disable.oauth")
 	if cfg.AuthDisabled {
 		return nil
-	}
-
-	if a.v.GetString("orchestrator.api.authtoken") != "" {
-		cfg.AuthToken = a.v.GetString("orchestrator.api.authtoken")
-	} else {
-		return errors.New("missing parameter: orchestrator.api.authtoken")
 	}
 
 	if a.v.GetString("orchestrator.api.oidc.issuer.endpoint") != "" {
