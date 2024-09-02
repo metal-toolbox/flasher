@@ -30,7 +30,8 @@ var (
 //
 // The handler is instantiated to run a single task
 type handler struct {
-	mode model.RunMode
+	mode    model.RunMode
+	resumed bool
 	*runner.TaskHandlerContext
 }
 
@@ -42,7 +43,8 @@ func newHandler(
 	logger *logrus.Entry,
 ) runner.TaskHandler {
 	return &handler{
-		mode: mode,
+		mode:    mode,
+		resumed: task.State == model.StateActive,
 		TaskHandlerContext: &runner.TaskHandlerContext{
 			Task:      task,
 			Publisher: publisher,
@@ -141,6 +143,10 @@ func (t handler) inventoryInband(ctx context.Context) (*common.Device, error) {
 }
 
 func (t *handler) PlanActions(ctx context.Context) error {
+	if t.resumed && len(t.Task.Data.ActionsPlanned) > 0 {
+		return t.planResumedTask()
+	}
+
 	switch t.Task.Data.FirmwarePlanMethod {
 	case model.FromFirmwareSet:
 		return t.planFromFirmwareSet(ctx)
@@ -191,6 +197,31 @@ func (t *handler) planFromFirmwareSet(ctx context.Context) error {
 	}
 
 	t.Task.Data.ActionsPlanned = append(t.Task.Data.ActionsPlanned, actions...)
+
+	return nil
+}
+
+func (t *handler) planResumedTask() error {
+	if t.mode == model.RunOutofband {
+		return errors.Wrap(errTaskPlanActions, "resume task not (yet) supported on out-of-band firmware installs")
+	}
+
+	for _, action := range t.Task.Data.ActionsPlanned {
+		if rctypes.StateIsComplete(action.State) {
+			continue
+		}
+
+		actionCtx := &runner.ActionHandlerContext{
+			TaskHandlerContext: t.TaskHandlerContext,
+			Firmware:           &action.Firmware,
+			First:              action.First,
+			Last:               action.Last,
+		}
+
+		if err := inband.AssignStepHandlers(action, actionCtx); err != nil {
+			return errors.Wrap(errTaskPlanActions, "failed to assign action step handler: "+err.Error())
+		}
+	}
 
 	return nil
 }

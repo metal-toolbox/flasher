@@ -422,3 +422,83 @@ func TestPlanInstall_Inband(t *testing.T) {
 	require.Equal(t, "drive", actions[0].Firmware.Component, "expect drive component action")
 	require.Equal(t, "nic", actions[1].Firmware.Component, "expect nic component action")
 }
+
+func TestPlanResumedTask(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.NewEntry(logrus.New())
+
+	serverID := uuid.MustParse("fa125199-e9dd-47d4-8667-ce1d26f58c4a")
+	taskID := uuid.MustParse("05c3296d-be5d-473a-b90c-4ce66cfdec65")
+	taskHandlerCtx := &runner.TaskHandlerContext{
+		Logger: logger,
+		Task: &model.Task{
+			ID:       taskID,
+			WorkerID: registry.GetID("test-app").String(),
+			Data: &model.TaskData{
+				ActionsPlanned: []*model.Action{
+					{
+						Firmware: rctypes.Firmware{Component: "drive", Version: "4.2.1"},
+						Steps: []*model.Step{
+							{
+								Name:  "downloadFirmware",
+								State: model.StateSucceeded,
+							},
+							{
+								Name:  "installFirmware",
+								State: model.StateSucceeded,
+							},
+						},
+					},
+					{
+						Firmware: rctypes.Firmware{Component: "nic", Version: "1.2.2"},
+						Steps: []*model.Step{
+							{
+								Name:  "installFirmware",
+								State: model.StateSucceeded,
+							},
+							{
+								Name:  "powerCycleServer",
+								State: model.StateActive,
+							},
+						},
+					},
+				},
+			},
+			Parameters: &rctypes.FirmwareInstallTaskParameters{
+				AssetID:      serverID,
+				ForceInstall: true,
+			},
+			Server: &rtypes.Server{
+				ID: serverID.String(),
+				Components: rtypes.Components{
+					{
+						Name:     "nic",
+						Model:    "0001",
+						Firmware: &common.Firmware{Installed: "1.2.2"},
+					},
+					{
+						Name:     "drive",
+						Model:    "000",
+						Firmware: &common.Firmware{Installed: "4.2.1"},
+					},
+				},
+			},
+		},
+	}
+
+	h := handler{mode: model.RunInband, TaskHandlerContext: taskHandlerCtx}
+	err := h.planResumedTask()
+	require.NoError(t, err, "no errors returned")
+
+	require.Equal(t, 2, len(taskHandlerCtx.Task.Data.ActionsPlanned), "expect 2 actions to be intact")
+	// expect non-nil handlers for each step
+	for _, action := range taskHandlerCtx.Task.Data.ActionsPlanned {
+		require.Equal(t, 2, len(action.Steps), "expect 2 steps in each action")
+		for _, step := range action.Steps {
+			if step.State == rctypes.Active {
+				require.NotNil(t, step.Handler)
+			}
+		}
+	}
+}
