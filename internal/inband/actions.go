@@ -184,6 +184,36 @@ func (i *ActionHandler) composeSteps(required *imodel.UpdateRequirements) (model
 	return final, nil
 }
 
+// Assign action step handlers to a previously initialized action
+//
+// This is mainly for resumed actions which were loaded from active Task object the store (KV)
+// since the actions were previously composed, now they just have to be assigned the step handler methods.
+func AssignStepHandlers(action *model.Action, actionCtx *runner.ActionHandlerContext) error {
+	if actionCtx.DeviceQueryor == nil {
+		actionCtx.DeviceQueryor = NewDeviceQueryor(actionCtx.Logger)
+	}
+
+	handler := initHandler(actionCtx)
+	ah := &ActionHandler{handler}
+
+	for _, step := range action.Steps {
+		if rctypes.StateIsComplete(step.State) {
+			continue
+		}
+
+		h, err := ah.definitions().ByName(step.Name)
+		if err != nil {
+			return err
+		}
+
+		step.Handler = h.Handler
+	}
+
+	ah.handler.action = action
+
+	return nil
+}
+
 func (i *ActionHandler) definitions() model.Steps {
 	return model.Steps{
 		{
