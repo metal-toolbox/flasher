@@ -8,6 +8,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
+	rctypes "github.com/metal-toolbox/rivets/condition"
 	rtypes "github.com/metal-toolbox/rivets/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -41,13 +42,13 @@ type ActionHandler struct {
 	handler *handler
 }
 
-func (i *ActionHandler) identifyComponent(ctx context.Context, component string, models []string, deviceQueryor device.InbandQueryor) (*rtypes.Component, error) {
+func (i *ActionHandler) identifyComponent(ctx context.Context, component string, models []string) (*rtypes.Component, error) {
 	var components rtypes.Components
 
-	if len(i.handler.task.Server.Components) > 0 {
-		components = rtypes.Components(i.handler.task.Server.Components)
+	if len(i.handler.actionCtx.Task.Server.Components) > 0 {
+		components = rtypes.Components(i.handler.actionCtx.Task.Server.Components)
 	} else {
-		deviceCommon, err := deviceQueryor.Inventory(ctx)
+		deviceCommon, err := i.handler.deviceQueryor.Inventory(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -74,16 +75,9 @@ func (i *ActionHandler) identifyComponent(ctx context.Context, component string,
 }
 
 func (i *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.ActionHandlerContext) (*model.Action, error) {
-	var deviceQueryor device.InbandQueryor
-	if actionCtx.DeviceQueryor == nil {
-		deviceQueryor = NewDeviceQueryor(actionCtx.Logger)
-	} else {
-		deviceQueryor = actionCtx.DeviceQueryor.(device.InbandQueryor)
-	}
+	i.handler = initHandler(actionCtx)
 
-	i.handler = initHandler(actionCtx, deviceQueryor)
-
-	component, err := i.identifyComponent(ctx, actionCtx.Firmware.Component, actionCtx.Firmware.Models, deviceQueryor)
+	component, err := i.identifyComponent(ctx, actionCtx.Firmware.Component, actionCtx.Firmware.Models)
 	if err != nil {
 		return nil, errors.Wrap(ErrComponentNotFound, err.Error())
 	}
@@ -94,7 +88,7 @@ func (i *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.Act
 		"current":   component.Firmware.Installed,
 	}).Info("target component identified for firmware install")
 
-	required, err := deviceQueryor.FirmwareInstallRequirements(
+	required, err := i.handler.deviceQueryor.FirmwareInstallRequirements(
 		ctx,
 		actionCtx.Firmware.Component,
 		actionCtx.Firmware.Vendor,
@@ -132,13 +126,19 @@ func (i *ActionHandler) ComposeAction(ctx context.Context, actionCtx *runner.Act
 	return i.handler.action, nil
 }
 
-func initHandler(actionCtx *runner.ActionHandlerContext, queryor device.InbandQueryor) *handler {
+func initHandler(actionCtx *runner.ActionHandlerContext) *handler {
+	var deviceQueryor device.InbandQueryor
+
+	if actionCtx.DeviceQueryor == nil {
+		deviceQueryor = NewDeviceQueryor(actionCtx.Logger)
+	} else {
+		deviceQueryor = actionCtx.DeviceQueryor.(device.InbandQueryor)
+	}
+
 	return &handler{
-		task:          actionCtx.Task,
-		firmware:      actionCtx.Firmware,
-		publisher:     actionCtx.Publisher,
+		actionCtx:     actionCtx,
+		deviceQueryor: deviceQueryor,
 		logger:        actionCtx.Logger,
-		deviceQueryor: queryor,
 	}
 }
 
@@ -162,10 +162,10 @@ func (i *ActionHandler) composeSteps(required *imodel.UpdateRequirements) (model
 	final = append(final, install...)
 
 	if required != nil && required.PostInstallHostPowercycle {
-		i.handler.task.Data.HostPowercycleRequired = true
+		i.handler.actionCtx.Task.Data.HostPowercycleRequired = true
 	}
 
-	if i.handler.action.Last && i.handler.task.Data.HostPowercycleRequired {
+	if i.handler.action.Last && i.handler.actionCtx.Task.Data.HostPowercycleRequired {
 		powerCycle, errDef := i.definitions().ByName(powerCycleServer)
 		if errDef != nil {
 			return nil, err

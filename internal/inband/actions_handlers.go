@@ -11,12 +11,12 @@ import (
 	"github.com/metal-toolbox/flasher/internal/download"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	iutils "github.com/metal-toolbox/ironlib/utils"
-	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 const (
@@ -34,11 +34,9 @@ var (
 )
 
 type handler struct {
-	firmware      *rctypes.Firmware
-	task          *model.Task
+	actionCtx     *runner.ActionHandlerContext
 	action        *model.Action
 	deviceQueryor device.InbandQueryor
-	publisher     model.Publisher
 	logger        *logrus.Entry
 }
 
@@ -98,10 +96,10 @@ func (h *handler) installedEqualsExpected(ctx context.Context, component, expect
 }
 
 func (h *handler) checkCurrentFirmware(ctx context.Context) error {
-	if h.task.Parameters.ForceInstall {
+	if h.actionCtx.Task.Parameters.ForceInstall {
 		h.logger.WithFields(
 			logrus.Fields{
-				"component": h.firmware.Component,
+				"component": h.actionCtx.Firmware.Component,
 			}).Debug("Skipped installed version lookup - task.Parameters.ForceInstall=true")
 
 		return nil
@@ -109,10 +107,10 @@ func (h *handler) checkCurrentFirmware(ctx context.Context) error {
 
 	if err := h.installedEqualsExpected(
 		ctx,
-		h.firmware.Component,
-		h.firmware.Version,
-		h.firmware.Vendor,
-		h.firmware.Models,
+		h.actionCtx.Firmware.Component,
+		h.actionCtx.Firmware.Version,
+		h.actionCtx.Firmware.Vendor,
+		h.actionCtx.Firmware.Models,
 	); err != nil {
 		if errors.Is(err, ErrInstalledVersionUnknown) {
 			return errors.Wrap(err, "use task.Parameters.ForceInstall=true to disable this check")
@@ -132,7 +130,7 @@ func (h *handler) downloadFirmware(ctx context.Context) error {
 	if h.action.FirmwareTempFile != "" {
 		h.logger.WithFields(
 			logrus.Fields{
-				"component": h.firmware.Component,
+				"component": h.actionCtx.Firmware.Component,
 				"file":      h.action.FirmwareTempFile,
 			}).Info("firmware file path provided, skipped download")
 
@@ -145,10 +143,10 @@ func (h *handler) downloadFirmware(ctx context.Context) error {
 		return errors.Wrap(err, "error creating tmp directory to download firmware")
 	}
 
-	file := filepath.Join(dir, h.firmware.FileName)
+	file := filepath.Join(dir, h.actionCtx.Firmware.FileName)
 
 	// download firmware file
-	err = download.FromURLToFile(ctx, h.firmware.URL, file)
+	err = download.FromURLToFile(ctx, h.actionCtx.Firmware.URL, file)
 	if err != nil {
 		return err
 	}
@@ -158,14 +156,14 @@ func (h *handler) downloadFirmware(ctx context.Context) error {
 	if err == nil {
 		metrics.DownloadBytes.With(
 			prometheus.Labels{
-				"component": h.firmware.Component,
-				"vendor":    h.firmware.Vendor,
+				"component": h.actionCtx.Firmware.Component,
+				"vendor":    h.actionCtx.Firmware.Vendor,
 			},
 		).Add(float64(fileInfo.Size()))
 	}
 
 	// validate checksum
-	if err := download.ChecksumValidate(file, h.firmware.Checksum); err != nil {
+	if err := download.ChecksumValidate(file, h.actionCtx.Firmware.Checksum); err != nil {
 		os.RemoveAll(filepath.Dir(file))
 		return err
 	}
@@ -175,25 +173,25 @@ func (h *handler) downloadFirmware(ctx context.Context) error {
 
 	h.logger.WithFields(
 		logrus.Fields{
-			"component": h.firmware.Component,
-			"version":   h.firmware.Version,
-			"url":       h.firmware.URL,
+			"component": h.actionCtx.Firmware.Component,
+			"version":   h.actionCtx.Firmware.Version,
+			"url":       h.actionCtx.Firmware.URL,
 			"file":      file,
-			"checksum":  h.firmware.Checksum,
+			"checksum":  h.actionCtx.Firmware.Checksum,
 		}).Info("downloaded and verified firmware file checksum")
 
 	return nil
 }
 
 func (h *handler) installFirmware(ctx context.Context) error {
-	if !h.task.Parameters.DryRun {
+	if !h.actionCtx.Task.Parameters.DryRun {
 		// initiate firmware install
 		if err := h.deviceQueryor.FirmwareInstall(
 			ctx,
-			h.firmware.Component,
-			h.firmware.Vendor,
+			h.actionCtx.Firmware.Component,
+			h.actionCtx.Firmware.Vendor,
 			h.action.Component.Model,
-			h.firmware.Version,
+			h.actionCtx.Firmware.Version,
 			h.action.FirmwareTempFile,
 			h.action.ForceInstall,
 		); err != nil {
@@ -201,9 +199,9 @@ func (h *handler) installFirmware(ctx context.Context) error {
 			if errors.Is(err, iutils.ErrRebootRequired) {
 				h.logger.WithFields(
 					logrus.Fields{
-						"component": h.firmware.Component,
-						"update":    h.firmware.FileName,
-						"version":   h.firmware.Version,
+						"component": h.actionCtx.Firmware.Component,
+						"update":    h.actionCtx.Firmware.FileName,
+						"version":   h.actionCtx.Firmware.Version,
 						"msg":       err.Error(),
 					}).Info("firmware install requires a server power cycle")
 
@@ -212,7 +210,7 @@ func (h *handler) installFirmware(ctx context.Context) error {
 					return h.powerCycleServer(ctx)
 				}
 
-				h.task.Data.HostPowercycleRequired = true
+				h.actionCtx.Task.Data.HostPowercycleRequired = true
 				return nil
 			}
 
@@ -222,21 +220,21 @@ func (h *handler) installFirmware(ctx context.Context) error {
 
 	h.logger.WithFields(
 		logrus.Fields{
-			"component": h.firmware.Component,
-			"update":    h.firmware.FileName,
-			"version":   h.firmware.Version,
+			"component": h.actionCtx.Firmware.Component,
+			"update":    h.actionCtx.Firmware.FileName,
+			"version":   h.actionCtx.Firmware.Version,
 		}).Info("firmware installed")
 
 	return nil
 }
 
 func (h *handler) powerCycleServer(ctx context.Context) error {
-	if h.task.Parameters.DryRun {
+	if h.actionCtx.Task.Parameters.DryRun {
 		h.logger.WithFields(
 			logrus.Fields{
-				"component": h.firmware.Component,
-				"update":    h.firmware.FileName,
-				"version":   h.firmware.Version,
+				"component": h.actionCtx.Firmware.Component,
+				"update":    h.actionCtx.Firmware.FileName,
+				"version":   h.actionCtx.Firmware.Version,
 			}).Info("power cycling server - dry-run")
 
 		return nil
@@ -245,9 +243,9 @@ func (h *handler) powerCycleServer(ctx context.Context) error {
 	if h.action.HostPowerCycleInitiated {
 		h.logger.WithFields(
 			logrus.Fields{
-				"component": h.firmware.Component,
-				"update":    h.firmware.FileName,
-				"version":   h.firmware.Version,
+				"component": h.actionCtx.Firmware.Component,
+				"update":    h.actionCtx.Firmware.FileName,
+				"version":   h.actionCtx.Firmware.Version,
 			}).Info("server previously power cycled, not attempting another.")
 
 		return nil
@@ -255,9 +253,9 @@ func (h *handler) powerCycleServer(ctx context.Context) error {
 
 	h.logger.WithFields(
 		logrus.Fields{
-			"component": h.firmware.Component,
-			"update":    h.firmware.FileName,
-			"version":   h.firmware.Version,
+			"component": h.actionCtx.Firmware.Component,
+			"update":    h.actionCtx.Firmware.FileName,
+			"version":   h.actionCtx.Firmware.Version,
 		}).Info("power cycling server")
 
 	f, err := os.OpenFile(rebootFlag, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
@@ -270,8 +268,8 @@ func (h *handler) powerCycleServer(ctx context.Context) error {
 
 	// we must be able to publish a status at this point
 	h.action.HostPowerCycleInitiated = true
-	h.task.Status.Append("server powercycle flag set, waiting for powercycle")
-	if errPub := h.publisher.Publish(ctx, h.task); errPub != nil {
+	h.actionCtx.Task.Status.Append("server powercycle flag set, waiting for powercycle")
+	if errPub := h.actionCtx.Publisher.Publish(ctx, h.actionCtx.Task); errPub != nil {
 		h.logger.WithError(errPub).Info("publish failure")
 		return errPub
 	}
