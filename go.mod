@@ -15,10 +15,10 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
-	github.com/metal-toolbox/ctrl v0.2.7-0.20240902102934-e17cad930ce0
+	github.com/metal-toolbox/ctrl v0.2.7-0.20240902142349-ac50c6d8f21a
 	github.com/metal-toolbox/fleetdb v1.19.3
 	github.com/metal-toolbox/ironlib v0.4.2-0.20240820160227-1a7996f5b77c
-	github.com/metal-toolbox/rivets v1.3.5
+	github.com/metal-toolbox/rivets v1.3.6-0.20240902123133-a36024eb7d25
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
