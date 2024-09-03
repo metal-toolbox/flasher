@@ -68,7 +68,7 @@ func runWorker(ctx context.Context, mode model.RunMode) {
 	// serve metrics endpoint
 	metrics.ListenAndServe()
 
-	ctx, otelShutdown := otelinit.InitOpenTelemetry(ctx, "flasher")
+	ctx, otelShutdown := otelinit.InitOpenTelemetry(ctx, "flasher-"+string(mode))
 	defer otelShutdown(ctx)
 
 	// Setup cancel context with cancel func.
