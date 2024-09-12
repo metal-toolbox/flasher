@@ -566,6 +566,8 @@ github.com/metal-toolbox/ctrl v0.2.7-0.20240902142349-ac50c6d8f21a h1:qQOywU4p6N
 github.com/metal-toolbox/ctrl v0.2.7-0.20240902142349-ac50c6d8f21a/go.mod h1:CKa1huJEIAPRUtpwCy3G0T+v0ilwJwcrK6/hYElIbWk=
 github.com/metal-toolbox/ctrl v0.2.7 h1:p5YMd2LP7enLN+jz0CSq2sppAoCnT1tA5mg7XnMvLCo=
 github.com/metal-toolbox/ctrl v0.2.7/go.mod h1:qFq4cGssdjM8/E+Zd8pp/t9cE8eJsj0iL1H8IKYhvDU=
+github.com/metal-toolbox/ctrl v0.2.8 h1:Ta7U/zLcUIh0OcQ4oQDNzquEKXQkT4C9hWwGD4u8yUo=
+github.com/metal-toolbox/ctrl v0.2.8/go.mod h1:qFq4cGssdjM8/E+Zd8pp/t9cE8eJsj0iL1H8IKYhvDU=
 github.com/metal-toolbox/fleetdb v1.19.3 h1:Dk7MVi5rS42a4OI46Ye/etg8R5hm1iajaI4U0k1GSec=
 github.com/metal-toolbox/fleetdb v1.19.3/go.mod h1:v9agAzF7BhBBjA4rY+H2eZzQaBTEXO4b/Qikn4jmA7A=
 github.com/metal-toolbox/ironlib v0.4.2-0.20240820160227-1a7996f5b77c h1:j9X/iktguadGJMMQ6UuI+qGA8r5bM/CQQM7HWF/pEww=
