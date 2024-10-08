@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
 	github.com/bmc-toolbox/bmclib/v2 v2.3.2
-	github.com/bmc-toolbox/common v0.0.0-20240806132831-ba8adc6a35e3
+	github.com/bmc-toolbox/common v0.0.0-20240926143744-8c478be881d7
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/emicklei/dot v1.6.2
@@ -16,7 +16,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/ctrl v0.2.9
-	github.com/metal-toolbox/fleetdb v1.19.5
+	github.com/metal-toolbox/fleetdb v1.19.7
 	github.com/metal-toolbox/ironlib v0.5.0
 	github.com/metal-toolbox/rivets v1.3.10
 	github.com/mitchellh/copystructure v1.2.0
