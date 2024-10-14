@@ -1,6 +1,8 @@
 module github.com/metal-toolbox/flasher
 
-go 1.22
+go 1.22.0
+
+toolchain go1.23.1
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
@@ -36,7 +38,7 @@ require (
 )
 
 require (
-	dario.cat/mergo v1.0.0 // indirect
+	dario.cat/mergo v1.0.1 // indirect
 	github.com/Jeffail/gabs/v2 v2.7.0 // indirect
 	github.com/VictorLowther/simplexml v0.0.0-20180716164440-0bff93621230 // indirect
 	github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22 // indirect
@@ -121,7 +123,7 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stmcginnis/gofish v0.19.0 // indirect
+	github.com/stmcginnis/gofish v0.20.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tidwall/gjson v1.17.3 // indirect
