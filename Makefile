@@ -13,7 +13,7 @@ REPO := "https://github.com/metal-toolbox/flasher.git"
 .DEFAULT_GOAL := help
 
 ## lint
-lint: gen-mock
+lint: 
 	golangci-lint run --config .golangci.yml
 
 ## Generate mocks
