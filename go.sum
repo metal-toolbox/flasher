@@ -563,8 +563,8 @@ github.com/metal-toolbox/conditionorc v1.1.8 h1:5wjIdPLdLY2RkIeGZ73tTFEnKJxBzBM5
 github.com/metal-toolbox/conditionorc v1.1.8/go.mod h1:eXlXZoOJBmihR4/+xA2o1dj1sQTXkU63Ekma7Ouc+o0=
 github.com/metal-toolbox/ctrl v0.2.9 h1:Q1Hqpqyb71/gg2PcX/qrfoDE8FlydJt4rPQb7/Z8LhI=
 github.com/metal-toolbox/ctrl v0.2.9/go.mod h1:QVATUIWFx3dbjOoEX0EnJHtRvypRlXZ9HUGaPLRyTG8=
-github.com/metal-toolbox/fleetdb v1.19.7 h1:lTl67gtt5DzTdH4MgLViyXaTaH6FM8BtmM7NX7hXDZY=
-github.com/metal-toolbox/fleetdb v1.19.7/go.mod h1:IMbJwyC9DnznuPNjAaP54Y6uWuWu9cPXGH+yoe7jwGA=
+github.com/metal-toolbox/fleetdb v1.19.8 h1:zQzfgFWuc7lFqSJYvqbfVX4DShgFFFohWql80rFFYtI=
+github.com/metal-toolbox/fleetdb v1.19.8/go.mod h1:IMbJwyC9DnznuPNjAaP54Y6uWuWu9cPXGH+yoe7jwGA=
 github.com/metal-toolbox/ironlib v0.5.0 h1:UBUmQhMwTu3nb/T45n6O5EfcWKM5SuEhNCfyuIp7lU0=
 github.com/metal-toolbox/ironlib v0.5.0/go.mod h1:WQZ8tZ8+bCts6mgBhN9M2r6Mer0aS8M0JNcaZm1dIS4=
 github.com/metal-toolbox/rivets v1.3.10 h1:UgYQSx/QJF6Yuzf+YSRF/t9soL6QjMY8sLugf/aMmII=

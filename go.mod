@@ -16,7 +16,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/ctrl v0.2.9
-	github.com/metal-toolbox/fleetdb v1.19.7
+	github.com/metal-toolbox/fleetdb v1.19.8
 	github.com/metal-toolbox/ironlib v0.5.0
 	github.com/metal-toolbox/rivets v1.3.10
 	github.com/mitchellh/copystructure v1.2.0
