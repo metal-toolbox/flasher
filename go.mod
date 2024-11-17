@@ -10,7 +10,7 @@ require (
 	github.com/bmc-toolbox/common v0.0.0-20241031162543-6b96e5981a0d
 	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/coreos/go-oidc/v3 v3.11.0
-	github.com/emicklei/dot v1.6.2
+	github.com/emicklei/dot v1.6.3
 	github.com/equinix-labs/otel-init-go v0.0.9
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-multierror v1.1.1
