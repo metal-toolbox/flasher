@@ -5,7 +5,7 @@ package device
 import (
 	context "context"
 
-	common "github.com/bmc-toolbox/common"
+	common "github.com/metal-toolbox/bmc-common"
 
 	mock "github.com/stretchr/testify/mock"
 

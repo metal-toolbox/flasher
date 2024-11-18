@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/metal-toolbox/ctrl"
-	rctypes "github.com/metal-toolbox/rivets/condition"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
 )
 
 const (

@@ -3,8 +3,8 @@
 package device
 
 import (
-	constants "github.com/bmc-toolbox/bmclib/v2/constants"
-	common "github.com/bmc-toolbox/common"
+	common "github.com/metal-toolbox/bmc-common"
+	constants "github.com/metal-toolbox/bmclib/constants"
 
 	context "context"
 

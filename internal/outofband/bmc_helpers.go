@@ -12,20 +12,19 @@ import (
 	"strings"
 	"time"
 
-	bmclib "github.com/bmc-toolbox/bmclib/v2"
-	"github.com/bmc-toolbox/bmclib/v2/constants"
-	bmcliberrs "github.com/bmc-toolbox/bmclib/v2/errors"
-	"github.com/bmc-toolbox/bmclib/v2/providers"
 	logrusrv2 "github.com/bombsimon/logrusr/v2"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
-	rtypes "github.com/metal-toolbox/rivets/types"
+	"github.com/metal-toolbox/bmclib"
+	"github.com/metal-toolbox/bmclib/constants"
+	bmcliberrs "github.com/metal-toolbox/bmclib/errors"
+	"github.com/metal-toolbox/bmclib/providers"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/exp/slices"
 	"golang.org/x/net/publicsuffix"
-
-	"github.com/sirupsen/logrus"
 )
 
 // NOTE: the constants.FirmwareInstallStep type will be moved to the FirmwareInstallProperties struct type which will make this easier

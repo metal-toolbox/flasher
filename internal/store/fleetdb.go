@@ -8,9 +8,8 @@ import (
 	"time"
 
 	fleetdbapi "github.com/metal-toolbox/fleetdb/pkg/api/v1"
-	rctypes "github.com/metal-toolbox/rivets/condition"
-	rfleetdb "github.com/metal-toolbox/rivets/fleetdb"
-	rtypes "github.com/metal-toolbox/rivets/types"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -61,6 +60,8 @@ var (
 
 	ErrFirmwareSetLookup = errors.New("firmware set error")
 )
+
+var firmwareSetAttributeNS = "sh.hollow.firmware_set.labels"
 
 type FleetDBAPI struct {
 	config *app.FleetDBAPIOptions
@@ -144,7 +145,7 @@ func newClientWithOAuth(ctx context.Context, cfg *app.FleetDBAPIOptions, logger 
 	)
 }
 
-func (s *FleetDBAPI) registerMetric(queryKind string) {
+func registerMetric(queryKind string) {
 	metrics.StoreQueryErrorCount.With(
 		prometheus.Labels{
 			"storeKind": "serverservice",
@@ -153,8 +154,8 @@ func (s *FleetDBAPI) registerMetric(queryKind string) {
 	).Inc()
 }
 
-// AssetByID returns an Asset object with various attributes populated.
-func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*rtypes.Server, error) {
+// AssetByID returns a rivets Server object.
+func (f *FleetDBAPI) AssetByID(ctx context.Context, id string) (*rtypes.Server, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "FleetDBAPI.AssetByID")
 	defer span.End()
 
@@ -163,12 +164,15 @@ func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*rtypes.Server, 
 		return nil, errors.Wrap(ErrDeviceID, err.Error()+id)
 	}
 
-	asset := &rtypes.Server{ID: deviceUUID.String()}
+	asset, _, err := f.client.GetServerInventory(ctx, deviceUUID, false) // use out-of-band inventory
+	if err != nil {
+		return nil, fmt.Errorf("retrieving inventory from FleetDB: %w", err)
+	}
 
 	// query credentials
-	credential, _, err := s.client.GetCredential(ctx, deviceUUID, fleetdbapi.ServerCredentialTypeBMC)
+	credential, _, err := f.client.GetCredential(ctx, deviceUUID, fleetdbapi.ServerCredentialTypeBMC)
 	if err != nil {
-		s.registerMetric("GetCredential")
+		registerMetric("GetCredential")
 
 		return nil, errors.Wrap(ErrServerserviceQuery, "GetCredential: "+err.Error())
 	}
@@ -176,55 +180,17 @@ func (s *FleetDBAPI) AssetByID(ctx context.Context, id string) (*rtypes.Server, 
 	asset.BMCUser = credential.Username
 	asset.BMCPassword = credential.Password
 
-	// query the server object
-	srv, _, err := s.client.Get(ctx, deviceUUID)
-	if err != nil {
-		s.registerMetric("GetServer")
-
-		return nil, errors.Wrap(ErrServerserviceQuery, "GetServer: "+err.Error())
-	}
-
-	asset.Facility = srv.FacilityCode
-
-	// set bmc address
-	bmcAddress, err := s.bmcAddressFromAttributes(srv.Attributes)
-	if err != nil {
-		return nil, err
-	}
-
-	asset.BMCAddress = bmcAddress.String()
-
-	// set asset vendor attributes
-	asset.Vendor, asset.Model, asset.Serial, err = s.vendorModelFromAttributes(srv.Attributes)
-	if err != nil {
-		s.logger.WithError(err).Warn(ErrVendorModelAttributes)
-	}
-
-	// query asset component inventory -- the default on the server object do not
-	// include all required information
-	components, _, err := s.client.GetComponents(ctx, deviceUUID, nil)
-	if err != nil {
-		s.registerMetric("GetComponents")
-
-		s.logger.WithError(err).Warn(errors.Wrap(ErrServerserviceQuery, "component information query failed"))
-
-		return asset, nil
-	}
-
-	// convert from fleetdb API components to Asset.Components
-	asset.Components = s.fromServerserviceComponents(components)
-
 	return asset, nil
 }
 
 // FirmwareSetByID returns a list of firmwares part of a firmware set identified by the given id.
-func (s *FleetDBAPI) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*rctypes.Firmware, error) {
+func (f *FleetDBAPI) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*rctypes.Firmware, error) {
 	ctx, span := otel.Tracer(pkgName).Start(ctx, "FleetDBAPI.FirmwareSetByID")
 	defer span.End()
 
-	firmwareset, _, err := s.client.GetServerComponentFirmwareSet(ctx, id)
+	firmwareset, _, err := f.client.GetServerComponentFirmwareSet(ctx, id)
 	if err != nil {
-		s.registerMetric("GetFirmwareSet")
+		registerMetric("GetFirmwareSet")
 
 		return nil, errors.Wrap(ErrServerserviceQuery, "GetFirmwareSet: "+err.Error())
 	}
@@ -233,18 +199,18 @@ func (s *FleetDBAPI) FirmwareSetByID(ctx context.Context, id uuid.UUID) ([]*rcty
 }
 
 // FirmwareByDeviceVendorModel returns the firmware for the device vendor, model.
-func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]*rctypes.Firmware, error) {
+func (f *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVendor, deviceModel string) ([]*rctypes.Firmware, error) {
 	// lookup flasher task attribute
 	params := &fleetdbapi.ComponentFirmwareSetListParams{
 		AttributeListParams: []fleetdbapi.AttributeListParams{
 			{
-				Namespace: rfleetdb.FirmwareSetAttributeNS,
+				Namespace: firmwareSetAttributeNS,
 				Keys:      []string{"model"},
 				Operator:  "eq",
 				Value:     deviceModel,
 			},
 			{
-				Namespace: rfleetdb.FirmwareSetAttributeNS,
+				Namespace: firmwareSetAttributeNS,
 				Keys:      []string{"vendor"},
 				Operator:  "eq",
 				Value:     deviceVendor,
@@ -252,7 +218,7 @@ func (s *FleetDBAPI) FirmwareByDeviceVendorModel(ctx context.Context, deviceVend
 		},
 	}
 
-	firmwaresets, _, err := s.client.ListServerComponentFirmwareSet(ctx, params)
+	firmwaresets, _, err := f.client.ListServerComponentFirmwareSet(ctx, params)
 	if err != nil {
 		return nil, errors.Wrap(ErrServerserviceQuery, err.Error())
 	}

@@ -10,14 +10,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	bmclib "github.com/bmc-toolbox/bmclib/v2"
-	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
-
-	"github.com/bmc-toolbox/common"
+	common "github.com/metal-toolbox/bmc-common"
+	"github.com/metal-toolbox/bmclib"
+	bconsts "github.com/metal-toolbox/bmclib/constants"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/sirupsen/logrus"
 
-	rtypes "github.com/metal-toolbox/rivets/types"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 )
 
 var (
