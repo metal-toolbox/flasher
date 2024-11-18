@@ -19,7 +19,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/ctrl v0.3.0
 	github.com/metal-toolbox/fleetdb v1.19.8
-	github.com/metal-toolbox/ironlib v0.5.0
+	github.com/metal-toolbox/ironlib v1.0.0
 	github.com/metal-toolbox/rivets v1.3.10
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -100,6 +100,7 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
+	github.com/metal-toolbox/bmc-common v1.0.2 // indirect
 	github.com/metal-toolbox/conditionorc v1.11.2 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
