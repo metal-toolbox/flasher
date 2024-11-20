@@ -8,7 +8,7 @@ import (
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/version"
-	rctypes "github.com/metal-toolbox/rivets/condition"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"

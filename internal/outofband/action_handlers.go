@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bmc-toolbox/common"
 	"github.com/hashicorp/go-multierror"
+	common "github.com/metal-toolbox/bmc-common"
+	bconsts "github.com/metal-toolbox/bmclib/constants"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/download"
 	"github.com/metal-toolbox/flasher/internal/metrics"
@@ -19,8 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
-	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
-	rctypes "github.com/metal-toolbox/rivets/condition"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
 )
 
 const (

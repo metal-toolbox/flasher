@@ -5,21 +5,21 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	common "github.com/metal-toolbox/bmc-common"
+	bconsts "github.com/metal-toolbox/bmclib/constants"
 	"github.com/metal-toolbox/ctrl"
-	"github.com/metal-toolbox/flasher/internal/device"
-	"github.com/metal-toolbox/flasher/internal/model"
-	"github.com/metal-toolbox/flasher/internal/runner"
-	"github.com/metal-toolbox/rivets/events/registry"
+	ironlibm "github.com/metal-toolbox/ironlib/model"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
+	"github.com/metal-toolbox/rivets/v2/events/registry"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
-	"github.com/bmc-toolbox/common"
-	ironlibm "github.com/metal-toolbox/ironlib/model"
-	rctypes "github.com/metal-toolbox/rivets/condition"
-	rtypes "github.com/metal-toolbox/rivets/types"
+	"github.com/metal-toolbox/flasher/internal/device"
+	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/runner"
 )
 
 func TestSortFirmwareByInstallOrder(t *testing.T) {

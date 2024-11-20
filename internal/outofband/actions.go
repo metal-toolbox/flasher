@@ -3,12 +3,11 @@ package outofband
 import (
 	"context"
 
+	bconsts "github.com/metal-toolbox/bmclib/constants"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/pkg/errors"
-
-	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
 )
 
 const (

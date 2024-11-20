@@ -10,9 +10,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 
-	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
-	rctypes "github.com/metal-toolbox/rivets/condition"
-	rtypes "github.com/metal-toolbox/rivets/types"
+	bconsts "github.com/metal-toolbox/bmclib/constants"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 )
 
 func GraphSteps(ctx context.Context, g *dot.Graph) error {

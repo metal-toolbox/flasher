@@ -8,8 +8,8 @@ import (
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/runner"
-	rctypes "github.com/metal-toolbox/rivets/condition"
-	rtypes "github.com/metal-toolbox/rivets/types"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 

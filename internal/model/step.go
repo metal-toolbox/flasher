@@ -3,7 +3,7 @@ package model
 import (
 	"context"
 
-	rctypes "github.com/metal-toolbox/rivets/condition"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
 	"github.com/pkg/errors"
 )
 

@@ -4,9 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/bmc-toolbox/common"
-
-	bconsts "github.com/bmc-toolbox/bmclib/v2/constants"
+	common "github.com/metal-toolbox/bmc-common"
+	bconsts "github.com/metal-toolbox/bmclib/constants"
 	ironlibm "github.com/metal-toolbox/ironlib/model"
 )
 

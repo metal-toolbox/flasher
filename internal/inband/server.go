@@ -3,7 +3,7 @@ package inband
 import (
 	"context"
 
-	"github.com/bmc-toolbox/common"
+	common "github.com/metal-toolbox/bmc-common"
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/ironlib"
 	iactions "github.com/metal-toolbox/ironlib/actions"

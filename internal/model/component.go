@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bmc-toolbox/common"
+	common "github.com/metal-toolbox/bmc-common"
 	"github.com/pkg/errors"
 
-	rtypes "github.com/metal-toolbox/rivets/types"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 )
 
 // These components are in most cases are present in a single package and from one vendor in a server,

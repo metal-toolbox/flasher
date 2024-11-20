@@ -8,8 +8,8 @@ import (
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 
-	rctypes "github.com/metal-toolbox/rivets/condition"
-	rtypes "github.com/metal-toolbox/rivets/types"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
+	rtypes "github.com/metal-toolbox/rivets/v2/types"
 )
 
 // InstallMethod is one of 'outofband' OR 'inband'

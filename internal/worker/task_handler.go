@@ -6,17 +6,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bmc-toolbox/common"
+	common "github.com/metal-toolbox/bmc-common"
+	rctypes "github.com/metal-toolbox/rivets/v2/condition"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+
 	"github.com/metal-toolbox/flasher/internal/device"
 	"github.com/metal-toolbox/flasher/internal/inband"
 	"github.com/metal-toolbox/flasher/internal/model"
 	"github.com/metal-toolbox/flasher/internal/outofband"
 	"github.com/metal-toolbox/flasher/internal/runner"
 	"github.com/metal-toolbox/flasher/internal/store"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-
-	rctypes "github.com/metal-toolbox/rivets/condition"
 )
 
 var (
