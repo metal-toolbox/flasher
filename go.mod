@@ -18,7 +18,7 @@ require (
 	github.com/metal-toolbox/bmc-common v1.0.2
 	github.com/metal-toolbox/bmclib v1.1.0
 	github.com/metal-toolbox/ctrl v1.1.0
-	github.com/metal-toolbox/fleetdb v1.20.0
+	github.com/metal-toolbox/fleetdb v1.20.1
 	github.com/metal-toolbox/ironlib v1.0.0
 	github.com/metal-toolbox/rivets/v2 v2.0.0
 	github.com/mitchellh/copystructure v1.2.0
