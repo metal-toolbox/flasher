@@ -16,7 +16,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/bmc-common v1.0.2
-	github.com/metal-toolbox/bmclib v1.0.2
+	github.com/metal-toolbox/bmclib v1.1.0
 	github.com/metal-toolbox/ctrl v1.1.0
 	github.com/metal-toolbox/fleetdb v1.20.0
 	github.com/metal-toolbox/ironlib v1.0.0
