@@ -50,7 +50,7 @@ jobs:
 
       - name: Scan image - flasher
         id: scan-flasher-image
-        uses: anchore/scan-action@v5
+        uses: anchore/scan-action@v6
         with:
           image: ghcr.io/metal-toolbox/flasher:latest
           acs-report-enable: true
