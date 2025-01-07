@@ -558,8 +558,8 @@ github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxU
 github.com/mattn/go-sqlite3 v2.0.1+incompatible h1:xQ15muvnzGBHpIpdrNi1DA5x0+TcBZzsIDwmw9uTHzw=
 github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
-github.com/metal-toolbox/bmc-common v1.0.2 h1:AbUhx4tJzz2dYxKaXu8ENSR8+bCupbqwLvYouzpEc5U=
-github.com/metal-toolbox/bmc-common v1.0.2/go.mod h1:WxMpaNb7/yTSEW0fMDOWUrhs/CPAzuCSx0p3uv3vRVA=
+github.com/metal-toolbox/bmc-common v1.0.3 h1:hrX5Q3k+CrHzUtlN5nh6X9l7l7D3chsHKVM8MQmLjMc=
+github.com/metal-toolbox/bmc-common v1.0.3/go.mod h1:WxMpaNb7/yTSEW0fMDOWUrhs/CPAzuCSx0p3uv3vRVA=
 github.com/metal-toolbox/bmclib v1.1.0 h1:2a96H47gzdIdhAPPKREs764iQXLoGxuNOonV8QHCPJg=
 github.com/metal-toolbox/bmclib v1.1.0/go.mod h1:PnsMltzeKvWAqX5J5F84s0xQd/uWAIDVQTmDFIyAqaw=
 github.com/metal-toolbox/conditionorc v1.12.0 h1:goFuCimYEXFoOo6Mbbsai4+STYDn7K/YswvLriYbnlo=
