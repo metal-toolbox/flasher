@@ -330,7 +330,6 @@ func (h *handler) uploadFirmware(ctx context.Context) error {
 	}
 
 	defer fileHandle.Close()
-	defer os.RemoveAll(filepath.Dir(h.action.FirmwareTempFile))
 
 	if !h.task.Parameters.DryRun {
 		// initiate firmware upload
@@ -385,7 +384,6 @@ func (h *handler) uploadFirmwareInitiateInstall(ctx context.Context) error {
 	}
 
 	defer fileHandle.Close()
-	defer os.RemoveAll(filepath.Dir(h.action.FirmwareTempFile))
 
 	if !h.task.Parameters.DryRun {
 		// initiate firmware install
