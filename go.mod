@@ -2,7 +2,7 @@ module github.com/metal-toolbox/flasher
 
 go 1.22.7
 
-toolchain go1.23.1
+toolchain go1.23.4
 
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
