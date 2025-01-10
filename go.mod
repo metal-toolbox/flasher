@@ -7,7 +7,6 @@ toolchain go1.23.1
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
 	github.com/bombsimon/logrusr/v2 v2.0.1
-	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/emicklei/dot v1.6.4
 	github.com/equinix-labs/otel-init-go v0.0.9
@@ -17,7 +16,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/bmc-common v1.0.3
-	github.com/metal-toolbox/bmclib v1.1.0
+	github.com/metal-toolbox/bmclib v1.1.1
 	github.com/metal-toolbox/ctrl v1.1.1
 	github.com/metal-toolbox/fleetdb v1.20.1
 	github.com/metal-toolbox/ironlib v1.0.0
