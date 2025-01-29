@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	logrusrv2 "github.com/bombsimon/logrusr/v2"
+	logrusr "github.com/bombsimon/logrusr/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jpillora/backoff"
 	"github.com/metal-toolbox/bmclib"
@@ -89,7 +89,7 @@ func newBmclibv2Client(_ context.Context, asset *rtypes.Server, l *logrus.Entry)
 		}
 	}
 
-	logruslogr := logrusrv2.New(logger)
+	logruslogr := logrusr.New(logger)
 
 	bmcClient := bmclib.NewClient(
 		asset.BMCAddress,
