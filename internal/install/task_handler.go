@@ -71,7 +71,7 @@ func (t *handler) PlanActions(ctx context.Context) error {
 	firmware := &rctypes.Firmware{
 		Component: param.Component,
 		Vendor:    param.Vendor,
-		Models:    []string{param.Vendor},
+		Models:    param.Models,
 		Version:   param.Version,
 	}
 
