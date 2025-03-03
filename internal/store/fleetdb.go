@@ -28,7 +28,7 @@ import (
 
 const (
 	// connectionTimeout is the maximum amount of time spent on each http connection to fleetdb API.
-	connectionTimeout = 30 * time.Second
+	connectionTimeout = 300 * time.Second
 
 	pkgName = "internal/store"
 )
