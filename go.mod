@@ -19,7 +19,7 @@ require (
 	github.com/metal-toolbox/bmclib v1.1.2
 	github.com/metal-toolbox/ctrl v1.1.2
 	github.com/metal-toolbox/fleetdb v1.20.1
-	github.com/metal-toolbox/ironlib v1.1.0
+	github.com/metal-toolbox/ironlib v1.1.3
 	github.com/metal-toolbox/rivets/v2 v2.1.1
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -42,7 +42,7 @@ require (
 	github.com/Jeffail/gabs/v2 v2.7.0 // indirect
 	github.com/VictorLowther/simplexml v0.0.0-20180716164440-0bff93621230 // indirect
 	github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22 // indirect
-	github.com/beevik/etree v1.4.1 // indirect
+	github.com/beevik/etree v1.5.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.12.5 // indirect
 	github.com/bytedance/sonic/loader v0.2.1 // indirect
