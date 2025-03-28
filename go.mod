@@ -1,6 +1,6 @@
 module github.com/metal-toolbox/flasher
 
-go 1.22.7
+go 1.23.0
 
 toolchain go1.23.1
 
@@ -19,7 +19,7 @@ require (
 	github.com/metal-toolbox/bmclib v1.1.2
 	github.com/metal-toolbox/ctrl v1.1.2
 	github.com/metal-toolbox/fleetdb v1.20.1
-	github.com/metal-toolbox/ironlib v1.1.0
+	github.com/metal-toolbox/ironlib v1.1.3
 	github.com/metal-toolbox/rivets/v2 v2.1.1
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -33,7 +33,7 @@ require (
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/trace v1.34.0
 	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d
-	golang.org/x/net v0.35.0
+	golang.org/x/net v0.36.0
 	golang.org/x/oauth2 v0.26.0
 )
 
@@ -42,7 +42,7 @@ require (
 	github.com/Jeffail/gabs/v2 v2.7.0 // indirect
 	github.com/VictorLowther/simplexml v0.0.0-20180716164440-0bff93621230 // indirect
 	github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22 // indirect
-	github.com/beevik/etree v1.4.1 // indirect
+	github.com/beevik/etree v1.5.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.12.5 // indirect
 	github.com/bytedance/sonic/loader v0.2.1 // indirect
@@ -149,7 +149,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	gocloud.dev v0.40.0 // indirect
 	golang.org/x/arch v0.12.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
