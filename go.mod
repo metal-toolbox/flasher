@@ -7,7 +7,7 @@ toolchain go1.24.1
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
 	github.com/bombsimon/logrusr/v4 v4.1.0
-	github.com/coreos/go-oidc/v3 v3.12.0
+	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/emicklei/dot v1.6.4
 	github.com/equinix-labs/otel-init-go v0.0.9
 	github.com/google/uuid v1.6.0
@@ -34,7 +34,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0
 	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d
 	golang.org/x/net v0.38.0
-	golang.org/x/oauth2 v0.26.0
+	golang.org/x/oauth2 v0.28.0
 )
 
 require (
