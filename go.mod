@@ -21,7 +21,7 @@ require (
 	github.com/metal-toolbox/ctrl v1.1.2
 	github.com/metal-toolbox/fleetdb v1.20.3
 	github.com/metal-toolbox/ironlib v1.1.3
-	github.com/metal-toolbox/rivets/v2 v2.1.1
+	github.com/metal-toolbox/rivets/v2 v2.1.2
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
