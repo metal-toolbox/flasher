@@ -2,16 +2,22 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"strconv"
 
-	"github.com/equinix-labs/otel-init-go/otelinit"
+	"github.com/go-logr/zapr"
 	"github.com/google/uuid"
 	"github.com/metal-toolbox/ctrl"
 	"github.com/metal-toolbox/flasher/internal/app"
 	"github.com/metal-toolbox/flasher/internal/metrics"
 	"github.com/metal-toolbox/flasher/internal/model"
+	"github.com/metal-toolbox/flasher/internal/otel"
 	"github.com/metal-toolbox/flasher/internal/store"
 	"github.com/metal-toolbox/flasher/internal/worker"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	rctypes "github.com/metal-toolbox/rivets/v2/condition"
 	"github.com/pkg/errors"
@@ -68,8 +74,38 @@ func runWorker(ctx context.Context, mode model.RunMode) {
 	// serve metrics endpoint
 	metrics.ListenAndServe()
 
-	ctx, otelShutdown := otelinit.InitOpenTelemetry(ctx, "flasher-"+string(mode))
-	defer otelShutdown(ctx)
+	isEnv := os.Getenv("OTEL_EXPORTER_OTLP_INSECURE")
+	insecure, err := strconv.ParseBool(isEnv)
+	if err != nil {
+		insecure = false
+		flasher.Logger.Error(err, "Invalid boolean value in OTEL_EXPORTER_OTLP_INSECURE. Try true or false.")
+	}
+
+	config := zap.NewProductionConfig()
+	config.OutputPaths = []string{"stdout"}
+	switch logLevel {
+	case "debug":
+		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	default:
+		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	}
+	zapLogger, err := config.Build()
+	if err != nil {
+		panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
+	}
+	lg := zapr.NewLogger(zapLogger)
+
+	oCfg := otel.Config{
+		Servicename: "flasher-" + string(mode),
+		Endpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Insecure:    insecure,
+		Logger:      lg,
+	}
+	ctx, otelShutdown, err := otel.Init(ctx, oCfg)
+	if err != nil {
+		flasher.Logger.Error(err, "failed to initialize OpenTelemetry")
+	}
+	defer otelShutdown()
 
 	// Setup cancel context with cancel func.
 	ctx, cancelFunc := context.WithCancel(ctx)
