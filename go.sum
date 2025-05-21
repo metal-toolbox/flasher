@@ -558,8 +558,8 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/metal-toolbox/bmc-common v1.0.3 h1:hrX5Q3k+CrHzUtlN5nh6X9l7l7D3chsHKVM8MQmLjMc=
 github.com/metal-toolbox/bmc-common v1.0.3/go.mod h1:WxMpaNb7/yTSEW0fMDOWUrhs/CPAzuCSx0p3uv3vRVA=
-github.com/metal-toolbox/bmclib v1.2.0 h1:goM6Di1hpBOcrUNW5XT+C8ZVQrZVv9X+nFs/kaGraCQ=
-github.com/metal-toolbox/bmclib v1.2.0/go.mod h1:P4fL5iGJCYjbwUoaUvBJG3Bqa41tfHf8KD975D6vTP4=
+github.com/metal-toolbox/bmclib v1.2.1 h1:zb8zXV7hXZ8wtyMx1W5pmO99eFEux1Z96oBQWaWiH1I=
+github.com/metal-toolbox/bmclib v1.2.1/go.mod h1:P4fL5iGJCYjbwUoaUvBJG3Bqa41tfHf8KD975D6vTP4=
 github.com/metal-toolbox/conditionorc v1.12.2 h1:isLqnMBjm7UnKlc8Ms4GpZ4UHSa0/BkzWmDjcol3D/w=
 github.com/metal-toolbox/conditionorc v1.12.2/go.mod h1:cq0hrz9cEmb7fIupLkZ4CgKXmpsQQGPtDuahLwl2W3w=
 github.com/metal-toolbox/ctrl v1.1.2 h1:osGIiGBH182vjoFH9P6LGjt8ld3ATdhFv3SXpqG4SqY=
