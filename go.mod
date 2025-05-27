@@ -7,7 +7,7 @@ toolchain go1.24.1
 require (
 	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
 	github.com/bombsimon/logrusr/v4 v4.1.0
-	github.com/coreos/go-oidc/v3 v3.12.0
+	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/emicklei/dot v1.6.4
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
@@ -38,7 +38,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d
 	golang.org/x/net v0.38.0
-	golang.org/x/oauth2 v0.26.0
+	golang.org/x/oauth2 v0.28.0
 	google.golang.org/grpc v1.68.1
 )
 
