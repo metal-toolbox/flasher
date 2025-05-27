@@ -566,8 +566,8 @@ github.com/metal-toolbox/ctrl v1.1.2 h1:osGIiGBH182vjoFH9P6LGjt8ld3ATdhFv3SXpqG4
 github.com/metal-toolbox/ctrl v1.1.2/go.mod h1:Hrx0WUqz7evz3rHsAzDFXWyLhNZz2EgoW19hKbO/Z7w=
 github.com/metal-toolbox/fleetdb v1.20.3 h1:dcriOgjLqo8ZUv+MJ1ulumTWrFt4UL1m791MLjbe8v0=
 github.com/metal-toolbox/fleetdb v1.20.3/go.mod h1:8yVOYkEbxNRAvHx02g7bP6oBDiWBvhQ9HY95zI9ZtTU=
-github.com/metal-toolbox/ironlib v1.1.3 h1:fGjozoigP0HMCaYNbQX23Nv1wWSnR/TYAnFGEGaA3oE=
-github.com/metal-toolbox/ironlib v1.1.3/go.mod h1:dAaVqMfzSMDdU+zLW5PW3mWXmrfA7kMAmCFqb7CAqDo=
+github.com/metal-toolbox/ironlib v1.1.4 h1:IakA77cYzY92PgLoQnuqVSI8ydYtcLuLl0CtgwS/0zU=
+github.com/metal-toolbox/ironlib v1.1.4/go.mod h1:799Gvw0zgGA0Qc8BpP4dW/Hc0vhu1H9c5viM5P9w2Oo=
 github.com/metal-toolbox/rivets/v2 v2.1.2 h1:9Dhz3mKH6BGYfnm+bko1lZhbE9RiN0/Tcd1HAHIKHIs=
 github.com/metal-toolbox/rivets/v2 v2.1.2/go.mod h1:ieA6mKwrTnIsUvcPkeOsuX8Wh4/tcSMCOplQF9L1CXA=
 github.com/microsoft/go-mssqldb v0.17.0/go.mod h1:OkoNGhGEs8EZqchVTtochlXruEhEOaO4S0d2sB5aeGQ=
