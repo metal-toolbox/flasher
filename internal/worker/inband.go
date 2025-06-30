@@ -86,6 +86,7 @@ func (h *InbandConditionTaskHandler) HandleTask(
 		logrus.Fields{
 			"conditionID": genericTask.ID.String(),
 			"serverID":    task.Server.ID,
+			"mode":        model.RunInband,
 		},
 	)
 
@@ -101,7 +102,7 @@ func (h *InbandConditionTaskHandler) HandleTask(
 	// init runner
 	r := runner.New(hLogger)
 
-	hLogger.WithField("mode", model.RunInband).Info("running task for device")
+	hLogger.Info("running task for device")
 	if err := r.RunTask(ctx, task, handler); err != nil {
 		hLogger.WithError(err).Error("task for device failed")
 		return err
