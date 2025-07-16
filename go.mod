@@ -13,7 +13,7 @@ require (
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-retryablehttp v0.7.7
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/metal-toolbox/bmc-common v1.0.3
