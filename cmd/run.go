@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
 	"github.com/go-logr/zapr"
 	"github.com/google/uuid"
@@ -74,13 +73,6 @@ func runWorker(ctx context.Context, mode model.RunMode) {
 	// serve metrics endpoint
 	metrics.ListenAndServe()
 
-	isEnv := os.Getenv("OTEL_EXPORTER_OTLP_INSECURE")
-	insecure, err := strconv.ParseBool(isEnv)
-	if err != nil {
-		insecure = false
-		flasher.Logger.Error(err, "Invalid boolean value in OTEL_EXPORTER_OTLP_INSECURE. Try true or false.")
-	}
-
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"stdout"}
 	switch logLevel {
@@ -98,7 +90,7 @@ func runWorker(ctx context.Context, mode model.RunMode) {
 	oCfg := otel.Config{
 		Servicename: "flasher-" + string(mode),
 		Endpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		Insecure:    insecure,
+		Insecure:    false,
 		Logger:      lg,
 	}
 	ctx, otelShutdown, err := otel.Init(ctx, oCfg)
