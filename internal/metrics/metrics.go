@@ -108,7 +108,7 @@ func ListenAndServe() {
 
 		server := &http.Server{
 			Addr:              MetricsEndpoint,
-			ReadHeaderTimeout: 2 * time.Second, // nolint:gomnd // time duration value is clear as is.
+			ReadHeaderTimeout: 2 * time.Second,
 		}
 
 		if err := server.ListenAndServe(); err != nil {

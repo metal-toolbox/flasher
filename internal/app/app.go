@@ -98,7 +98,7 @@ func enableProfilingEndpoint() {
 	go func() {
 		server := &http.Server{
 			Addr:              ProfilingEndpoint,
-			ReadHeaderTimeout: 2 * time.Second, // nolint:gomnd // time duration value is clear as is.
+			ReadHeaderTimeout: 2 * time.Second,
 		}
 
 		if err := server.ListenAndServe(); err != nil {

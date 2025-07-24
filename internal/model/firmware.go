@@ -10,7 +10,6 @@ var (
 	// FirmwareInstallOrder defines the order in which firmware is installed.
 	//
 	// TODO(joel): fix up bmc-toolbox/common slugs to be of lower case instead of upper
-	// nolint:gomnd // component install order number is clear as is.
 	FirmwareInstallOrder = map[string]int{
 		strings.ToLower(common.SlugBMC):               0,
 		strings.ToLower(common.SlugBIOS):              1,

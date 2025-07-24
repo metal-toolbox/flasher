@@ -1,3 +1,4 @@
+// nolint:revive // legacy naming
 package types
 
 import (

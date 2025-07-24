@@ -52,7 +52,6 @@ func newHTTPClient() *http.Client {
 		panic(err)
 	}
 
-	// nolint:gomnd // time duration declarations are clear as is.
 	return &http.Client{
 		Timeout: time.Second * 600,
 		Jar:     jar,
@@ -256,7 +255,6 @@ func (b *bmc) loginWithRetries(ctx context.Context, maxAttempts int, provider st
 
 // method returns nil if a retry is required and an error when a retry cannot proceed
 func (b *bmc) retry(ctx context.Context, maxAttempts, attempts int, cause error, provider string) (int, error) {
-	// nolint:gomnd // time duration definitions are clear as is.
 	delay := &backoff.Backoff{
 		Min:    5 * time.Second,
 		Max:    30 * time.Second,
