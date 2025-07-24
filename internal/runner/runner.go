@@ -313,7 +313,7 @@ func (r *Runner) runActionSteps(ctx context.Context, task *model.Task, action *m
 
 		if step.Handler == nil {
 			publish(model.StateFailed, action, step, logger)
-			// nolint:goerr113 // for this case, its preferable to have the error be defined within its context of use
+			// nolint:err113 // for this case, its preferable to have the error be defined within its context of use
 			return false, fmt.Errorf(
 				"error while running step=%s to install firmware on component=%s, handler was nil",
 				step.Name,

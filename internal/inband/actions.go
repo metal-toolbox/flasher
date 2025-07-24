@@ -61,7 +61,7 @@ func (i *ActionHandler) identifyComponent(ctx context.Context, component string,
 
 	found := components.ByNameModel(component, models)
 	if found == nil {
-		// nolint:goerr113 // its clearer to define this error here
+		// nolint:err113 // its clearer to define this error here
 		errComponentMatch := fmt.Errorf(
 			"unable to identify component '%s' from inventory for given models: %s",
 			component,
